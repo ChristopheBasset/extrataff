@@ -23,7 +23,6 @@ export default function LandingPage() {
       if (error) throw error
 
       // Rediriger selon le type de profil
-      // Vérifier d'abord si c'est un talent
       const { data: talent } = await supabase
         .from('talents')
         .select('id')
@@ -33,7 +32,6 @@ export default function LandingPage() {
       if (talent) {
         navigate('/talent')
       } else {
-        // Sinon c'est un établissement
         navigate('/establishment')
       }
     } catch (err) {
@@ -45,7 +43,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-orange-50">
-      {/* Header simple */}
+      {/* Header */}
       <nav className="bg-white/80 backdrop-blur-sm shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center h-16">
@@ -64,6 +62,16 @@ export default function LandingPage() {
           <p className="text-lg sm:text-xl md:text-2xl text-gray-600 max-w-2xl mx-auto px-4">
             La plateforme qui connecte les établissements CHR et les talents en quelques clics
           </p>
+        </div>
+
+        {/* Pricing Badge pour établissements */}
+        <div className="max-w-md mx-auto mb-12 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-2xl p-6 shadow-xl">
+          <div className="text-center">
+            <div className="text-sm font-semibold uppercase tracking-wide mb-2">Offre de lancement</div>
+            <div className="text-4xl font-bold mb-2">2 mois gratuits</div>
+            <div className="text-lg opacity-90 mb-4">puis 49,90€/mois pour les établissements</div>
+            <div className="text-sm opacity-75">Sans engagement • Annulable à tout moment</div>
+          </div>
         </div>
 
         {/* Boutons principaux */}
@@ -194,9 +202,22 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-center text-gray-500 text-sm">
-            © 2026 ExtraTaff - La plateforme de recrutement CHR en temps réel
-          </p>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-center text-gray-500 text-sm">
+              © 2026 ExtraTaff - La plateforme de recrutement CHR en temps réel
+            </p>
+            <div className="flex flex-wrap justify-center gap-6 text-sm">
+              <a href="/cgv" className="text-gray-600 hover:text-primary-600 transition-colors">
+                CGV
+              </a>
+              <a href="/mentions-legales" className="text-gray-600 hover:text-primary-600 transition-colors">
+                Mentions légales
+              </a>
+              <a href="/confidentialite" className="text-gray-600 hover:text-primary-600 transition-colors">
+                Politique de confidentialité
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

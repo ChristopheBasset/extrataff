@@ -65,12 +65,12 @@ export default function LandingPage() {
         </div>
 
         {/* Pricing Badge pour établissements */}
-        <div className="max-w-md mx-auto mb-12 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-2xl p-6 shadow-xl">
+        <div className="max-w-sm mx-auto mb-12 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl p-4 shadow-lg">
           <div className="text-center">
-            <div className="text-sm font-semibold uppercase tracking-wide mb-2">Offre de lancement</div>
-            <div className="text-4xl font-bold mb-2">2 mois gratuits</div>
-            <div className="text-lg opacity-90 mb-4">puis 49,90€/mois pour les établissements</div>
-            <div className="text-sm opacity-75">Sans engagement • Annulable à tout moment</div>
+            <div className="text-xs font-semibold uppercase tracking-wide mb-1">Offre de lancement</div>
+            <div className="text-2xl font-bold mb-1">2 mois gratuits</div>
+            <div className="text-sm opacity-90 mb-2">puis 49,90€/mois pour les établissements</div>
+            <div className="text-xs opacity-75">Sans engagement • Annulable à tout moment</div>
           </div>
         </div>
 

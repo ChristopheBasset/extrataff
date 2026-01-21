@@ -214,29 +214,48 @@ export default function TalentProfileForm() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Départements de recherche (optionnel)
             </label>
-            <p className="text-xs text-gray-500 mb-3">
-              Sélectionnez les départements où vous souhaitez trouver des missions. Laissez vide pour voir toutes les missions.
+            <p className="text-xs text-gray-500 mb-2">
+              Sélectionnez les départements où vous souhaitez trouver des missions
             </p>
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+            <select
+              multiple
+              value={formData.preferred_departments}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions, option => option.value)
+                setFormData(prev => ({ ...prev, preferred_departments: selected }))
+              }}
+              className="input min-h-[150px]"
+            >
               {FRENCH_DEPARTMENTS.map(dept => (
-                <button
-                  key={dept.value}
-                  type="button"
-                  onClick={() => handleDepartmentToggle(dept.value)}
-                  className={`p-2 text-sm rounded-lg border-2 transition-colors ${
-                    formData.preferred_departments.includes(dept.value)
-                      ? 'border-primary-600 bg-primary-50 text-primary-700 font-medium'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  {dept.value}
-                </button>
+                <option key={dept.value} value={dept.value}>
+                  {dept.label}
+                </option>
               ))}
-            </div>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Maintenez Ctrl (Windows) ou Cmd (Mac) pour sélectionner plusieurs départements
+            </p>
             {formData.preferred_departments.length > 0 && (
-              <p className="text-xs text-gray-600 mt-2">
-                ✓ {formData.preferred_departments.length} département(s) sélectionné(s)
-              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {formData.preferred_departments.map(dept => {
+                  const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
+                  return (
+                    <span
+                      key={dept}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
+                    >
+                      {deptInfo?.label || dept}
+                      <button
+                        type="button"
+                        onClick={() => handleDepartmentToggle(dept)}
+                        className="hover:text-primary-900"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
             )}
           </div>
 

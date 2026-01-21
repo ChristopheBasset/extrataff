@@ -6,9 +6,10 @@ import { supabase } from './lib/supabase'
 import Landing from './pages/Landing'
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
+import Register from './pages/Register'
 import EstablishmentDashboard from './pages/establishment/Dashboard'
 import TalentDashboard from './pages/talent/Dashboard'
-import Register from './pages/Register'
+import TalentProfileForm from './components/Talent/TalentProfileForm'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -50,6 +51,9 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/register" element={<Register />} />
+
+        {/* Route formulaire profil talent (après création compte) */}
+        <Route path="/talent/profile-form" element={<TalentProfileForm />} />
 
         {/* Routes protégées - Établissement */}
         <Route

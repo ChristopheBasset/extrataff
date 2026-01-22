@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase, POSITION_TYPES, CONTRACT_TYPES, DURATION_TYPES, URGENCY_LEVELS, generateFuzzyLocation } from '../../lib/supabase'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { supabase, POSITION_TYPES, CONTRACT_TYPES, DURATION_TYPES, generateFuzzyLocation } from '../../lib/supabase'
 
-export default function MissionForm() {
+export default function EditMissionForm() {
   const navigate = useNavigate()
+  const { missionId } = useParams()
   const [loading, setLoading] = useState(false)
+  const [loadingMission, setLoadingMission] = useState(true)
   const [error, setError] = useState(null)
 
   const [formData, setFormData] = useState({
@@ -20,6 +22,40 @@ export default function MissionForm() {
     comment: ''
   })
 
+  useEffect(() => {
+    loadMission()
+  }, [missionId])
+
+  const loadMission = async () => {
+    try {
+      const { data: mission, error } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('id', missionId)
+        .single()
+
+      if (error) throw error
+
+      setFormData({
+        position: mission.position || '',
+        start_date: '', // Laisser vide pour forcer l'utilisateur à choisir une nouvelle date
+        end_date: '',
+        shift_start_time: mission.shift_start_time?.slice(0, 5) || '',
+        shift_end_time: mission.shift_end_time?.slice(0, 5) || '',
+        contract_type: mission.contract_type || 'extra',
+        duration_type: mission.duration_type || 'ponctuel',
+        hourly_rate: mission.hourly_rate || '',
+        urgency_level: mission.urgency_level || 'a_venir',
+        comment: mission.comment || ''
+      })
+    } catch (err) {
+      console.error('Erreur chargement mission:', err)
+      setError('Mission introuvable')
+    } finally {
+      setLoadingMission(false)
+    }
+  }
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
@@ -31,14 +67,11 @@ export default function MissionForm() {
   // Fonction pour extraire le département d'une adresse
   const extractDepartmentFromAddress = (address) => {
     if (!address) return null
-    // Chercher un code postal (5 chiffres)
     const match = address.match(/\b(\d{5})\b/)
     if (match) {
       const postalCode = match[1]
-      // Les 2 premiers chiffres = département (sauf Corse: 20 → 2A/2B)
       const dept = postalCode.substring(0, 2)
       if (dept === '20') {
-        // Corse : 20000-20190 = 2A, 20200-20620 = 2B
         return parseInt(postalCode) < 20200 ? '2A' : '2B'
       }
       return dept
@@ -46,48 +79,31 @@ export default function MissionForm() {
     return null
   }
 
-  // Fonction pour notifier les talents qui matchent (poste + département)
+  // Fonction pour notifier les talents qui matchent
   const notifyMatchingTalents = async (mission, establishmentName, establishmentAddress) => {
     try {
-      // Extraire le département de l'adresse de l'établissement
       const missionDepartment = extractDepartmentFromAddress(establishmentAddress)
-      console.log('Département de la mission:', missionDepartment)
 
-      // Chercher les talents dont le position_types contient le poste de la mission
       const { data: matchingTalents, error: talentsError } = await supabase
         .from('talents')
         .select('id, user_id, first_name, position_types, preferred_departments')
         .contains('position_types', [mission.position])
 
-      if (talentsError) {
-        console.error('Erreur recherche talents:', talentsError)
+      if (talentsError || !matchingTalents || matchingTalents.length === 0) {
         return
       }
 
-      if (!matchingTalents || matchingTalents.length === 0) {
-        console.log('Aucun talent ne matche avec cette mission')
-        return
-      }
-
-      // Filtrer les talents par département
       const talentsInDepartment = matchingTalents.filter(talent => {
-        // Si le talent n'a pas de départements préférés, il reçoit toutes les notifications
         if (!talent.preferred_departments || talent.preferred_departments.length === 0) {
           return true
         }
-        // Sinon, vérifier si le département de la mission est dans ses préférences
         return missionDepartment && talent.preferred_departments.includes(missionDepartment)
       })
 
-      if (talentsInDepartment.length === 0) {
-        console.log('Aucun talent dans ce département ne matche')
-        return
-      }
+      if (talentsInDepartment.length === 0) return
 
-      // Trouver le label du poste
       const positionLabel = POSITION_TYPES.find(p => p.value === mission.position)?.label || mission.position
 
-      // Créer une notification pour chaque talent qui matche
       const notifications = talentsInDepartment.map(talent => ({
         user_id: talent.user_id,
         type: 'new_mission',
@@ -97,15 +113,7 @@ export default function MissionForm() {
         read: false
       }))
 
-      const { error: notifError } = await supabase
-        .from('notifications')
-        .insert(notifications)
-
-      if (notifError) {
-        console.error('Erreur création notifications:', notifError)
-      } else {
-        console.log(`${notifications.length} talents notifiés (sur ${matchingTalents.length} qui matchent le poste)`)
-      }
+      await supabase.from('notifications').insert(notifications)
     } catch (err) {
       console.error('Erreur notification talents:', err)
     }
@@ -117,6 +125,11 @@ export default function MissionForm() {
     setError(null)
 
     try {
+      // Vérifier que la date est définie
+      if (!formData.start_date) {
+        throw new Error('Veuillez définir une date de début pour la mission')
+      }
+
       // Récupérer le profil établissement
       const { data: { user } } = await supabase.auth.getUser()
       
@@ -134,47 +147,55 @@ export default function MissionForm() {
         throw new Error('Adresse de l\'établissement manquante. Veuillez compléter votre profil.')
       }
 
-      // Générer la localisation floue à partir de l'adresse
       const fuzzyLocation = generateFuzzyLocation(establishment.address)
 
-      // Créer la mission et récupérer les données insérées
-      const { data: newMission, error } = await supabase
+      // Mettre à jour la mission
+      const { data: updatedMission, error } = await supabase
         .from('missions')
-        .insert({
-          establishment_id: establishment.id,
+        .update({
           position: formData.position,
           location_fuzzy: fuzzyLocation,
           location_exact: establishment.address,
-          search_radius: 10,
           duration_type: formData.duration_type,
           start_date: formData.start_date,
           end_date: formData.end_date || null,
           shift_start_time: formData.shift_start_time || null,
           shift_end_time: formData.shift_end_time || null,
-          break_duration: 0,
-          work_days: [],
           hourly_rate: formData.hourly_rate ? parseFloat(formData.hourly_rate) : null,
           contract_type: formData.contract_type,
           urgency_level: formData.urgency_level,
           comment: formData.comment || null,
-          status: 'open'
+          status: 'open',
+          archived_at: null // Désarchiver la mission
         })
+        .eq('id', missionId)
         .select()
         .single()
 
       if (error) throw error
 
-      // Notifier les talents qui matchent (notifications in-app)
-      await notifyMatchingTalents(newMission, establishment.name, establishment.address)
+      // Notifier les talents qui matchent
+      await notifyMatchingTalents(updatedMission, establishment.name, establishment.address)
 
-      alert('Mission créée avec succès ! 🎉')
-      navigate('/establishment')
+      alert('Mission relancée avec succès ! 🎉')
+      navigate('/establishment/missions')
     } catch (err) {
-      console.error('Erreur création mission:', err)
+      console.error('Erreur modification mission:', err)
       setError(err.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  if (loadingMission) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement de la mission...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -184,7 +205,7 @@ export default function MissionForm() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <button
-              onClick={() => navigate('/establishment')}
+              onClick={() => navigate('/establishment/missions')}
               className="text-gray-600 hover:text-gray-900"
             >
               ← Retour
@@ -198,8 +219,17 @@ export default function MissionForm() {
       {/* Formulaire */}
       <div className="max-w-2xl mx-auto px-4 pb-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Créer une mission</h2>
-          <p className="text-gray-600 mt-2">Publiez votre annonce et recevez des candidatures</p>
+          <h2 className="text-3xl font-bold text-gray-900">🔄 Relancer la mission</h2>
+          <p className="text-gray-600 mt-2">Modifiez les détails et republiez votre annonce</p>
+        </div>
+
+        {/* Bannière info */}
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6">
+          <p className="font-medium">💡 Mission relancée</p>
+          <p className="text-sm mt-1">
+            Les informations de l'ancienne mission ont été conservées. 
+            Mettez à jour les dates et horaires avant de republier.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="card space-y-6">
@@ -235,19 +265,19 @@ export default function MissionForm() {
 
           {/* Dates et horaires */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dates et horaires</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">📅 Nouvelles dates et horaires</h3>
             <div className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date de début *
+                    Date de début * <span className="text-orange-600">(obligatoire)</span>
                   </label>
                   <input
                     type="date"
                     name="start_date"
                     value={formData.start_date}
                     onChange={handleChange}
-                    className="input"
+                    className="input border-orange-300"
                     required
                   />
                 </div>
@@ -263,9 +293,6 @@ export default function MissionForm() {
                     onChange={handleChange}
                     className="input"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Laissez vide pour une mission ponctuelle
-                  </p>
                 </div>
               </div>
 
@@ -360,9 +387,6 @@ export default function MissionForm() {
                 min="0"
                 className="input"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Laissez vide pour ne pas afficher le tarif
-              </p>
             </div>
           </div>
 
@@ -423,7 +447,7 @@ export default function MissionForm() {
           <div className="flex gap-4">
             <button
               type="button"
-              onClick={() => navigate('/establishment')}
+              onClick={() => navigate('/establishment/missions')}
               className="btn-secondary flex-1"
             >
               Annuler
@@ -433,7 +457,7 @@ export default function MissionForm() {
               disabled={loading}
               className="btn-primary flex-1"
             >
-              {loading ? 'Création...' : 'Publier la mission'}
+              {loading ? 'Publication...' : '🔄 Relancer la mission'}
             </button>
           </div>
         </form>

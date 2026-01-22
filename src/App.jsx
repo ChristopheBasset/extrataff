@@ -9,7 +9,13 @@ import Signup from './pages/auth/Signup'
 import Register from './pages/Register'
 import EstablishmentDashboard from './pages/establishment/Dashboard'
 import TalentDashboard from './pages/talent/Dashboard'
+
+// Formulaires de profil
 import TalentProfileForm from './components/Talent/TalentProfileForm'
+import EstablishmentProfileForm from './components/Establishment/EstablishmentProfileForm'
+
+// Formulaires mission
+import EditMissionForm from './components/Establishment/EditMissionForm'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -52,8 +58,22 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Route formulaire profil talent (après création compte) */}
-        <Route path="/talent/profile-form" element={<TalentProfileForm />} />
+        {/* Routes formulaires profil (après création compte) */}
+        {/* IMPORTANT: Ces routes doivent être AVANT les routes wildcard /* */}
+        <Route 
+          path="/talent/profile-form" 
+          element={session ? <TalentProfileForm /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/establishment/profile-form" 
+          element={session ? <EstablishmentProfileForm /> : <Navigate to="/login" />} 
+        />
+        
+        {/* Route édition mission (avant le wildcard) */}
+        <Route 
+          path="/establishment/edit-mission/:missionId" 
+          element={session ? <EditMissionForm /> : <Navigate to="/login" />} 
+        />
 
         {/* Routes protégées - Établissement */}
         <Route

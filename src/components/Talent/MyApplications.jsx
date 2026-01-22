@@ -50,7 +50,9 @@ export default function MyApplications() {
 
       if (error) throw error
 
-      setApplications(data)
+      // Filtrer les candidatures dont la mission existe encore
+      const validApplications = data.filter(app => app.missions !== null)
+      setApplications(validApplications)
     } catch (err) {
       console.error('Erreur chargement candidatures:', err)
       setError(err.message)
@@ -151,6 +153,10 @@ export default function MyApplications() {
           <div className="space-y-4">
             {applications.map(application => {
               const mission = application.missions
+              
+              // Sécurité supplémentaire
+              if (!mission) return null
+              
               const statusBadge = getStatusBadge(application.status)
               const urgencyBadge = getUrgencyBadge(mission.urgency_level)
 
@@ -170,9 +176,11 @@ export default function MyApplications() {
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge.bgColor} ${statusBadge.textColor}`}>
                         {statusBadge.label}
                       </span>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${urgencyBadge.bgColor} ${urgencyBadge.textColor}`}>
-                        {urgencyBadge.emoji} {urgencyBadge.label}
-                      </span>
+                      {urgencyBadge && (
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${urgencyBadge.bgColor} ${urgencyBadge.textColor}`}>
+                          {urgencyBadge.emoji} {urgencyBadge.label}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -180,7 +188,7 @@ export default function MyApplications() {
                   <div className="grid md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <p className="text-sm text-gray-600">📍 Lieu</p>
-                      <p className="font-medium">{mission.location_fuzzy}</p>
+                      <p className="font-medium">{mission.location_fuzzy || 'Non précisé'}</p>
                     </div>
 
                     <div>

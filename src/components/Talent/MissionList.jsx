@@ -12,9 +12,9 @@ export default function MissionList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Filtres
+  // Filtres - initialisés avec les départements préférés du talent
   const [selectedDepartments, setSelectedDepartments] = useState([])
-  const [maxDistance, setMaxDistance] = useState(50) // km
+  const [showAllDepartments, setShowAllDepartments] = useState(false) // Pour élargir la recherche
 
   useEffect(() => {
     loadMissions()
@@ -23,21 +23,19 @@ export default function MissionList() {
   // Filtrer les missions quand les filtres changent
   useEffect(() => {
     applyFilters()
-  }, [missions, selectedDepartments, maxDistance])
+  }, [missions, selectedDepartments, showAllDepartments])
 
   const applyFilters = () => {
     let filtered = [...missions]
     
-    // Filtre par département
-    if (selectedDepartments.length > 0) {
+    // Filtre par département (automatique selon le profil du talent)
+    // SAUF si l'utilisateur a cliqué sur "Voir toutes les régions"
+    if (!showAllDepartments && selectedDepartments.length > 0) {
       filtered = filtered.filter(mission => {
         const dept = extractDepartment(mission.location_fuzzy) || extractDepartment(mission.location_exact)
         return dept && selectedDepartments.includes(dept)
       })
     }
-    
-    // Note: Le filtre par distance nécessiterait des coordonnées GPS réelles
-    // Pour l'instant on garde toutes les missions qui passent le filtre département
     
     setFilteredMissions(filtered)
   }
@@ -48,6 +46,8 @@ export default function MissionList() {
         ? prev.filter(d => d !== dept)
         : [...prev, dept]
     )
+    // Si on modifie manuellement, on désactive "voir tout"
+    setShowAllDepartments(false)
   }
 
   const loadMissions = async () => {
@@ -64,7 +64,8 @@ export default function MissionList() {
       if (talentError) throw talentError
       setTalent(talentData)
 
-      // Initialiser les filtres avec les départements préférés du talent
+      // IMPORTANT: Initialiser les filtres avec les départements préférés du talent
+      // C'est le comportement de matching : le talent voit les missions de SES départements
       if (talentData.preferred_departments && talentData.preferred_departments.length > 0) {
         setSelectedDepartments(talentData.preferred_departments)
       }
@@ -97,6 +98,24 @@ export default function MissionList() {
     }
   }
 
+  // Fonction pour envoyer le SMS à l'établissement via Edge Function
+  const sendSmsToEstablishment = async (applicationId) => {
+    try {
+      const response = await supabase.functions.invoke('sms-new-application', {
+        body: { applicationId }
+      })
+      
+      if (response.error) {
+        console.error('Erreur envoi SMS:', response.error)
+      } else {
+        console.log('SMS envoyé avec succès:', response.data)
+      }
+    } catch (err) {
+      console.error('Erreur appel Edge Function SMS:', err)
+      // On ne bloque pas le processus si le SMS échoue
+    }
+  }
+
   const handleApply = async (missionId) => {
     try {
       const mission = missions.find(m => m.id === missionId)
@@ -114,8 +133,8 @@ export default function MissionList() {
         return
       }
 
-      // Créer la candidature
-      const { error } = await supabase
+      // Créer la candidature et récupérer l'ID
+      const { data: newApplication, error } = await supabase
         .from('applications')
         .insert({
           mission_id: missionId,
@@ -123,10 +142,12 @@ export default function MissionList() {
           match_score: mission.match_score,
           status: 'interested'
         })
+        .select()
+        .single()
 
       if (error) throw error
 
-      // Créer une notification pour l'établissement
+      // Créer une notification in-app pour l'établissement
       await notifyNewApplication(
         mission.establishments.user_id,
         `${talent.first_name} ${talent.last_name}`,
@@ -134,6 +155,9 @@ export default function MissionList() {
         mission.match_score,
         missionId
       )
+
+      // Envoyer un SMS à l'établissement
+      await sendSmsToEstablishment(newApplication.id)
 
       alert('Candidature envoyée avec succès ! 🎉')
       
@@ -169,7 +193,7 @@ export default function MissionList() {
               ← Retour
             </button>
             <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
-            <div className="w-20"></div> {/* Spacer */}
+            <div className="w-20"></div>
           </div>
         </div>
       </nav>
@@ -180,73 +204,104 @@ export default function MissionList() {
           <h2 className="text-3xl font-bold text-gray-900">Missions Matchées</h2>
           <p className="text-gray-600 mt-2">
             {filteredMissions.length} mission{filteredMissions.length > 1 ? 's' : ''} correspondant à votre profil
-            {selectedDepartments.length > 0 && ` dans ${selectedDepartments.length} département(s)`}
+            {!showAllDepartments && selectedDepartments.length > 0 && (
+              <span> dans {selectedDepartments.length} département(s)</span>
+            )}
+            {showAllDepartments && <span> (toutes régions)</span>}
           </p>
         </div>
 
         {/* Filtres */}
         <div className="card mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">🔍 Filtres</h3>
-          
-          {/* Filtrer par département */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filtrer par départements
-            </label>
-            <select
-              multiple
-              value={selectedDepartments}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions, option => option.value)
-                setSelectedDepartments(selected)
-              }}
-              className="input min-h-[150px]"
-            >
-              {FRENCH_DEPARTMENTS.map(dept => (
-                <option key={dept.value} value={dept.value}>
-                  {dept.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Maintenez Ctrl (Windows) ou Cmd (Mac) pour sélectionner plusieurs départements
-            </p>
-            {selectedDepartments.length > 0 && (
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    {selectedDepartments.length} département(s) sélectionné(s)
-                  </span>
-                  <button
-                    onClick={() => setSelectedDepartments([])}
-                    className="text-sm text-primary-600 hover:text-primary-700"
-                  >
-                    Réinitialiser
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {selectedDepartments.map(dept => {
-                    const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
-                    return (
-                      <span
-                        key={dept}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
-                      >
-                        {deptInfo?.label || dept}
-                        <button
-                          type="button"
-                          onClick={() => toggleDepartment(dept)}
-                          className="hover:text-primary-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">🔍 Zone de recherche</h3>
+            
+            {/* Boutons rapides */}
+            <div className="flex gap-2">
+              {talent?.preferred_departments?.length > 0 && showAllDepartments && (
+                <button
+                  onClick={() => {
+                    setSelectedDepartments(talent.preferred_departments)
+                    setShowAllDepartments(false)
+                  }}
+                  className="text-sm px-3 py-1 bg-primary-100 text-primary-700 rounded-full hover:bg-primary-200"
+                >
+                  📍 Mes départements uniquement
+                </button>
+              )}
+              {!showAllDepartments && selectedDepartments.length > 0 && (
+                <button
+                  onClick={() => setShowAllDepartments(true)}
+                  className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200"
+                >
+                  🌍 Voir toutes les régions
+                </button>
+              )}
+            </div>
           </div>
+          
+          {/* Départements actifs */}
+          {!showAllDepartments && selectedDepartments.length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Missions affichées pour vos départements préférés :
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {selectedDepartments.map(dept => {
+                  const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
+                  return (
+                    <span
+                      key={dept}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
+                    >
+                      {deptInfo?.label || dept}
+                      <button
+                        type="button"
+                        onClick={() => toggleDepartment(dept)}
+                        className="hover:text-primary-900"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {showAllDepartments && (
+            <p className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded">
+              🌍 Vous voyez toutes les missions de France. Cliquez sur "Mes départements uniquement" pour filtrer.
+            </p>
+          )}
+
+          {/* Option pour ajouter des départements */}
+          <details className="mt-4">
+            <summary className="text-sm text-primary-600 cursor-pointer hover:text-primary-700">
+              ➕ Ajouter d'autres départements à ma recherche
+            </summary>
+            <div className="mt-3">
+              <select
+                multiple
+                value={selectedDepartments}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions, option => option.value)
+                  setSelectedDepartments(selected)
+                  setShowAllDepartments(false)
+                }}
+                className="input min-h-[150px]"
+              >
+                {FRENCH_DEPARTMENTS.map(dept => (
+                  <option key={dept.value} value={dept.value}>
+                    {dept.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Maintenez Ctrl (Windows) ou Cmd (Mac) pour sélectionner plusieurs départements.
+              </p>
+            </div>
+          </details>
         </div>
 
         {error && (
@@ -259,17 +314,17 @@ export default function MissionList() {
           <div className="card text-center py-12">
             <p className="text-xl text-gray-600 mb-4">🔍 Aucune mission trouvée</p>
             <p className="text-gray-500 mb-6">
-              {selectedDepartments.length > 0
-                ? 'Essayez d\'élargir vos critères de recherche'
-                : 'Revenez plus tard ou modifiez vos critères de recherche'
+              {!showAllDepartments && selectedDepartments.length > 0
+                ? 'Aucune mission disponible dans vos départements. Essayez d\'élargir votre recherche.'
+                : 'Aucune mission ne correspond à votre profil pour le moment.'
               }
             </p>
-            {selectedDepartments.length > 0 ? (
+            {!showAllDepartments && selectedDepartments.length > 0 ? (
               <button
-                onClick={() => setSelectedDepartments([])}
+                onClick={() => setShowAllDepartments(true)}
                 className="btn-primary"
               >
-                Réinitialiser les filtres
+                🌍 Voir toutes les régions
               </button>
             ) : (
               <button

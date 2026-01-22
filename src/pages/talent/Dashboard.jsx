@@ -15,6 +15,11 @@ export default function TalentDashboard() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [stats, setStats] = useState({
+    missionsCount: 0,
+    applicationsCount: 0,
+    conversationsCount: 0
+  })
 
   useEffect(() => {
     checkProfile()
@@ -30,7 +35,38 @@ export default function TalentDashboard() {
       .single()
     
     setProfile(data)
+    
+    if (data) {
+      // Charger les stats
+      loadStats(data.id)
+    }
+    
     setLoading(false)
+  }
+
+  const loadStats = async (talentId) => {
+    try {
+      // Compter les candidatures
+      const { count: appCount } = await supabase
+        .from('applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('talent_id', talentId)
+
+      // Compter les conversations (candidatures acceptées)
+      const { count: convCount } = await supabase
+        .from('applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('talent_id', talentId)
+        .eq('status', 'accepted')
+
+      setStats({
+        missionsCount: 0, // On pourrait compter les missions matchées
+        applicationsCount: appCount || 0,
+        conversationsCount: convCount || 0
+      })
+    } catch (err) {
+      console.error('Erreur chargement stats:', err)
+    }
   }
 
   const handleLogout = async () => {
@@ -39,7 +75,11 @@ export default function TalentDashboard() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Chargement...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
   }
 
   // Si pas de profil, afficher le formulaire
@@ -47,91 +87,126 @@ export default function TalentDashboard() {
     return <TalentProfileForm />
   }
 
-  // Si profil existe, afficher le dashboard avec routes
-  return (
-    <Routes>
-      <Route path="/" element={
-        <div className="min-h-screen bg-gray-50">
-          <nav className="bg-white shadow-sm">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16">
-                <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
-                <div className="flex items-center gap-4">
-                  {/* Badge de notifications */}
-                  <div className="relative">
-                    <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
-                    <NotificationList 
-                      isOpen={showNotifications}
-                      onClose={() => setShowNotifications(false)}
-                    />
-                  </div>
-                  
-                  <span className="text-gray-700">
-                    {profile.first_name} {profile.last_name}
-                  </span>
-                  <button onClick={handleLogout} className="text-gray-600 hover:text-gray-900">
-                    Déconnexion
-                  </button>
-                </div>
-              </div>
+  // Dashboard principal
+  const DashboardHome = () => (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header épuré */}
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Mon Dashboard</h1>
+              <p className="text-sm text-gray-500">Bonjour {profile.first_name} 👋</p>
             </div>
-          </nav>
-
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold text-gray-900">Dashboard Talent</h2>
-              <p className="text-gray-600 mt-2">Bienvenue {profile.first_name} !</p>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="card">
-                <h3 className="text-lg font-semibold mb-2">Missions Matchées</h3>
-                <p className="text-gray-600 mb-4">Annonces correspondant à votre profil</p>
-                <button
-                  onClick={() => navigate('/talent/missions')}
-                  className="btn-primary w-full"
-                >
-                  Voir les missions
-                </button>
+            <div className="flex items-center gap-4">
+              {/* Notifications */}
+              <div className="relative">
+                <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
+                <NotificationList 
+                  isOpen={showNotifications}
+                  onClose={() => setShowNotifications(false)}
+                />
               </div>
-
-              <div className="card">
-                <h3 className="text-lg font-semibold mb-2">Mes Candidatures</h3>
-                <p className="text-gray-600 mb-4">Suivez vos applications</p>
-                <button
-                  onClick={() => navigate('/talent/applications')}
-                  className="btn-primary w-full"
-                >
-                  Mes candidatures
-                </button>
-              </div>
-
-              <div className="card">
-                <h3 className="text-lg font-semibold mb-2">💬 Messages</h3>
-                <p className="text-gray-600 mb-4">Discutez avec les établissements</p>
-                <button
-                  onClick={() => navigate('/talent/chat')}
-                  className="btn-primary w-full"
-                >
-                  Mes conversations
-                </button>
-              </div>
-
-              <div className="card">
-                <h3 className="text-lg font-semibold mb-2">Mon Profil</h3>
-                <p className="text-gray-600 mb-4">Compétences et disponibilités</p>
-                <button
-                  onClick={() => navigate('/talent/edit-profile')}
-                  className="btn-primary w-full"
-                >
-                  Éditer le profil
-                </button>
-              </div>
+              
+              {/* Déconnexion */}
+              <button 
+                onClick={handleLogout}
+                className="text-gray-400 hover:text-gray-600 text-sm"
+              >
+                Déconnexion
+              </button>
             </div>
           </div>
         </div>
-      } />
-      
+      </nav>
+
+      {/* Grille 2x2 */}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-2 gap-4">
+          
+          {/* Missions matchées */}
+          <button
+            onClick={() => navigate('/talent/missions')}
+            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-blue-900 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <span className="text-2xl">🎯</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Missions matchées</h3>
+                <p className="text-sm text-gray-500">Offres pour vous</p>
+              </div>
+            </div>
+          </button>
+
+          {/* Mes candidatures */}
+          <button
+            onClick={() => navigate('/talent/applications')}
+            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-blue-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <span className="text-2xl">📋</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Mes candidatures</h3>
+                <p className="text-sm text-gray-500">
+                  {stats.applicationsCount > 0 ? `${stats.applicationsCount} en cours` : 'Suivre mes demandes'}
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Mes conversations */}
+          <button
+            onClick={() => navigate('/talent/chat')}
+            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-blue-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <span className="text-2xl">💬</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Mes conversations</h3>
+                <p className="text-sm text-gray-500">
+                  {stats.conversationsCount > 0 ? `${stats.conversationsCount} active${stats.conversationsCount > 1 ? 's' : ''}` : 'Discuter'}
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Mon profil */}
+          <button
+            onClick={() => navigate('/talent/edit-profile')}
+            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <span className="text-2xl">👤</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Mon profil</h3>
+                <p className="text-sm text-gray-500">Modifier mes infos</p>
+              </div>
+            </div>
+          </button>
+
+        </div>
+
+        {/* Logo en bas */}
+        <div className="text-center mt-12">
+          <p className="text-primary-600 font-bold">⚡ ExtraTaff</p>
+          <p className="text-xs text-gray-400 mt-1">Staff & Taff en temps réel</p>
+        </div>
+      </div>
+    </div>
+  )
+
+  // Routes
+  return (
+    <Routes>
+      <Route path="/" element={<DashboardHome />} />
       <Route path="/missions" element={<MissionList />} />
       <Route path="/applications" element={<MyApplications />} />
       <Route path="/edit-profile" element={<TalentProfileEdit />} />

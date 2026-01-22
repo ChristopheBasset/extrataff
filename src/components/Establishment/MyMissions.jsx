@@ -7,8 +7,10 @@ import { getUrgencyBadge } from '../../lib/matching'
 export default function MyMissions() {
   const navigate = useNavigate()
   const [missions, setMissions] = useState([])
+  const [archivedMissions, setArchivedMissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [activeTab, setActiveTab] = useState('active') // 'active' ou 'archived'
 
   useEffect(() => {
     loadMissions()
@@ -25,19 +27,34 @@ export default function MyMissions() {
         .eq('user_id', user.id)
         .single()
 
-      // Récupérer les missions avec le compte de candidatures
-      const { data, error } = await supabase
+      // Récupérer les missions actives (non archivées)
+      const { data: activeMissions, error: activeError } = await supabase
         .from('missions')
         .select(`
           *,
           applications(count)
         `)
         .eq('establishment_id', establishment.id)
+        .is('archived_at', null)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (activeError) throw activeError
 
-      setMissions(data)
+      // Récupérer les missions archivées
+      const { data: archived, error: archivedError } = await supabase
+        .from('missions')
+        .select(`
+          *,
+          applications(count)
+        `)
+        .eq('establishment_id', establishment.id)
+        .not('archived_at', 'is', null)
+        .order('archived_at', { ascending: false })
+
+      if (archivedError) throw archivedError
+
+      setMissions(activeMissions || [])
+      setArchivedMissions(archived || [])
     } catch (err) {
       console.error('Erreur chargement missions:', err)
       setError(err.message)
@@ -46,7 +63,10 @@ export default function MyMissions() {
     }
   }
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, archived_at) => {
+    if (archived_at) {
+      return { label: '📦 Archivée', bgColor: 'bg-gray-100', textColor: 'text-gray-700' }
+    }
     const badges = {
       open: { label: '🟢 Ouverte', bgColor: 'bg-green-100', textColor: 'text-green-700' },
       closed: { label: '🔴 Fermée', bgColor: 'bg-red-100', textColor: 'text-red-700' },
@@ -56,22 +76,29 @@ export default function MyMissions() {
   }
 
   const handleCloseMission = async (missionId) => {
-    if (!confirm('Êtes-vous sûr de vouloir fermer cette mission ?')) return
+    if (!confirm('Êtes-vous sûr de vouloir fermer cette mission ? Elle sera archivée.')) return
 
     try {
       const { error } = await supabase
         .from('missions')
-        .update({ status: 'closed' })
+        .update({ 
+          status: 'closed',
+          archived_at: new Date().toISOString() // Archiver aussi
+        })
         .eq('id', missionId)
 
       if (error) throw error
 
-      alert('Mission fermée avec succès !')
+      alert('Mission fermée et archivée !')
       loadMissions()
     } catch (err) {
       console.error('Erreur fermeture mission:', err)
       alert('Erreur lors de la fermeture de la mission')
     }
+  }
+
+  const handleRelaunchMission = (mission) => {
+    navigate(`/establishment/edit-mission/${mission.id}`)
   }
 
   if (loading) {
@@ -84,6 +111,8 @@ export default function MyMissions() {
       </div>
     )
   }
+
+  const displayedMissions = activeTab === 'active' ? missions : archivedMissions
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -109,7 +138,7 @@ export default function MyMissions() {
           <div>
             <h2 className="text-3xl font-bold text-gray-900">Mes Missions</h2>
             <p className="text-gray-600 mt-2">
-              {missions.length} mission{missions.length > 1 ? 's' : ''} créée{missions.length > 1 ? 's' : ''}
+              {missions.length} active{missions.length > 1 ? 's' : ''} · {archivedMissions.length} archivée{archivedMissions.length > 1 ? 's' : ''}
             </p>
           </div>
           <button
@@ -120,34 +149,70 @@ export default function MyMissions() {
           </button>
         </div>
 
+        {/* Onglets */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              activeTab === 'active'
+                ? 'bg-primary-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            🟢 Actives ({missions.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('archived')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              activeTab === 'archived'
+                ? 'bg-primary-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            📦 Archivées ({archivedMissions.length})
+          </button>
+        </div>
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
             {error}
           </div>
         )}
 
-        {missions.length === 0 ? (
+        {displayedMissions.length === 0 ? (
           <div className="card text-center py-12">
-            <p className="text-xl text-gray-600 mb-4">📭 Aucune mission créée pour le moment</p>
-            <p className="text-gray-500 mb-6">
-              Créez votre première annonce pour recevoir des candidatures !
-            </p>
-            <button
-              onClick={() => navigate('/establishment/create-mission')}
-              className="btn-primary"
-            >
-              Créer une mission
-            </button>
+            {activeTab === 'active' ? (
+              <>
+                <p className="text-xl text-gray-600 mb-4">📭 Aucune mission active</p>
+                <p className="text-gray-500 mb-6">
+                  Créez une nouvelle annonce pour recevoir des candidatures !
+                </p>
+                <button
+                  onClick={() => navigate('/establishment/create-mission')}
+                  className="btn-primary"
+                >
+                  Créer une mission
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xl text-gray-600 mb-4">📦 Aucune mission archivée</p>
+                <p className="text-gray-500">
+                  Les missions terminées depuis plus de 2h apparaîtront ici.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
-            {missions.map(mission => {
-              const statusBadge = getStatusBadge(mission.status)
+            {displayedMissions.map(mission => {
+              const statusBadge = getStatusBadge(mission.status, mission.archived_at)
               const urgencyBadge = getUrgencyBadge(mission.urgency_level)
               const applicationsCount = mission.applications?.[0]?.count || 0
+              const isArchived = !!mission.archived_at
 
               return (
-                <div key={mission.id} className="card">
+                <div key={mission.id} className={`card ${isArchived ? 'opacity-75' : ''}`}>
                   {/* Header */}
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -155,16 +220,21 @@ export default function MyMissions() {
                         {mission.position}
                       </h3>
                       <p className="text-gray-600 text-sm">
-                        Créée le {formatDateTime(mission.created_at)}
+                        {isArchived 
+                          ? `Archivée le ${formatDateTime(mission.archived_at)}`
+                          : `Créée le ${formatDateTime(mission.created_at)}`
+                        }
                       </p>
                     </div>
                     <div className="flex gap-2">
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge.bgColor} ${statusBadge.textColor}`}>
                         {statusBadge.label}
                       </span>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${urgencyBadge.bgColor} ${urgencyBadge.textColor}`}>
-                        {urgencyBadge.emoji} {urgencyBadge.label}
-                      </span>
+                      {!isArchived && (
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${urgencyBadge.bgColor} ${urgencyBadge.textColor}`}>
+                          {urgencyBadge.emoji} {urgencyBadge.label}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -213,20 +283,39 @@ export default function MyMissions() {
 
                   {/* Actions */}
                   <div className="flex gap-3 pt-4 border-t">
-                    <button
-                      onClick={() => navigate(`/establishment/applications/${mission.id}`)}
-                      className="btn-primary flex-1"
-                    >
-                      👥 Voir les candidatures ({applicationsCount})
-                    </button>
-                    
-                    {mission.status === 'open' && (
-                      <button
-                        onClick={() => handleCloseMission(mission.id)}
-                        className="btn-secondary"
-                      >
-                        🔒 Fermer
-                      </button>
+                    {isArchived ? (
+                      <>
+                        <button
+                          onClick={() => handleRelaunchMission(mission)}
+                          className="btn-primary flex-1"
+                        >
+                          🔄 Relancer cette mission
+                        </button>
+                        <button
+                          onClick={() => navigate(`/establishment/applications/${mission.id}`)}
+                          className="btn-secondary"
+                        >
+                          👥 Historique ({applicationsCount})
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => navigate(`/establishment/applications/${mission.id}`)}
+                          className="btn-primary flex-1"
+                        >
+                          👥 Voir les candidatures ({applicationsCount})
+                        </button>
+                        
+                        {mission.status === 'open' && (
+                          <button
+                            onClick={() => handleCloseMission(mission.id)}
+                            className="btn-secondary"
+                          >
+                            🔒 Fermer
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

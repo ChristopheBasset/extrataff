@@ -45,7 +45,12 @@ export default function ChatList({ userType }) {
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        setConversations(applications || [])
+        
+        // Filtrer les conversations dont la mission existe encore
+        const validConversations = (applications || []).filter(
+          app => app.missions && app.missions.establishments
+        )
+        setConversations(validConversations)
 
       } else {
         // ÉTABLISSEMENT - Récupérer le profil
@@ -68,7 +73,7 @@ export default function ChatList({ userType }) {
               start_date,
               establishment_id
             ),
-            talents!talent_id (
+            talents (
               first_name,
               last_name
             )
@@ -78,7 +83,12 @@ export default function ChatList({ userType }) {
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        setConversations(applications || [])
+        
+        // Filtrer les conversations valides
+        const validConversations = (applications || []).filter(
+          app => app.missions && app.talents
+        )
+        setConversations(validConversations)
       }
 
     } catch (err) {
@@ -135,38 +145,43 @@ export default function ChatList({ userType }) {
           </div>
         ) : (
           <div className="space-y-3">
-            {conversations.map(conv => (
-              <button
-                key={conv.id}
-                onClick={() => navigate(`/${userType}/chat/${conv.id}`)}
-                className="card w-full text-left hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    {userType === 'talent' ? (
-                      <>
-                        <h3 className="font-semibold text-gray-900">
-                          {conv.missions.establishments.name}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {conv.missions.position}
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <h3 className="font-semibold text-gray-900">
-                          {conv.talents.first_name} {conv.talents.last_name}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {conv.missions.position}
-                        </p>
-                      </>
-                    )}
+            {conversations.map(conv => {
+              // Sécurité supplémentaire
+              if (!conv.missions) return null
+              
+              return (
+                <button
+                  key={conv.id}
+                  onClick={() => navigate(`/${userType}/chat/${conv.id}`)}
+                  className="card w-full text-left hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      {userType === 'talent' ? (
+                        <>
+                          <h3 className="font-semibold text-gray-900">
+                            {conv.missions.establishments?.name || 'Établissement'}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {conv.missions.position}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="font-semibold text-gray-900">
+                            {conv.talents?.first_name || ''} {conv.talents?.last_name || 'Talent'}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {conv.missions.position}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <div className="text-gray-400">→</div>
                   </div>
-                  <div className="text-gray-400">→</div>
-                </div>
-              </button>
-            ))}
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

@@ -239,6 +239,10 @@ export const FRENCH_DEPARTMENTS = [
   { value: '94', label: '94 - Val-de-Marne', region: 'Île-de-France' },
   { value: '95', label: '95 - Val-d\'Oise', region: 'Île-de-France' },
   
+  // Normandie
+  { value: '14', label: '14 - Calvados', region: 'Normandie' },
+  { value: '27', label: '27 - Eure', region: 'Normandie' },
+  
   // Principales grandes villes
   { value: '13', label: '13 - Bouches-du-Rhône', region: 'PACA' },
   { value: '33', label: '33 - Gironde', region: 'Nouvelle-Aquitaine' },

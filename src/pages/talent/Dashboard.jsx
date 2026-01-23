@@ -37,7 +37,6 @@ export default function TalentDashboard() {
     setProfile(data)
     
     if (data) {
-      // Charger les stats
       loadStats(data.id)
     }
     
@@ -46,13 +45,11 @@ export default function TalentDashboard() {
 
   const loadStats = async (talentId) => {
     try {
-      // Compter les candidatures
       const { count: appCount } = await supabase
         .from('applications')
         .select('*', { count: 'exact', head: true })
         .eq('talent_id', talentId)
 
-      // Compter les conversations (candidatures acceptées)
       const { count: convCount } = await supabase
         .from('applications')
         .select('*', { count: 'exact', head: true })
@@ -60,7 +57,7 @@ export default function TalentDashboard() {
         .eq('status', 'accepted')
 
       setStats({
-        missionsCount: 0, // On pourrait compter les missions matchées
+        missionsCount: 0,
         applicationsCount: appCount || 0,
         conversationsCount: convCount || 0
       })
@@ -82,15 +79,13 @@ export default function TalentDashboard() {
     )
   }
 
-  // Si pas de profil, afficher le formulaire
   if (!profile) {
     return <TalentProfileForm />
   }
 
-  // Dashboard principal
   const DashboardHome = () => (
     <div className="min-h-screen bg-gray-50">
-      {/* Header épuré */}
+      {/* Header */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
@@ -99,7 +94,6 @@ export default function TalentDashboard() {
               <p className="text-sm text-gray-500">Bonjour {profile.first_name} 👋</p>
             </div>
             <div className="flex items-center gap-4">
-              {/* Notifications */}
               <div className="relative">
                 <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
                 <NotificationList 
@@ -107,8 +101,6 @@ export default function TalentDashboard() {
                   onClose={() => setShowNotifications(false)}
                 />
               </div>
-              
-              {/* Déconnexion */}
               <button 
                 onClick={handleLogout}
                 className="text-gray-400 hover:text-gray-600 text-sm"
@@ -121,21 +113,21 @@ export default function TalentDashboard() {
       </nav>
 
       {/* Grille 2x2 */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 gap-4">
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-2 gap-3">
           
           {/* Missions matchées */}
           <button
             onClick={() => navigate('/talent/missions')}
-            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
-                <img src="/icons/mission.png" alt="Missions" className="w-14 h-14 object-contain" />
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <img src="/icons/mission.png" alt="Missions" className="w-20 h-20 object-contain" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Missions matchées</h3>
-                <p className="text-sm text-gray-500">Offres pour vous</p>
+                <p className="text-sm font-semibold text-gray-900">Missions</p>
+                <p className="text-xs text-gray-500">matchées</p>
               </div>
             </div>
           </button>
@@ -143,35 +135,31 @@ export default function TalentDashboard() {
           {/* Mes candidatures */}
           <button
             onClick={() => navigate('/talent/applications')}
-            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
-                <img src="/icons/candidature.png" alt="Candidatures" className="w-14 h-14 object-contain" />
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <img src="/icons/candidature.png" alt="Candidatures" className="w-20 h-20 object-contain" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Mes candidatures</h3>
-                <p className="text-sm text-gray-500">
-                  {stats.applicationsCount > 0 ? `${stats.applicationsCount} en cours` : 'Suivre mes demandes'}
-                </p>
+                <p className="text-sm font-semibold text-gray-900">Mes</p>
+                <p className="text-xs text-gray-500">Candidatures</p>
               </div>
             </div>
           </button>
 
-          {/* Mes conversations */}
+          {/* Chat en live */}
           <button
             onClick={() => navigate('/talent/chat')}
-            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
-                <img src="/icons/conversation.png" alt="Conversations" className="w-14 h-14 object-contain" />
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <img src="/icons/conversation.png" alt="Chat" className="w-20 h-20 object-contain" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Mes conversations</h3>
-                <p className="text-sm text-gray-500">
-                  {stats.conversationsCount > 0 ? `${stats.conversationsCount} active${stats.conversationsCount > 1 ? 's' : ''}` : 'Discuter'}
-                </p>
+                <p className="text-sm font-semibold text-gray-900">Chat</p>
+                <p className="text-xs text-gray-500">en live</p>
               </div>
             </div>
           </button>
@@ -179,15 +167,15 @@ export default function TalentDashboard() {
           {/* Mon profil */}
           <button
             onClick={() => navigate('/talent/edit-profile')}
-            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
-                <img src="/icons/profil.png" alt="Profil" className="w-14 h-14 object-contain" />
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <img src="/icons/profil.png" alt="Profil" className="w-20 h-20 object-contain" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Mon profil</h3>
-                <p className="text-sm text-gray-500">Modifier mes infos</p>
+                <p className="text-sm font-semibold text-gray-900">Mon Profil</p>
+                <p className="text-xs text-gray-500">Mes infos</p>
               </div>
             </div>
           </button>
@@ -195,15 +183,14 @@ export default function TalentDashboard() {
         </div>
 
         {/* Logo en bas */}
-        <div className="text-center mt-12">
-          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-16 h-16 mx-auto" />
+        <div className="text-center mt-10">
+          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-14 h-14 mx-auto" />
           <p className="text-xs text-gray-400 mt-2">Staff & Taff en temps réel</p>
         </div>
       </div>
     </div>
   )
 
-  // Routes
   return (
     <Routes>
       <Route path="/" element={<DashboardHome />} />

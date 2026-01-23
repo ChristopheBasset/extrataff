@@ -46,14 +46,12 @@ export default function EstablishmentDashboard() {
 
   const loadStats = async (establishmentId) => {
     try {
-      // Compter les missions actives
       const { count: missionsCount } = await supabase
         .from('missions')
         .select('*', { count: 'exact', head: true })
         .eq('establishment_id', establishmentId)
         .is('archived_at', null)
 
-      // Compter les candidatures en attente
       const { data: missions } = await supabase
         .from('missions')
         .select('id')
@@ -104,15 +102,13 @@ export default function EstablishmentDashboard() {
     )
   }
 
-  // Si pas de profil, afficher le formulaire
   if (!profile) {
     return <EstablishmentProfileForm />
   }
 
-  // Dashboard principal
   const DashboardHome = () => (
     <div className="min-h-screen bg-gray-50">
-      {/* Header épuré */}
+      {/* Header */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
@@ -121,7 +117,6 @@ export default function EstablishmentDashboard() {
               <p className="text-sm text-gray-500">{profile.name} 🏢</p>
             </div>
             <div className="flex items-center gap-4">
-              {/* Notifications */}
               <div className="relative">
                 <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
                 <NotificationList 
@@ -129,8 +124,6 @@ export default function EstablishmentDashboard() {
                   onClose={() => setShowNotifications(false)}
                 />
               </div>
-              
-              {/* Déconnexion */}
               <button 
                 onClick={handleLogout}
                 className="text-gray-400 hover:text-gray-600 text-sm"
@@ -143,21 +136,21 @@ export default function EstablishmentDashboard() {
       </nav>
 
       {/* Grille 2x2 */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 gap-4">
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-2 gap-3">
           
           {/* Créer une mission */}
           <button
             onClick={() => navigate('/establishment/create-mission')}
-            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="text-2xl text-white font-bold">+</span>
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <span className="text-4xl text-white font-bold">+</span>
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Créer une mission</h3>
-                <p className="text-sm text-gray-500">Publier une annonce</p>
+                <p className="text-sm font-semibold text-gray-900">Créer</p>
+                <p className="text-xs text-gray-500">une mission</p>
               </div>
             </div>
           </button>
@@ -165,17 +158,15 @@ export default function EstablishmentDashboard() {
           {/* Mes missions */}
           <button
             onClick={() => navigate('/establishment/missions')}
-            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
-                <img src="/icons/mission.png" alt="Missions" className="w-14 h-14 object-contain" />
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <img src="/icons/mission.png" alt="Missions" className="w-20 h-20 object-contain" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Mes missions</h3>
-                <p className="text-sm text-gray-500">
-                  {stats.missionsCount > 0 ? `${stats.missionsCount} active${stats.missionsCount > 1 ? 's' : ''}` : 'Gérer mes annonces'}
-                </p>
+                <p className="text-sm font-semibold text-gray-900">Mes</p>
+                <p className="text-xs text-gray-500">Missions</p>
               </div>
             </div>
           </button>
@@ -183,17 +174,15 @@ export default function EstablishmentDashboard() {
           {/* Candidatures */}
           <button
             onClick={() => navigate('/establishment/candidatures')}
-            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
-                <img src="/icons/candidature.png" alt="Candidatures" className="w-14 h-14 object-contain" />
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <img src="/icons/candidature.png" alt="Candidatures" className="w-20 h-20 object-contain" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Candidatures</h3>
-                <p className="text-sm text-gray-500">
-                  {stats.applicationsCount > 0 ? `${stats.applicationsCount} en attente` : 'Voir les profils'}
-                </p>
+                <p className="text-sm font-semibold text-gray-900">Les</p>
+                <p className="text-xs text-gray-500">Candidatures</p>
               </div>
             </div>
           </button>
@@ -201,17 +190,15 @@ export default function EstablishmentDashboard() {
           {/* Conversations */}
           <button
             onClick={() => navigate('/establishment/chat')}
-            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
+            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
-                <img src="/icons/conversation.png" alt="Conversations" className="w-14 h-14 object-contain" />
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <img src="/icons/conversation.png" alt="Chat" className="w-20 h-20 object-contain" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Conversations</h3>
-                <p className="text-sm text-gray-500">
-                  {stats.conversationsCount > 0 ? `${stats.conversationsCount} active${stats.conversationsCount > 1 ? 's' : ''}` : 'Discuter'}
-                </p>
+                <p className="text-sm font-semibold text-gray-900">Chat</p>
+                <p className="text-xs text-gray-500">en live</p>
               </div>
             </div>
           </button>
@@ -223,20 +210,22 @@ export default function EstablishmentDashboard() {
           onClick={() => navigate('/establishment/edit-profile')}
           className="w-full mt-4 bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3"
         >
-          <img src="/icons/profil.png" alt="Profil" className="w-8 h-8 object-contain" />
-          <span className="text-gray-600">Modifier mon profil établissement</span>
+          <img src="/icons/profil.png" alt="Profil" className="w-10 h-10 object-contain" />
+          <div className="text-left">
+            <p className="text-sm font-semibold text-gray-900">Mon Profil</p>
+            <p className="text-xs text-gray-500">Mes infos établissement</p>
+          </div>
         </button>
 
         {/* Logo en bas */}
         <div className="text-center mt-8">
-          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-16 h-16 mx-auto" />
+          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-14 h-14 mx-auto" />
           <p className="text-xs text-gray-400 mt-2">Staff & Taff en temps réel</p>
         </div>
       </div>
     </div>
   )
 
-  // Routes
   return (
     <Routes>
       <Route path="/" element={<DashboardHome />} />

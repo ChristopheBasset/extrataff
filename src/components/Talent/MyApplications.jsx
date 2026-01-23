@@ -9,6 +9,7 @@ export default function MyApplications() {
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [confirmingId, setConfirmingId] = useState(null)
 
   useEffect(() => {
     loadApplications()
@@ -61,6 +62,35 @@ export default function MyApplications() {
     }
   }
 
+  const confirmMission = async (applicationId) => {
+    setConfirmingId(applicationId)
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ 
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString()
+        })
+        .eq('id', applicationId)
+
+      if (error) throw error
+
+      // Mettre à jour la liste localement
+      setApplications(prev => 
+        prev.map(app => 
+          app.id === applicationId 
+            ? { ...app, status: 'confirmed', confirmed_at: new Date().toISOString() }
+            : app
+        )
+      )
+    } catch (err) {
+      console.error('Erreur confirmation:', err)
+      setError('Erreur lors de la confirmation')
+    } finally {
+      setConfirmingId(null)
+    }
+  }
+
   const getStatusBadge = (status) => {
     const badges = {
       interested: {
@@ -72,6 +102,11 @@ export default function MyApplications() {
         label: '✅ Accepté',
         bgColor: 'bg-green-100',
         textColor: 'text-green-700'
+      },
+      confirmed: {
+        label: '📅 Confirmé',
+        bgColor: 'bg-purple-100',
+        textColor: 'text-purple-700'
       },
       rejected: {
         label: '❌ Refusé',
@@ -138,7 +173,7 @@ export default function MyApplications() {
 
         {applications.length === 0 ? (
           <div className="card text-center py-12">
-            <p className="text-xl text-gray-600 mb-4">📭 Aucune candidature pour le moment</p>
+            <p className="text-xl text-gray-600 mb-4">🔭 Aucune candidature pour le moment</p>
             <p className="text-gray-500 mb-6">
               Consultez les missions disponibles et postulez !
             </p>
@@ -246,14 +281,48 @@ export default function MyApplications() {
                         🎉 Votre candidature a été acceptée !
                       </p>
                       <p className="text-green-700 text-sm mb-3">
-                        Vous pouvez maintenant discuter avec l'établissement pour finaliser les détails.
+                        Discutez avec l'établissement puis confirmez la mission pour l'ajouter à votre agenda.
                       </p>
-                      <button
-                        onClick={() => navigate(`/talent/chat/${application.id}`)}
-                        className="btn-primary w-full"
-                      >
-                        💬 Ouvrir la conversation
-                      </button>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          onClick={() => navigate(`/talent/chat/${application.id}`)}
+                          className="btn-primary flex-1"
+                        >
+                          💬 Ouvrir la conversation
+                        </button>
+                        <button
+                          onClick={() => confirmMission(application.id)}
+                          disabled={confirmingId === application.id}
+                          className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                        >
+                          {confirmingId === application.id ? '⏳ Confirmation...' : '📅 Confirmer la mission'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {application.status === 'confirmed' && (
+                    <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg">
+                      <p className="text-purple-800 font-medium mb-2">
+                        📅 Mission confirmée !
+                      </p>
+                      <p className="text-purple-700 text-sm mb-3">
+                        Cette mission est dans votre agenda. Vous pouvez continuer à échanger avec l'établissement.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          onClick={() => navigate(`/talent/chat/${application.id}`)}
+                          className="btn-primary flex-1"
+                        >
+                          💬 Ouvrir la conversation
+                        </button>
+                        <button
+                          onClick={() => navigate('/talent/agenda')}
+                          className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                        >
+                          📅 Voir mon agenda
+                        </button>
+                      </div>
                     </div>
                   )}
 

@@ -5,6 +5,7 @@ import TalentProfileForm from '../../components/Talent/TalentProfileForm'
 import TalentProfileEdit from '../../components/Talent/TalentProfileEdit'
 import MissionList from '../../components/Talent/MissionList'
 import MyApplications from '../../components/Talent/MyApplications'
+import MyAgenda from '../../components/Talent/MyAgenda'
 import ChatList from '../../components/shared/ChatList'
 import ChatWindow from '../../components/shared/ChatWindow'
 import NotificationBadge from '../../components/shared/NotificationBadge'
@@ -182,6 +183,22 @@ export default function TalentDashboard() {
 
         </div>
 
+        {/* Mon Agenda - pleine largeur */}
+        <button
+          onClick={() => navigate('/talent/agenda')}
+          className="w-full mt-3 bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center justify-center gap-4">
+            <div className="w-16 h-16 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <img src="/icons/agenda.png" alt="Agenda" className="w-16 h-16 object-contain" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-gray-900">Mon Agenda</p>
+              <p className="text-xs text-gray-500">Missions confirmées</p>
+            </div>
+          </div>
+        </button>
+
         {/* Logo en bas */}
         <div className="text-center mt-10">
           <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-24 h-24 mx-auto" />
@@ -196,6 +213,7 @@ export default function TalentDashboard() {
       <Route path="/" element={<DashboardHome />} />
       <Route path="/missions" element={<MissionList />} />
       <Route path="/applications" element={<MyApplications />} />
+      <Route path="/agenda" element={<MyAgenda />} />
       <Route path="/edit-profile" element={<TalentProfileEdit />} />
       <Route path="/chat" element={<ChatList userType="talent" />} />
       <Route path="/chat/:applicationId" element={<ChatWindow userType="talent" />} />

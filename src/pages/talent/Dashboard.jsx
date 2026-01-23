@@ -184,8 +184,8 @@ export default function TalentDashboard() {
 
         {/* Logo en bas */}
         <div className="text-center mt-10">
-          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-14 h-14 mx-auto" />
-          <p className="text-xs text-gray-400 mt-2">Staff & Taff en temps réel</p>
+          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-24 h-24 mx-auto" />
+          <p className="text-sm text-gray-400 mt-2">Staff & Taff en temps réel</p>
         </div>
       </div>
     </div>

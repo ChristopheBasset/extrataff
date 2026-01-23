@@ -152,8 +152,8 @@ export default function EstablishmentDashboard() {
             className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
           >
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="text-2xl">➕</span>
+              <div className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <span className="text-2xl text-white font-bold">+</span>
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">Créer une mission</h3>
@@ -168,8 +168,8 @@ export default function EstablishmentDashboard() {
             className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
           >
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-blue-800 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="text-2xl">📋</span>
+              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
+                <img src="/icons/mission.png" alt="Missions" className="w-14 h-14 object-contain" />
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">Mes missions</h3>
@@ -186,8 +186,8 @@ export default function EstablishmentDashboard() {
             className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
           >
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="text-2xl">👥</span>
+              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
+                <img src="/icons/candidature.png" alt="Candidatures" className="w-14 h-14 object-contain" />
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">Candidatures</h3>
@@ -204,8 +204,8 @@ export default function EstablishmentDashboard() {
             className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all text-left group"
           >
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="text-2xl">💬</span>
+              <div className="w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform overflow-hidden">
+                <img src="/icons/conversation.png" alt="Conversations" className="w-14 h-14 object-contain" />
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">Conversations</h3>
@@ -221,15 +221,16 @@ export default function EstablishmentDashboard() {
         {/* Bouton profil en bas */}
         <button
           onClick={() => navigate('/establishment/edit-profile')}
-          className="w-full mt-4 bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all text-center"
+          className="w-full mt-4 bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3"
         >
-          <span className="text-gray-600">⚙️ Modifier mon profil établissement</span>
+          <img src="/icons/profil.png" alt="Profil" className="w-8 h-8 object-contain" />
+          <span className="text-gray-600">Modifier mon profil établissement</span>
         </button>
 
         {/* Logo en bas */}
         <div className="text-center mt-8">
-          <p className="text-primary-600 font-bold">⚡ ExtraTaff</p>
-          <p className="text-xs text-gray-400 mt-1">Staff & Taff en temps réel</p>
+          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-16 h-16 mx-auto" />
+          <p className="text-xs text-gray-400 mt-2">Staff & Taff en temps réel</p>
         </div>
       </div>
     </div>

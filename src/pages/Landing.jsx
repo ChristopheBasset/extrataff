@@ -71,7 +71,7 @@ export default function Landing() {
         
         {/* Recruter */}
         <button
-          onClick={() => navigate('/register?role=establishment')}
+          onClick={() => navigate('/register?type=establishment')}
           className="w-full bg-white text-blue-700 font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:bg-gray-100 transition"
         >
           <span>→ Je recrute</span>
@@ -80,7 +80,7 @@ export default function Landing() {
 
         {/* Chercher */}
         <button
-          onClick={() => navigate('/register?role=talent')}
+          onClick={() => navigate('/register?type=talent')}
           className="w-full bg-white text-blue-700 font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:bg-gray-100 transition"
         >
           <span>→ Je cherche</span>

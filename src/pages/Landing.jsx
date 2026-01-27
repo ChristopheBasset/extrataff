@@ -57,9 +57,9 @@ export default function Landing() {
 
       {/* Features */}
       <div className="space-y-3 text-center text-lg">
-        <p>⚡ Ultra rapide</p>
-        <p>⚡ Matching intelligent</p>
-        <p>⚡ Messagerie en direct</p>
+      <p>⚡ Ultra rapide</p>
+      <p>⚡ Matching intelligent</p>
+      <p>⚡ Messagerie en direct</p>
       </div>
     </div>
   );

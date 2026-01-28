@@ -71,7 +71,7 @@ export default function AdminDashboard() {
         .select('*', { count: 'exact', head: true })
 
       const { count: applicationsCount } = await supabase
-        .from('candidatures')
+        .from('applications')
         .select('*', { count: 'exact', head: true })
 
       const { count: activeMissionsCount } = await supabase
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
         .eq('status', 'active')
 
       const { count: acceptedApplicationsCount } = await supabase
-        .from('candidatures')
+        .from('applications')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'accepted')
 
@@ -164,7 +164,7 @@ export default function AdminDashboard() {
   const loadApplications = async () => {
     try {
       const { data, error } = await supabase
-        .from('candidatures')
+        .from('applications')
         .select(`
           id,
           status,

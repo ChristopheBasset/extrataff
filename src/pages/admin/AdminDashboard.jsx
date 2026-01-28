@@ -18,12 +18,16 @@ export default function AdminDashboard() {
     totalMissions: 0,
     totalApplications: 0,
     activeMissions: 0,
+    acceptedApplications: 0,
     blockedUsers: 0
   })
   const [talents, setTalents] = useState([])
   const [establishments, setEstablishments] = useState([])
+  const [missions, setMissions] = useState([])
+  const [applications, setApplications] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [actionLoading, setActionLoading] = useState(null)
+  const [filterStatus, setFilterStatus] = useState('all')
 
   useEffect(() => {
     checkAdmin()
@@ -43,6 +47,8 @@ export default function AdminDashboard() {
       await loadStats()
       await loadTalents()
       await loadEstablishments()
+      await loadMissions()
+      await loadApplications()
     } catch (err) {
       console.error('Erreur vérification admin:', err)
     } finally {
@@ -73,6 +79,11 @@ export default function AdminDashboard() {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active')
 
+      const { count: acceptedApplicationsCount } = await supabase
+        .from('applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'accepted')
+
       const { count: blockedTalents } = await supabase
         .from('talents')
         .select('*', { count: 'exact', head: true })
@@ -89,6 +100,7 @@ export default function AdminDashboard() {
         totalMissions: missionsCount || 0,
         totalApplications: applicationsCount || 0,
         activeMissions: activeMissionsCount || 0,
+        acceptedApplications: acceptedApplicationsCount || 0,
         blockedUsers: (blockedTalents || 0) + (blockedEstablishments || 0)
       })
     } catch (err) {
@@ -121,6 +133,64 @@ export default function AdminDashboard() {
       setEstablishments(data || [])
     } catch (err) {
       console.error('Erreur chargement établissements:', err)
+    }
+  }
+
+  const loadMissions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('missions')
+        .select(`
+          id,
+          position_type,
+          description,
+          date,
+          start_time,
+          end_time,
+          status,
+          created_at,
+          establishment:establishment_id (
+            id,
+            name
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setMissions(data || [])
+    } catch (err) {
+      console.error('Erreur chargement missions:', err)
+    }
+  }
+
+  const loadApplications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('applications')
+        .select(`
+          id,
+          status,
+          created_at,
+          talent:talent_id (
+            id,
+            first_name,
+            last_name
+          ),
+          mission:mission_id (
+            id,
+            position_type,
+            date,
+            establishment:establishment_id (
+              name
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setApplications(data || [])
+    } catch (err) {
+      console.error('Erreur chargement candidatures:', err)
     }
   }
 
@@ -170,11 +240,30 @@ export default function AdminDashboard() {
   }
 
   const formatDate = (dateString) => {
+    if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString('fr-FR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     })
+  }
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      pending: { label: 'En attente', bg: 'bg-yellow-100', text: 'text-yellow-700' },
+      accepted: { label: 'Acceptée', bg: 'bg-green-100', text: 'text-green-700' },
+      rejected: { label: 'Refusée', bg: 'bg-red-100', text: 'text-red-700' },
+      confirmed: { label: 'Confirmée', bg: 'bg-blue-100', text: 'text-blue-700' },
+      active: { label: 'Active', bg: 'bg-green-100', text: 'text-green-700' },
+      completed: { label: 'Terminée', bg: 'bg-gray-100', text: 'text-gray-700' },
+      cancelled: { label: 'Annulée', bg: 'bg-red-100', text: 'text-red-700' }
+    }
+    const config = statusConfig[status] || { label: status, bg: 'bg-gray-100', text: 'text-gray-700' }
+    return (
+      <span className={`inline-flex px-2 py-1 text-xs font-medium ${config.bg} ${config.text} rounded-full`}>
+        {config.label}
+      </span>
+    )
   }
 
   // Filtrer les talents
@@ -196,6 +285,30 @@ export default function AdminDashboard() {
       e.address?.toLowerCase().includes(search) ||
       e.phone?.includes(search)
     )
+  })
+
+  // Filtrer les missions
+  const filteredMissions = missions.filter(m => {
+    const search = searchTerm.toLowerCase()
+    const matchesSearch = (
+      m.position_type?.toLowerCase().includes(search) ||
+      m.establishment?.name?.toLowerCase().includes(search)
+    )
+    const matchesStatus = filterStatus === 'all' || m.status === filterStatus
+    return matchesSearch && matchesStatus
+  })
+
+  // Filtrer les candidatures
+  const filteredApplications = applications.filter(a => {
+    const search = searchTerm.toLowerCase()
+    const matchesSearch = (
+      a.talent?.first_name?.toLowerCase().includes(search) ||
+      a.talent?.last_name?.toLowerCase().includes(search) ||
+      a.mission?.establishment?.name?.toLowerCase().includes(search) ||
+      a.mission?.position_type?.toLowerCase().includes(search)
+    )
+    const matchesStatus = filterStatus === 'all' || a.status === filterStatus
+    return matchesSearch && matchesStatus
   })
 
   if (loading) {
@@ -231,7 +344,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <nav className="bg-white shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-xl font-bold text-gray-900">🛠️ Admin ExtraTaff</h1>
@@ -248,22 +361,22 @@ export default function AdminDashboard() {
       </nav>
 
       {/* Onglets */}
-      <div className="bg-white border-b">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex gap-4">
+      <div className="bg-white border-b overflow-x-auto">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex gap-2 md:gap-4">
             <button
-              onClick={() => setActiveTab('stats')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+              onClick={() => { setActiveTab('stats'); setSearchTerm(''); setFilterStatus('all'); }}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                 activeTab === 'stats'
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              📊 Statistiques
+              📊 Stats
             </button>
             <button
-              onClick={() => setActiveTab('talents')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+              onClick={() => { setActiveTab('talents'); setSearchTerm(''); setFilterStatus('all'); }}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                 activeTab === 'talents'
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -272,25 +385,45 @@ export default function AdminDashboard() {
               👤 Talents ({stats.totalTalents})
             </button>
             <button
-              onClick={() => setActiveTab('establishments')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+              onClick={() => { setActiveTab('establishments'); setSearchTerm(''); setFilterStatus('all'); }}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                 activeTab === 'establishments'
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              🏢 Établissements ({stats.totalEstablishments})
+              🏢 Étab. ({stats.totalEstablishments})
+            </button>
+            <button
+              onClick={() => { setActiveTab('missions'); setSearchTerm(''); setFilterStatus('all'); }}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                activeTab === 'missions'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📋 Missions ({stats.totalMissions})
+            </button>
+            <button
+              onClick={() => { setActiveTab('applications'); setSearchTerm(''); setFilterStatus('all'); }}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                activeTab === 'applications'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              ✉️ Candidatures ({stats.totalApplications})
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Tab Stats */}
         {activeTab === 'stats' && (
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Vue d'ensemble</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
               <div className="bg-white rounded-xl p-4 border border-gray-200">
                 <p className="text-3xl font-bold text-primary-600">{stats.totalTalents}</p>
                 <p className="text-sm text-gray-500">Talents</p>
@@ -312,8 +445,12 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-500">Candidatures</p>
               </div>
               <div className="bg-white rounded-xl p-4 border border-gray-200">
+                <p className="text-3xl font-bold text-blue-600">{stats.acceptedApplications}</p>
+                <p className="text-sm text-gray-500">Acceptées</p>
+              </div>
+              <div className="bg-white rounded-xl p-4 border border-gray-200">
                 <p className="text-3xl font-bold text-red-600">{stats.blockedUsers}</p>
-                <p className="text-sm text-gray-500">Utilisateurs bloqués</p>
+                <p className="text-sm text-gray-500">Bloqués</p>
               </div>
             </div>
 
@@ -344,6 +481,29 @@ export default function AdminDashboard() {
                   ))}
                   {establishments.length === 0 && (
                     <p className="text-gray-500 text-sm">Aucun établissement inscrit</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Dernières candidatures */}
+            <div className="mt-6">
+              <div className="bg-white rounded-xl p-4 border border-gray-200">
+                <h3 className="font-semibold text-gray-900 mb-3">Dernières candidatures</h3>
+                <div className="space-y-2">
+                  {applications.slice(0, 5).map(a => (
+                    <div key={a.id} className="flex justify-between items-center text-sm">
+                      <span className="text-gray-900">
+                        {a.talent?.first_name} {a.talent?.last_name} → {a.mission?.establishment?.name}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(a.status)}
+                        <span className="text-gray-500">{formatDate(a.created_at)}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {applications.length === 0 && (
+                    <p className="text-gray-500 text-sm">Aucune candidature</p>
                   )}
                 </div>
               </div>
@@ -490,6 +650,129 @@ export default function AdminDashboard() {
                 </table>
                 {filteredEstablishments.length === 0 && (
                   <p className="text-center text-gray-500 py-8">Aucun établissement trouvé</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Missions */}
+        {activeTab === 'missions' && (
+          <div>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Liste des missions</h2>
+              <div className="flex gap-2">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="all">Tous statuts</option>
+                  <option value="active">Actives</option>
+                  <option value="completed">Terminées</option>
+                  <option value="cancelled">Annulées</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Rechercher..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Établissement</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Poste</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Horaires</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Créée le</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredMissions.map(mission => (
+                      <tr key={mission.id}>
+                        <td className="px-4 py-3 text-sm text-gray-900">{mission.establishment?.name || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{mission.position_type}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(mission.date)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {mission.start_time?.slice(0, 5)} - {mission.end_time?.slice(0, 5)}
+                        </td>
+                        <td className="px-4 py-3">{getStatusBadge(mission.status)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{formatDate(mission.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredMissions.length === 0 && (
+                  <p className="text-center text-gray-500 py-8">Aucune mission trouvée</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Applications */}
+        {activeTab === 'applications' && (
+          <div>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Liste des candidatures</h2>
+              <div className="flex gap-2">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="all">Tous statuts</option>
+                  <option value="pending">En attente</option>
+                  <option value="accepted">Acceptées</option>
+                  <option value="rejected">Refusées</option>
+                  <option value="confirmed">Confirmées</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Rechercher..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Talent</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Établissement</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Poste</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date mission</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Candidature le</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredApplications.map(application => (
+                      <tr key={application.id}>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {application.talent?.first_name} {application.talent?.last_name}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{application.mission?.establishment?.name || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{application.mission?.position_type || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(application.mission?.date)}</td>
+                        <td className="px-4 py-3">{getStatusBadge(application.status)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{formatDate(application.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredApplications.length === 0 && (
+                  <p className="text-center text-gray-500 py-8">Aucune candidature trouvée</p>
                 )}
               </div>
             </div>

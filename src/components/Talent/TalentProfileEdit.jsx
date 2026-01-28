@@ -127,7 +127,7 @@ export default function TalentProfileEdit() {
       // Supprimer le CV existant du storage
       try {
         const { error } = await supabase.storage
-          .from('cv')
+          .from('CV')
           .remove([existingCvUrl])
         
         if (error) throw error
@@ -156,7 +156,7 @@ export default function TalentProfileEdit() {
   const handleDownloadCv = async () => {
     try {
       const { data, error } = await supabase.storage
-        .from('cv')
+        .from('CV')
         .download(existingCvUrl)
       
       if (error) throw error
@@ -218,7 +218,7 @@ export default function TalentProfileEdit() {
         
         // Supprimer l'ancien CV si existe
         if (existingCvUrl) {
-          await supabase.storage.from('cv').remove([existingCvUrl])
+          await supabase.storage.from('CV').remove([existingCvUrl])
         }
         
         const fileExt = cvFile.name.split('.').pop()
@@ -226,7 +226,7 @@ export default function TalentProfileEdit() {
         const filePath = `${user.id}/${fileName}`
 
         const { error: uploadError } = await supabase.storage
-          .from('cv')
+          .from('CV')
           .upload(filePath, cvFile)
 
         if (uploadError) {

@@ -136,7 +136,7 @@ export default function TalentProfileForm() {
         const filePath = `${user.id}/${fileName}`
 
         const { error: uploadError } = await supabase.storage
-          .from('cv')
+          .from('CV')
           .upload(filePath, cvFile)
 
         if (uploadError) {

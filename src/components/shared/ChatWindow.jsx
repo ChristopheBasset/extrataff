@@ -215,7 +215,7 @@ export default function ChatWindow({ userType }) {
     setDownloadingCv(true)
     try {
       const { data, error } = await supabase.storage
-        .from('cv')
+        .from('CV')
         .download(cvPath)
 
       if (error) throw error

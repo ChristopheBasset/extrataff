@@ -78,7 +78,7 @@ export default function AdminDashboard() {
     try {
       const { data, error } = await supabase
         .from('admins')
-        .select('*')
+        .select('id, email, name, created_at, created_by, is_activated, activation_token')
         .order('created_at', { ascending: true })
 
       if (error) throw error
@@ -269,13 +269,17 @@ export default function AdminDashboard() {
 
     setAddingAdmin(true)
     try {
-      const { error } = await supabase
+      // Créer l'admin dans la table
+      const { data: newAdmin, error } = await supabase
         .from('admins')
         .insert({
           email: newAdminEmail.trim().toLowerCase(),
           name: newAdminName.trim() || null,
-          created_by: currentUserEmail
+          created_by: currentUserEmail,
+          is_activated: false
         })
+        .select()
+        .single()
 
       if (error) {
         if (error.code === '23505') {
@@ -286,6 +290,22 @@ export default function AdminDashboard() {
         return
       }
 
+      // Envoyer l'email d'invitation via Edge Function
+      const { error: inviteError } = await supabase.functions.invoke('send-admin-invite', {
+        body: {
+          email: newAdmin.email,
+          name: newAdmin.name,
+          activationToken: newAdmin.activation_token
+        }
+      })
+
+      if (inviteError) {
+        console.error('Erreur envoi invitation:', inviteError)
+        alert('Admin créé mais erreur lors de l\'envoi de l\'invitation. Vous pouvez renvoyer l\'invitation plus tard.')
+      } else {
+        alert(`Invitation envoyée à ${newAdmin.email} !`)
+      }
+
       setNewAdminEmail('')
       setNewAdminName('')
       await loadAdmins()
@@ -294,6 +314,41 @@ export default function AdminDashboard() {
       alert('Erreur lors de l\'ajout')
     } finally {
       setAddingAdmin(false)
+    }
+  }
+
+  const resendInvite = async (admin) => {
+    if (!confirm(`Renvoyer l'invitation à ${admin.email} ?`)) return
+    
+    setActionLoading(admin.id)
+    try {
+      // Générer un nouveau token
+      const { data, error: updateError } = await supabase
+        .from('admins')
+        .update({ activation_token: crypto.randomUUID() })
+        .eq('id', admin.id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+
+      // Envoyer l'email
+      const { error: inviteError } = await supabase.functions.invoke('send-admin-invite', {
+        body: {
+          email: data.email,
+          name: data.name,
+          activationToken: data.activation_token
+        }
+      })
+
+      if (inviteError) throw inviteError
+      
+      alert(`Invitation renvoyée à ${admin.email} !`)
+    } catch (err) {
+      console.error('Erreur renvoi invitation:', err)
+      alert('Erreur lors du renvoi')
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -918,9 +973,10 @@ export default function AdminDashboard() {
                     <tr>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Email</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Nom</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ajouté le</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ajouté par</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Action</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -933,20 +989,43 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">{admin.name || '-'}</td>
+                        <td className="px-4 py-3">
+                          {admin.is_activated ? (
+                            <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                              Activé
+                            </span>
+                          ) : (
+                            <span className="inline-flex px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 rounded-full">
+                              En attente
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-600">{formatDate(admin.created_at)}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{admin.created_by || '-'}</td>
                         <td className="px-4 py-3">
-                          {admin.email !== currentUserEmail ? (
-                            <button
-                              onClick={() => removeAdmin(admin.id, admin.email)}
-                              disabled={actionLoading === admin.id}
-                              className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
-                            >
-                              {actionLoading === admin.id ? '...' : 'Supprimer'}
-                            </button>
-                          ) : (
-                            <span className="text-sm text-gray-400">-</span>
-                          )}
+                          <div className="flex gap-2">
+                            {!admin.is_activated && (
+                              <button
+                                onClick={() => resendInvite(admin)}
+                                disabled={actionLoading === admin.id}
+                                className="text-sm font-medium text-primary-600 hover:text-primary-800 disabled:opacity-50"
+                              >
+                                {actionLoading === admin.id ? '...' : 'Renvoyer'}
+                              </button>
+                            )}
+                            {admin.email !== currentUserEmail && (
+                              <button
+                                onClick={() => removeAdmin(admin.id, admin.email)}
+                                disabled={actionLoading === admin.id}
+                                className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+                              >
+                                {actionLoading === admin.id ? '...' : 'Supprimer'}
+                              </button>
+                            )}
+                            {admin.email === currentUserEmail && (
+                              <span className="text-sm text-gray-400">-</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

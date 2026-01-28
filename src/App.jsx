@@ -20,6 +20,7 @@ import EditMissionForm from './components/Establishment/EditMissionForm'
 // Admin
 import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminActivate from './pages/admin/AdminActivate'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -64,6 +65,7 @@ function App() {
 
         {/* Routes Admin */}
         <Route path="/admin" element={<AdminLogin />} />
+        <Route path="/admin/activate" element={<AdminActivate />} />
         <Route 
           path="/admin/dashboard" 
           element={session ? <AdminDashboard /> : <Navigate to="/admin" />} 

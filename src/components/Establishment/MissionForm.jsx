@@ -17,14 +17,15 @@ export default function MissionForm() {
     duration_type: 'ponctuel',
     hourly_rate: '',
     urgency_level: 'a_venir',
-    comment: ''
+    comment: '',
+    service_continu: false
   })
 
   const handleChange = (e) => {
-    const { name, value } = e.target
+    const { name, value, type, checked } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }))
   }
 
@@ -157,6 +158,7 @@ export default function MissionForm() {
           contract_type: formData.contract_type,
           urgency_level: formData.urgency_level,
           comment: formData.comment || null,
+          service_continu: formData.service_continu,
           status: 'open'
         })
         .select()
@@ -295,6 +297,27 @@ export default function MissionForm() {
                     className="input"
                   />
                 </div>
+              </div>
+
+              {/* Service continu ou avec coupure */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="service_continu"
+                    checked={formData.service_continu}
+                    onChange={handleChange}
+                    className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  />
+                  <div>
+                    <span className="font-medium text-gray-900">Service continu</span>
+                    <p className="text-sm text-gray-500">
+                      {formData.service_continu 
+                        ? '✅ Sans coupure (service en continu)' 
+                        : '⏸️ Avec coupure (service coupé)'}
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
           </div>

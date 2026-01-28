@@ -332,7 +332,7 @@ export default function ChatWindow({ userType }) {
             )}
             {userType === 'talent' && !talentCvUrl && (
               <p className="text-xs text-amber-600 mt-1">
-                <a href="/talent/profile/edit" className="underline">Ajoutez votre CV</a> dans votre profil
+                <a href="/talent/edit-profile" className="underline">Ajoutez votre CV</a> dans votre profil
               </p>
             )}
             <p className="text-xs text-amber-500 mt-2">

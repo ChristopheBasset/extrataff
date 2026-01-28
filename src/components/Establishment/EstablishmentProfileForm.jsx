@@ -41,6 +41,29 @@ export default function EstablishmentProfileForm() {
     }))
   }
 
+  // Normaliser le numéro de téléphone (supprimer espaces, tirets, points)
+  const normalizePhone = (phone) => {
+    return phone.replace(/[\s\-\.]/g, '').trim()
+  }
+
+  // Vérifier si un établissement existe déjà avec ce téléphone
+  const checkPhoneExists = async (phone) => {
+    const normalizedPhone = normalizePhone(phone)
+    
+    const { data, error } = await supabase
+      .from('establishments')
+      .select('id, name')
+      .or(`phone.eq.${normalizedPhone},phone.eq.${phone}`)
+      .limit(1)
+
+    if (error) {
+      console.error('Erreur vérification téléphone:', error)
+      return false
+    }
+
+    return data && data.length > 0
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -53,6 +76,12 @@ export default function EstablishmentProfileForm() {
         throw new Error('Utilisateur non connecté')
       }
 
+      // Vérifier si le téléphone existe déjà
+      const phoneExists = await checkPhoneExists(formData.phone)
+      if (phoneExists) {
+        throw new Error('Ce numéro de téléphone est déjà associé à un établissement. Si vous êtes le propriétaire, connectez-vous avec votre compte existant.')
+      }
+
       // Utiliser les vraies coordonnées si disponibles, sinon Paris par défaut
       let location = 'POINT(2.3522 48.8566)' // Paris par défaut
       if (formData.coordinates && formData.coordinates.length === 2) {
@@ -62,6 +91,9 @@ export default function EstablishmentProfileForm() {
 
       // Déterminer le type final (si "autre", utiliser le champ texte)
       const finalType = formData.type === 'autre' ? formData.otherType : formData.type
+
+      // Normaliser le téléphone avant enregistrement
+      const normalizedPhone = normalizePhone(formData.phone)
 
       // Créer le profil établissement
       const { data, error } = await supabase
@@ -75,9 +107,10 @@ export default function EstablishmentProfileForm() {
           postal_code: formData.postal_code,
           department: formData.department,
           location: location,
-          phone: formData.phone,
+          phone: normalizedPhone,
           description: formData.description || null,
-          subscription_status: 'trial' // Période d'essai
+          subscription_status: 'freemium'
+          // trial_ends_at et missions_used sont gérés par le trigger SQL
         })
         .select()
         .single()
@@ -85,7 +118,7 @@ export default function EstablishmentProfileForm() {
       if (error) throw error
 
       // Rediriger vers le dashboard
-      alert('Profil créé avec succès !')
+      alert('Profil créé avec succès ! 🎉')
       window.location.href = '/establishment'
     } catch (err) {
       console.error('Erreur création profil:', err)
@@ -110,13 +143,13 @@ export default function EstablishmentProfileForm() {
             </div>
           )}
 
-          {/* Période d'essai */}
-          <div className="bg-primary-50 border border-primary-200 p-4 rounded-lg">
-            <p className="text-primary-900 font-medium mb-1">
-              🎁 14 jours d'essai gratuit
+          {/* Offre Freemium */}
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+            <p className="text-amber-900 font-medium mb-1">
+              🎁 Offre Freemium - 2 mois d'essai gratuit
             </p>
-            <p className="text-primary-700 text-sm">
-              Testez ExtraTaff gratuitement pendant 14 jours, puis 99€/mois pour des annonces illimitées.
+            <p className="text-amber-700 text-sm">
+              Testez ExtraTaff gratuitement pendant 2 mois avec jusqu'à 3 missions, puis 59,90€/mois pour des missions illimitées.
             </p>
           </div>
 
@@ -203,6 +236,9 @@ export default function EstablishmentProfileForm() {
                   className="input"
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Ce numéro sera utilisé pour identifier votre établissement de manière unique
+                </p>
               </div>
 
               <div>

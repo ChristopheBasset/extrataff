@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, POSITION_TYPES, CONTRACT_TYPES, DURATION_TYPES, URGENCY_LEVELS, generateFuzzyLocation } from '../../lib/supabase'
 
-export default function MissionForm() {
+export default function MissionForm({ onMissionCreated }) {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -123,7 +123,7 @@ export default function MissionForm() {
       
       const { data: establishment } = await supabase
         .from('establishments')
-        .select('id, name, address')
+        .select('id, name, address, subscription_status, trial_ends_at, missions_used')
         .eq('user_id', user.id)
         .single()
 
@@ -133,6 +133,22 @@ export default function MissionForm() {
 
       if (!establishment.address) {
         throw new Error('Adresse de l\'établissement manquante. Veuillez compléter votre profil.')
+      }
+
+      // Vérifier les limites freemium
+      const isFreemium = establishment.subscription_status === 'freemium'
+      const trialEndsAt = establishment.trial_ends_at ? new Date(establishment.trial_ends_at) : null
+      const isTrialExpired = trialEndsAt && trialEndsAt < new Date()
+      const missionsUsed = establishment.missions_used || 0
+      const FREEMIUM_MAX_MISSIONS = 3
+
+      if (isFreemium) {
+        if (isTrialExpired) {
+          throw new Error('Votre période d\'essai est terminée. Passez à l\'abonnement Premium pour continuer.')
+        }
+        if (missionsUsed >= FREEMIUM_MAX_MISSIONS) {
+          throw new Error(`Vous avez atteint la limite de ${FREEMIUM_MAX_MISSIONS} missions en offre Freemium. Passez à Premium pour publier plus de missions.`)
+        }
       }
 
       // Générer la localisation floue à partir de l'adresse
@@ -166,8 +182,25 @@ export default function MissionForm() {
 
       if (error) throw error
 
+      // Incrémenter le compteur de missions si freemium
+      if (isFreemium) {
+        const { error: updateError } = await supabase
+          .from('establishments')
+          .update({ missions_used: missionsUsed + 1 })
+          .eq('id', establishment.id)
+
+        if (updateError) {
+          console.error('Erreur mise à jour compteur missions:', updateError)
+        }
+      }
+
       // Notifier les talents qui matchent (notifications in-app)
       await notifyMatchingTalents(newMission, establishment.name, establishment.address)
+
+      // Callback pour mettre à jour le dashboard
+      if (onMissionCreated) {
+        onMissionCreated()
+      }
 
       alert('Mission créée avec succès ! 🎉')
       navigate('/establishment')
@@ -225,7 +258,7 @@ export default function MissionForm() {
                 className="input"
                 required
               >
-                <option value="">Sélectionnez un poste</option>
+                <option value="">Sélectionner un poste</option>
                 {POSITION_TYPES.map(pos => (
                   <option key={pos.value} value={pos.value}>
                     {pos.label}
@@ -235,9 +268,9 @@ export default function MissionForm() {
             </div>
           </div>
 
-          {/* Dates et horaires */}
+          {/* Planning */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">📅 Dates et horaires</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Planning</h3>
             <div className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>

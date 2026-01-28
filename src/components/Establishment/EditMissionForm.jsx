@@ -20,7 +20,7 @@ export default function EditMissionForm() {
     hourly_rate: '',
     urgency_level: 'a_venir',
     comment: '',
-    service_continu: false // Nouveau champ
+    service_continu: true
   })
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function EditMissionForm() {
         hourly_rate: mission.hourly_rate || '',
         urgency_level: mission.urgency_level || 'a_venir',
         comment: mission.comment || '',
-        service_continu: mission.service_continu || false
+        service_continu: mission.service_continu !== false // Par défaut true si non défini
       })
     } catch (err) {
       console.error('Erreur chargement mission:', err)
@@ -227,11 +227,9 @@ export default function EditMissionForm() {
         </div>
 
         {/* Bannière info */}
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6">
-          <p className="font-medium">💡 Mission relancée</p>
-          <p className="text-sm mt-1">
-            Les informations de l'ancienne mission ont été conservées. 
-            Mettez à jour les dates et horaires avant de republier.
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <p className="text-blue-800 text-sm">
+            ℹ️ Cette mission sera republiée et les talents correspondants seront notifiés.
           </p>
         </div>
 
@@ -257,9 +255,9 @@ export default function EditMissionForm() {
                 required
               >
                 <option value="">Sélectionnez un poste</option>
-                {POSITION_TYPES.map(position => (
-                  <option key={position.value} value={position.value}>
-                    {position.label}
+                {POSITION_TYPES.map(pos => (
+                  <option key={pos.value} value={pos.value}>
+                    {pos.label}
                   </option>
                 ))}
               </select>
@@ -327,25 +325,33 @@ export default function EditMissionForm() {
                 </div>
               </div>
 
-              {/* Service continu ou avec coupure */}
+              {/* Service continu ou avec coupure - Boutons radio */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="service_continu"
-                    checked={formData.service_continu}
-                    onChange={handleChange}
-                    className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                  />
-                  <div>
-                    <span className="font-medium text-gray-900">Service continu</span>
-                    <p className="text-sm text-gray-500">
-                      {formData.service_continu 
-                        ? '✅ Sans coupure (service en continu)' 
-                        : '⏸️ Avec coupure (service coupé)'}
-                    </p>
-                  </div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Type de service
                 </label>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="service_continu"
+                      checked={formData.service_continu === true}
+                      onChange={() => setFormData(prev => ({ ...prev, service_continu: true }))}
+                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                    />
+                    <span className="text-gray-900">Service continu</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="service_continu"
+                      checked={formData.service_continu === false}
+                      onChange={() => setFormData(prev => ({ ...prev, service_continu: false }))}
+                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                    />
+                    <span className="text-gray-900">Avec coupure</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>

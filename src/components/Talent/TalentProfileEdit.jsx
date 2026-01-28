@@ -19,7 +19,8 @@ export default function TalentProfileEdit() {
     years_experience: 0,
     contract_preferences: [],
     min_hourly_rate: '',
-    bio: ''
+    bio: '',
+    accepts_coupure: true
   })
 
   useEffect(() => {
@@ -50,7 +51,8 @@ export default function TalentProfileEdit() {
           years_experience: data.years_experience || 0,
           contract_preferences: data.contract_preferences || [],
           min_hourly_rate: data.min_hourly_rate || '',
-          bio: data.bio || ''
+          bio: data.bio || '',
+          accepts_coupure: data.accepts_coupure !== false // Par défaut true si non défini
         })
       }
     } catch (err) {
@@ -116,7 +118,8 @@ export default function TalentProfileEdit() {
           years_experience: parseInt(formData.years_experience),
           contract_preferences: formData.contract_preferences,
           min_hourly_rate: formData.min_hourly_rate ? parseFloat(formData.min_hourly_rate) : null,
-          bio: formData.bio || null
+          bio: formData.bio || null,
+          accepts_coupure: formData.accepts_coupure
         })
         .eq('user_id', user.id)
 
@@ -302,6 +305,42 @@ export default function TalentProfileEdit() {
             {formData.position_types.length === 0 && (
               <p className="text-xs text-red-600 mt-1">Sélectionnez au moins un type de poste</p>
             )}
+          </div>
+
+          {/* Préférence service continu / avec coupure */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Type de service accepté
+            </label>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="accepts_coupure"
+                    checked={formData.accepts_coupure === true}
+                    onChange={() => setFormData(prev => ({ ...prev, accepts_coupure: true }))}
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-gray-900">Les deux</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="accepts_coupure"
+                    checked={formData.accepts_coupure === false}
+                    onChange={() => setFormData(prev => ({ ...prev, accepts_coupure: false }))}
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-gray-900">Service continu uniquement</span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {formData.accepts_coupure 
+                  ? 'Vous verrez toutes les missions (avec ou sans coupure)' 
+                  : 'Vous ne verrez que les missions en service continu'}
+              </p>
+            </div>
           </div>
 
           {/* Expérience */}

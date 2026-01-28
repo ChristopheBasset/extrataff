@@ -18,7 +18,7 @@ export default function MissionForm() {
     hourly_rate: '',
     urgency_level: 'a_venir',
     comment: '',
-    service_continu: false
+    service_continu: true
   })
 
   const handleChange = (e) => {
@@ -226,9 +226,9 @@ export default function MissionForm() {
                 required
               >
                 <option value="">Sélectionnez un poste</option>
-                {POSITION_TYPES.map(position => (
-                  <option key={position.value} value={position.value}>
-                    {position.label}
+                {POSITION_TYPES.map(pos => (
+                  <option key={pos.value} value={pos.value}>
+                    {pos.label}
                   </option>
                 ))}
               </select>
@@ -237,7 +237,7 @@ export default function MissionForm() {
 
           {/* Dates et horaires */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dates et horaires</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">📅 Dates et horaires</h3>
             <div className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
@@ -299,25 +299,33 @@ export default function MissionForm() {
                 </div>
               </div>
 
-              {/* Service continu ou avec coupure */}
+              {/* Service continu ou avec coupure - Boutons radio */}
               <div className="bg-gray-50 p-4 rounded-lg">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="service_continu"
-                    checked={formData.service_continu}
-                    onChange={handleChange}
-                    className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                  />
-                  <div>
-                    <span className="font-medium text-gray-900">Service continu</span>
-                    <p className="text-sm text-gray-500">
-                      {formData.service_continu 
-                        ? '✅ Sans coupure (service en continu)' 
-                        : '⏸️ Avec coupure (service coupé)'}
-                    </p>
-                  </div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Type de service
                 </label>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="service_continu"
+                      checked={formData.service_continu === true}
+                      onChange={() => setFormData(prev => ({ ...prev, service_continu: true }))}
+                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                    />
+                    <span className="text-gray-900">Service continu</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="service_continu"
+                      checked={formData.service_continu === false}
+                      onChange={() => setFormData(prev => ({ ...prev, service_continu: false }))}
+                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                    />
+                    <span className="text-gray-900">Avec coupure</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>

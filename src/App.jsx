@@ -19,6 +19,10 @@ import EstablishmentProfileForm from './components/Establishment/EstablishmentPr
 // Formulaires mission
 import EditMissionForm from './components/Establishment/EditMissionForm'
 
+// Abonnement
+import Subscribe from './pages/establishment/Subscribe'
+import SubscribeSuccess from './pages/establishment/SubscribeSuccess'
+
 // Admin
 import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -90,6 +94,16 @@ function App() {
         <Route 
           path="/establishment/edit-mission/:missionId" 
           element={session ? <EditMissionForm /> : <Navigate to="/login" />} 
+        />
+
+        {/* Routes abonnement Stripe */}
+        <Route 
+          path="/establishment/subscribe" 
+          element={session ? <Subscribe /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/establishment/subscribe/success" 
+          element={session ? <SubscribeSuccess /> : <Navigate to="/login" />} 
         />
 
         {/* Routes protégées - Établissement */}

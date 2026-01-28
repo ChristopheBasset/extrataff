@@ -166,7 +166,7 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    navigate('/login')
+    navigate('/admin')
   }
 
   const formatDate = (dateString) => {
@@ -217,10 +217,10 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Accès refusé</h1>
           <p className="text-gray-600 mb-6">Vous n'avez pas les droits d'administration.</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/admin')}
             className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
           >
-            Retour à l'accueil
+            Retour à la connexion
           </button>
         </div>
       </div>

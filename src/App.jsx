@@ -18,6 +18,7 @@ import EstablishmentProfileForm from './components/Establishment/EstablishmentPr
 import EditMissionForm from './components/Establishment/EditMissionForm'
 
 // Admin
+import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
 
 function App() {
@@ -61,10 +62,11 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Route Admin */}
+        {/* Routes Admin */}
+        <Route path="/admin" element={<AdminLogin />} />
         <Route 
-          path="/admin" 
-          element={session ? <AdminDashboard /> : <Navigate to="/login" />} 
+          path="/admin/dashboard" 
+          element={session ? <AdminDashboard /> : <Navigate to="/admin" />} 
         />
 
         {/* Routes formulaires profil (après création compte) */}

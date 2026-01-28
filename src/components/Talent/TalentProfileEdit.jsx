@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, POSITION_TYPES, CONTRACT_TYPES, FRENCH_DEPARTMENTS } from '../../lib/supabase'
+import AddressAutocomplete from '../shared/AddressAutocomplete'
 
 export default function TalentProfileEdit() {
   const navigate = useNavigate()
@@ -12,7 +13,11 @@ export default function TalentProfileEdit() {
     first_name: '',
     last_name: '',
     phone: '',
+    address: '',
     city: '',
+    postal_code: '',
+    department: '',
+    coordinates: null,
     search_radius: 10,
     preferred_departments: [],
     position_types: [],
@@ -44,7 +49,11 @@ export default function TalentProfileEdit() {
           first_name: data.first_name || '',
           last_name: data.last_name || '',
           phone: data.phone || '',
-          city: '', // On n'a pas stocké la ville, juste la localisation
+          address: data.address || '',
+          city: data.city || '',
+          postal_code: data.postal_code || '',
+          department: data.department || '',
+          coordinates: null, // On ne récupère pas les coordonnées existantes
           search_radius: data.search_radius || 10,
           preferred_departments: data.preferred_departments || [],
           position_types: data.position_types || [],
@@ -68,6 +77,18 @@ export default function TalentProfileEdit() {
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }))
+  }
+
+  // Gestion de l'adresse avec autocomplete
+  const handleAddressChange = (addressData) => {
+    setFormData(prev => ({
+      ...prev,
+      address: addressData.address,
+      city: addressData.city,
+      postal_code: addressData.postcode,
+      department: addressData.department,
+      coordinates: addressData.coordinates
     }))
   }
 
@@ -106,21 +127,33 @@ export default function TalentProfileEdit() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
+      // Préparer les données à mettre à jour
+      const updateData = {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        postal_code: formData.postal_code,
+        department: formData.department,
+        search_radius: parseInt(formData.search_radius),
+        preferred_departments: formData.preferred_departments,
+        position_types: formData.position_types,
+        years_experience: parseInt(formData.years_experience),
+        contract_preferences: formData.contract_preferences,
+        min_hourly_rate: formData.min_hourly_rate ? parseFloat(formData.min_hourly_rate) : null,
+        bio: formData.bio || null,
+        accepts_coupure: formData.accepts_coupure
+      }
+
+      // Mettre à jour les coordonnées seulement si une nouvelle adresse a été sélectionnée
+      if (formData.coordinates && formData.coordinates.length === 2) {
+        updateData.location = `POINT(${formData.coordinates[0]} ${formData.coordinates[1]})`
+      }
+
       const { error } = await supabase
         .from('talents')
-        .update({
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          phone: formData.phone,
-          search_radius: parseInt(formData.search_radius),
-          preferred_departments: formData.preferred_departments,
-          position_types: formData.position_types,
-          years_experience: parseInt(formData.years_experience),
-          contract_preferences: formData.contract_preferences,
-          min_hourly_rate: formData.min_hourly_rate ? parseFloat(formData.min_hourly_rate) : null,
-          bio: formData.bio || null,
-          accepts_coupure: formData.accepts_coupure
-        })
+        .update(updateData)
         .eq('user_id', user.id)
 
       if (error) throw error
@@ -204,6 +237,17 @@ export default function TalentProfileEdit() {
                   onChange={handleChange}
                   placeholder="06 12 34 56 78"
                   className="input"
+                  required
+                />
+              </div>
+
+              <div>
+                {/* Adresse avec autocomplete */}
+                <AddressAutocomplete
+                  value={formData.address}
+                  onChange={handleAddressChange}
+                  label="Adresse *"
+                  placeholder="Tapez votre adresse..."
                   required
                 />
               </div>

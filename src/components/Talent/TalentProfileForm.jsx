@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, POSITION_TYPES, CONTRACT_TYPES, FRENCH_DEPARTMENTS } from '../../lib/supabase'
+import AddressAutocomplete from '../shared/AddressAutocomplete'
 
 export default function TalentProfileForm() {
   const navigate = useNavigate()
@@ -11,7 +12,11 @@ export default function TalentProfileForm() {
     first_name: '',
     last_name: '',
     phone: '',
+    address: '',
     city: '',
+    postal_code: '',
+    department: '',
+    coordinates: null,
     search_radius: 10,
     preferred_departments: [],
     position_types: [],
@@ -27,6 +32,18 @@ export default function TalentProfileForm() {
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }))
+  }
+
+  // Gestion de l'adresse avec autocomplete
+  const handleAddressChange = (addressData) => {
+    setFormData(prev => ({
+      ...prev,
+      address: addressData.address,
+      city: addressData.city,
+      postal_code: addressData.postcode,
+      department: addressData.department,
+      coordinates: addressData.coordinates
     }))
   }
 
@@ -72,9 +89,12 @@ export default function TalentProfileForm() {
       // Générer les initiales
       const initials = `${formData.first_name[0]}${formData.last_name[0]}`.toUpperCase()
 
-      // Pour l'instant, on utilise des coordonnées par défaut (Paris)
-      // On ajoutera la vraie géolocalisation plus tard
-      const defaultLocation = 'POINT(2.3522 48.8566)' // Paris
+      // Utiliser les vraies coordonnées si disponibles, sinon Paris par défaut
+      let location = 'POINT(2.3522 48.8566)' // Paris par défaut
+      if (formData.coordinates && formData.coordinates.length === 2) {
+        // L'API retourne [lng, lat]
+        location = `POINT(${formData.coordinates[0]} ${formData.coordinates[1]})`
+      }
 
       // Créer le profil talent
       const { data, error } = await supabase
@@ -84,7 +104,11 @@ export default function TalentProfileForm() {
           first_name: formData.first_name,
           last_name: formData.last_name,
           phone: formData.phone,
-          location: defaultLocation,
+          address: formData.address,
+          city: formData.city,
+          postal_code: formData.postal_code,
+          department: formData.department,
+          location: location,
           search_radius: parseInt(formData.search_radius),
           preferred_departments: formData.preferred_departments,
           position_types: formData.position_types,
@@ -174,16 +198,12 @@ export default function TalentProfileForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ville *
-                </label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  placeholder="Paris"
-                  className="input"
+                {/* Adresse avec autocomplete */}
+                <AddressAutocomplete
+                  value={formData.address}
+                  onChange={handleAddressChange}
+                  label="Adresse *"
+                  placeholder="Tapez votre adresse..."
                   required
                 />
               </div>

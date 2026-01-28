@@ -149,7 +149,7 @@ export default function Subscribe() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </span>
-                <span className="text-gray-700">Accès à <strong>tous les talents</strong></span>
+                <span className="text-gray-700">Accès à <strong>tous les établissements</strong></span>
               </li>
               <li className="flex items-center gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">

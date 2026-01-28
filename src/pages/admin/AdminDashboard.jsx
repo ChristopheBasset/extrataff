@@ -2,15 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
-// Liste des emails admin autorisés
-const ADMIN_EMAILS = [
-  'christophe@comunecom.fr'
-]
-
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [currentUserEmail, setCurrentUserEmail] = useState('')
   const [activeTab, setActiveTab] = useState('stats')
   const [stats, setStats] = useState({
     totalTalents: 0,
@@ -25,9 +21,15 @@ export default function AdminDashboard() {
   const [establishments, setEstablishments] = useState([])
   const [missions, setMissions] = useState([])
   const [applications, setApplications] = useState([])
+  const [admins, setAdmins] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [actionLoading, setActionLoading] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
+  
+  // Formulaire nouvel admin
+  const [newAdminEmail, setNewAdminEmail] = useState('')
+  const [newAdminName, setNewAdminName] = useState('')
+  const [addingAdmin, setAddingAdmin] = useState(false)
 
   useEffect(() => {
     checkAdmin()
@@ -37,7 +39,22 @@ export default function AdminDashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       
-      if (!user || !ADMIN_EMAILS.includes(user.email)) {
+      if (!user) {
+        setIsAdmin(false)
+        setLoading(false)
+        return
+      }
+
+      setCurrentUserEmail(user.email)
+
+      // Vérifier si l'email est dans la table admins
+      const { data: adminData, error } = await supabase
+        .from('admins')
+        .select('id')
+        .eq('email', user.email)
+        .single()
+
+      if (error || !adminData) {
         setIsAdmin(false)
         setLoading(false)
         return
@@ -49,10 +66,25 @@ export default function AdminDashboard() {
       await loadEstablishments()
       await loadMissions()
       await loadApplications()
+      await loadAdmins()
     } catch (err) {
       console.error('Erreur vérification admin:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadAdmins = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admins')
+        .select('*')
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      setAdmins(data || [])
+    } catch (err) {
+      console.error('Erreur chargement admins:', err)
     }
   }
 
@@ -231,6 +263,66 @@ export default function AdminDashboard() {
     }
   }
 
+  const addAdmin = async (e) => {
+    e.preventDefault()
+    if (!newAdminEmail.trim()) return
+
+    setAddingAdmin(true)
+    try {
+      const { error } = await supabase
+        .from('admins')
+        .insert({
+          email: newAdminEmail.trim().toLowerCase(),
+          name: newAdminName.trim() || null,
+          created_by: currentUserEmail
+        })
+
+      if (error) {
+        if (error.code === '23505') {
+          alert('Cet email est déjà administrateur')
+        } else {
+          throw error
+        }
+        return
+      }
+
+      setNewAdminEmail('')
+      setNewAdminName('')
+      await loadAdmins()
+    } catch (err) {
+      console.error('Erreur ajout admin:', err)
+      alert('Erreur lors de l\'ajout')
+    } finally {
+      setAddingAdmin(false)
+    }
+  }
+
+  const removeAdmin = async (adminId, adminEmail) => {
+    // Empêcher de se supprimer soi-même
+    if (adminEmail === currentUserEmail) {
+      alert('Vous ne pouvez pas vous supprimer vous-même')
+      return
+    }
+
+    if (!confirm(`Supprimer ${adminEmail} des administrateurs ?`)) return
+
+    setActionLoading(adminId)
+    try {
+      const { error } = await supabase
+        .from('admins')
+        .delete()
+        .eq('id', adminId)
+
+      if (error) throw error
+      await loadAdmins()
+    } catch (err) {
+      console.error('Erreur suppression admin:', err)
+      alert('Erreur lors de la suppression')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     navigate('/admin')
@@ -346,7 +438,7 @@ export default function AdminDashboard() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-xl font-bold text-gray-900">🛠️ Admin ExtraTaff</h1>
-              <p className="text-sm text-gray-500">Tableau de bord</p>
+              <p className="text-sm text-gray-500">{currentUserEmail}</p>
             </div>
             <button 
               onClick={handleLogout}
@@ -411,6 +503,16 @@ export default function AdminDashboard() {
               }`}
             >
               ✉️ Candidatures ({stats.totalApplications})
+            </button>
+            <button
+              onClick={() => { setActiveTab('admins'); setSearchTerm(''); }}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                activeTab === 'admins'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              👑 Admins ({admins.length})
             </button>
           </div>
         </div>
@@ -765,6 +867,93 @@ export default function AdminDashboard() {
                 </table>
                 {filteredApplications.length === 0 && (
                   <p className="text-center text-gray-500 py-8">Aucune candidature trouvée</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Admins */}
+        {activeTab === 'admins' && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Gestion des administrateurs</h2>
+            
+            {/* Formulaire ajout admin */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+              <h3 className="font-medium text-gray-900 mb-3">Ajouter un administrateur</h3>
+              <form onSubmit={addAdmin} className="flex flex-col md:flex-row gap-3">
+                <input
+                  type="email"
+                  placeholder="Email *"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  required
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Nom (optionnel)"
+                  value={newAdminName}
+                  onChange={(e) => setNewAdminName(e.target.value)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <button
+                  type="submit"
+                  disabled={addingAdmin}
+                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {addingAdmin ? 'Ajout...' : '+ Ajouter'}
+                </button>
+              </form>
+              <p className="text-xs text-gray-500 mt-2">
+                L'email doit correspondre à un compte existant ou futur sur ExtraTaff.
+              </p>
+            </div>
+
+            {/* Liste des admins */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Email</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Nom</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ajouté le</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ajouté par</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {admins.map(admin => (
+                      <tr key={admin.id} className={admin.email === currentUserEmail ? 'bg-primary-50' : ''}>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {admin.email}
+                          {admin.email === currentUserEmail && (
+                            <span className="ml-2 text-xs text-primary-600">(vous)</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{admin.name || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(admin.created_at)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{admin.created_by || '-'}</td>
+                        <td className="px-4 py-3">
+                          {admin.email !== currentUserEmail ? (
+                            <button
+                              onClick={() => removeAdmin(admin.id, admin.email)}
+                              disabled={actionLoading === admin.id}
+                              className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+                            >
+                              {actionLoading === admin.id ? '...' : 'Supprimer'}
+                            </button>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {admins.length === 0 && (
+                  <p className="text-center text-gray-500 py-8">Aucun administrateur</p>
                 )}
               </div>
             </div>

@@ -44,10 +44,11 @@ export default function Subscribe() {
     setError('')
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      // Forcer le refresh de la session
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession()
       
-      if (!session) {
-        throw new Error('Session non trouvée. Veuillez vous reconnecter.')
+      if (sessionError || !session) {
+        throw new Error('Session expirée. Veuillez vous reconnecter.')
       }
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL

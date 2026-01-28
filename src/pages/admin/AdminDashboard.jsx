@@ -71,7 +71,7 @@ export default function AdminDashboard() {
         .select('*', { count: 'exact', head: true })
 
       const { count: applicationsCount } = await supabase
-        .from('applications')
+        .from('candidatures')
         .select('*', { count: 'exact', head: true })
 
       const { count: activeMissionsCount } = await supabase
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
         .eq('status', 'active')
 
       const { count: acceptedApplicationsCount } = await supabase
-        .from('applications')
+        .from('candidatures')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'accepted')
 
@@ -142,11 +142,9 @@ export default function AdminDashboard() {
         .from('missions')
         .select(`
           id,
-          position_type,
-          description,
-          date,
-          start_time,
-          end_time,
+          position,
+          location_fuzzy,
+          location_exact,
           status,
           created_at,
           establishment:establishment_id (
@@ -166,7 +164,7 @@ export default function AdminDashboard() {
   const loadApplications = async () => {
     try {
       const { data, error } = await supabase
-        .from('applications')
+        .from('candidatures')
         .select(`
           id,
           status,
@@ -178,8 +176,7 @@ export default function AdminDashboard() {
           ),
           mission:mission_id (
             id,
-            position_type,
-            date,
+            position,
             establishment:establishment_id (
               name
             )
@@ -291,8 +288,9 @@ export default function AdminDashboard() {
   const filteredMissions = missions.filter(m => {
     const search = searchTerm.toLowerCase()
     const matchesSearch = (
-      m.position_type?.toLowerCase().includes(search) ||
-      m.establishment?.name?.toLowerCase().includes(search)
+      m.position?.toLowerCase().includes(search) ||
+      m.establishment?.name?.toLowerCase().includes(search) ||
+      m.location_fuzzy?.toLowerCase().includes(search)
     )
     const matchesStatus = filterStatus === 'all' || m.status === filterStatus
     return matchesSearch && matchesStatus
@@ -305,7 +303,7 @@ export default function AdminDashboard() {
       a.talent?.first_name?.toLowerCase().includes(search) ||
       a.talent?.last_name?.toLowerCase().includes(search) ||
       a.mission?.establishment?.name?.toLowerCase().includes(search) ||
-      a.mission?.position_type?.toLowerCase().includes(search)
+      a.mission?.position?.toLowerCase().includes(search)
     )
     const matchesStatus = filterStatus === 'all' || a.status === filterStatus
     return matchesSearch && matchesStatus
@@ -688,8 +686,7 @@ export default function AdminDashboard() {
                     <tr>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Établissement</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Poste</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Horaires</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Localisation</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Créée le</th>
                     </tr>
@@ -698,11 +695,8 @@ export default function AdminDashboard() {
                     {filteredMissions.map(mission => (
                       <tr key={mission.id}>
                         <td className="px-4 py-3 text-sm text-gray-900">{mission.establishment?.name || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{mission.position_type}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(mission.date)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {mission.start_time?.slice(0, 5)} - {mission.end_time?.slice(0, 5)}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{mission.position}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{mission.location_fuzzy || '-'}</td>
                         <td className="px-4 py-3">{getStatusBadge(mission.status)}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{formatDate(mission.created_at)}</td>
                       </tr>
@@ -751,7 +745,6 @@ export default function AdminDashboard() {
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Talent</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Établissement</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Poste</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date mission</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Candidature le</th>
                     </tr>
@@ -763,8 +756,7 @@ export default function AdminDashboard() {
                           {application.talent?.first_name} {application.talent?.last_name}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">{application.mission?.establishment?.name || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{application.mission?.position_type || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(application.mission?.date)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{application.mission?.position || '-'}</td>
                         <td className="px-4 py-3">{getStatusBadge(application.status)}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{formatDate(application.created_at)}</td>
                       </tr>

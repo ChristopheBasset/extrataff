@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, ESTABLISHMENT_TYPES } from '../../lib/supabase'
+import AddressAutocomplete from '../shared/AddressAutocomplete'
 
 export default function EstablishmentProfileForm() {
   const navigate = useNavigate()
@@ -12,6 +13,10 @@ export default function EstablishmentProfileForm() {
     type: '',
     otherType: '',
     address: '',
+    city: '',
+    postal_code: '',
+    department: '',
+    coordinates: null,
     phone: '',
     description: ''
   })
@@ -21,6 +26,18 @@ export default function EstablishmentProfileForm() {
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }))
+  }
+
+  // Gestion de l'adresse avec autocomplete
+  const handleAddressChange = (addressData) => {
+    setFormData(prev => ({
+      ...prev,
+      address: addressData.address,
+      city: addressData.city,
+      postal_code: addressData.postcode,
+      department: addressData.department,
+      coordinates: addressData.coordinates
     }))
   }
 
@@ -36,9 +53,12 @@ export default function EstablishmentProfileForm() {
         throw new Error('Utilisateur non connecté')
       }
 
-      // Pour l'instant, on utilise des coordonnées par défaut (Paris)
-      // On ajoutera la vraie géolocalisation plus tard
-      const defaultLocation = 'POINT(2.3522 48.8566)' // Paris
+      // Utiliser les vraies coordonnées si disponibles, sinon Paris par défaut
+      let location = 'POINT(2.3522 48.8566)' // Paris par défaut
+      if (formData.coordinates && formData.coordinates.length === 2) {
+        // L'API retourne [lng, lat]
+        location = `POINT(${formData.coordinates[0]} ${formData.coordinates[1]})`
+      }
 
       // Déterminer le type final (si "autre", utiliser le champ texte)
       const finalType = formData.type === 'autre' ? formData.otherType : formData.type
@@ -51,7 +71,10 @@ export default function EstablishmentProfileForm() {
           name: formData.name,
           type: finalType,
           address: formData.address,
-          location: defaultLocation,
+          city: formData.city,
+          postal_code: formData.postal_code,
+          department: formData.department,
+          location: location,
           phone: formData.phone,
           description: formData.description || null,
           subscription_status: 'trial' // Période d'essai
@@ -155,23 +178,17 @@ export default function EstablishmentProfileForm() {
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Adresse complète *
-                </label>
-                <input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  placeholder="123 Rue de Rivoli, 75001 Paris"
-                  className="input"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  L'adresse exacte ne sera pas affichée publiquement (quartier uniquement)
-                </p>
-              </div>
+              {/* Adresse avec autocomplete */}
+              <AddressAutocomplete
+                value={formData.address}
+                onChange={handleAddressChange}
+                label="Adresse complète *"
+                placeholder="Tapez une adresse..."
+                required
+              />
+              <p className="text-xs text-gray-500 -mt-2">
+                L'adresse exacte ne sera pas affichée publiquement (quartier uniquement)
+              </p>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

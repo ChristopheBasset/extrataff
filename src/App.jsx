@@ -17,6 +17,9 @@ import EstablishmentProfileForm from './components/Establishment/EstablishmentPr
 // Formulaires mission
 import EditMissionForm from './components/Establishment/EditMissionForm'
 
+// Admin
+import AdminDashboard from './pages/admin/AdminDashboard'
+
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -57,6 +60,12 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/register" element={<Register />} />
+
+        {/* Route Admin */}
+        <Route 
+          path="/admin" 
+          element={session ? <AdminDashboard /> : <Navigate to="/login" />} 
+        />
 
         {/* Routes formulaires profil (après création compte) */}
         {/* IMPORTANT: Ces routes doivent être AVANT les routes wildcard /* */}

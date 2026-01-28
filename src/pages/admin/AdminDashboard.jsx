@@ -114,7 +114,7 @@ export default function AdminDashboard() {
     try {
       const { data, error } = await supabase
         .from('establishments')
-        .select('id, user_id, name, phone, city, establishment_type, is_blocked, created_at')
+        .select('id, user_id, name, phone, address, is_blocked, created_at')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -193,7 +193,7 @@ export default function AdminDashboard() {
     const search = searchTerm.toLowerCase()
     return (
       e.name?.toLowerCase().includes(search) ||
-      e.city?.toLowerCase().includes(search) ||
+      e.address?.toLowerCase().includes(search) ||
       e.phone?.includes(search)
     )
   })
@@ -447,8 +447,7 @@ export default function AdminDashboard() {
                     <tr>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Nom</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Téléphone</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ville</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Adresse</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Inscrit le</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Action</th>
@@ -459,8 +458,7 @@ export default function AdminDashboard() {
                       <tr key={establishment.id} className={establishment.is_blocked ? 'bg-red-50' : ''}>
                         <td className="px-4 py-3 text-sm text-gray-900">{establishment.name}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{establishment.phone}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{establishment.city || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{establishment.establishment_type || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{establishment.address || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{formatDate(establishment.created_at)}</td>
                         <td className="px-4 py-3">
                           {establishment.is_blocked ? (

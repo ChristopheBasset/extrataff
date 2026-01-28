@@ -64,6 +64,24 @@ export default function EstablishmentProfileForm() {
     return data && data.length > 0
   }
 
+  // Vérifier si un établissement existe déjà avec cette adresse
+  const checkAddressExists = async (address) => {
+    if (!address || address.trim() === '') return false
+    
+    const { data, error } = await supabase
+      .from('establishments')
+      .select('id, name')
+      .eq('address', address.trim())
+      .limit(1)
+
+    if (error) {
+      console.error('Erreur vérification adresse:', error)
+      return false
+    }
+
+    return data && data.length > 0
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -80,6 +98,12 @@ export default function EstablishmentProfileForm() {
       const phoneExists = await checkPhoneExists(formData.phone)
       if (phoneExists) {
         throw new Error('Ce numéro de téléphone est déjà associé à un établissement. Si vous êtes le propriétaire, connectez-vous avec votre compte existant.')
+      }
+
+      // Vérifier si l'adresse existe déjà
+      const addressExists = await checkAddressExists(formData.address)
+      if (addressExists) {
+        throw new Error('Cette adresse est déjà associée à un établissement. Si vous êtes le propriétaire, connectez-vous avec votre compte existant.')
       }
 
       // Utiliser les vraies coordonnées si disponibles, sinon Paris par défaut
@@ -220,7 +244,7 @@ export default function EstablishmentProfileForm() {
                 required
               />
               <p className="text-xs text-gray-500 -mt-2">
-                L'adresse exacte ne sera pas affichée publiquement (quartier uniquement)
+                L'adresse exacte ne sera pas affichée publiquement. Elle sert à identifier votre établissement de manière unique.
               </p>
 
               <div>

@@ -1,3 +1,4 @@
+// Dashboard Établissement - Version complète avec Badge Premium et Onglet Abonnement
 import { supabase } from '../../lib/supabase'
 import { useNavigate, Routes, Route } from 'react-router-dom'
 import { useEffect, useState } from 'react'
@@ -10,6 +11,7 @@ import ChatList from '../../components/shared/ChatList'
 import ChatWindow from '../../components/shared/ChatWindow'
 import NotificationBadge from '../../components/shared/NotificationBadge'
 import NotificationList from '../../components/shared/NotificationList'
+import SubscriptionManager from '../../components/Establishment/SubscriptionManager'
 
 const FREEMIUM_MAX_MISSIONS = 3
 const SUBSCRIPTION_PRICE = 59.90
@@ -97,16 +99,23 @@ export default function EstablishmentDashboard() {
     navigate('/login')
   }
 
-  // Calculs freemium
+  // Calculs abonnement
+  const isPremium = profile?.subscription_status === 'active'
   const isFreemium = profile?.subscription_status === 'freemium'
   const trialEndsAt = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null
-  const isTrialExpired = trialEndsAt && trialEndsAt < new Date()
+  const subscriptionEndsAt = profile?.subscription_ends_at ? new Date(profile.subscription_ends_at) : null
+  const isTrialExpired = isFreemium && trialEndsAt && trialEndsAt < new Date()
   const missionsUsed = profile?.missions_used || 0
   const missionsRemaining = FREEMIUM_MAX_MISSIONS - missionsUsed
-  const canCreateMission = !isFreemium || (!isTrialExpired && missionsRemaining > 0)
+  const canCreateMission = isPremium || (isFreemium && !isTrialExpired && missionsRemaining > 0)
   
   // Calcul des jours restants
   const getDaysRemaining = () => {
+    if (isPremium && subscriptionEndsAt) {
+      const now = new Date()
+      const diff = subscriptionEndsAt - now
+      return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+    }
     if (!trialEndsAt) return 0
     const now = new Date()
     const diff = trialEndsAt - now
@@ -135,66 +144,64 @@ export default function EstablishmentDashboard() {
     return <EstablishmentProfileForm />
   }
 
-  // Composant bannière Freemium
-  const FreemiumBanner = () => {
-    if (!isFreemium) return null
-
-    const daysRemaining = getDaysRemaining()
-
-    return (
-      <div className={`mx-4 mt-4 rounded-xl p-4 ${isTrialExpired ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'}`}>
-        <div className="flex items-start gap-3">
-          <div className="text-2xl">
-            {isTrialExpired ? '⚠️' : '🎁'}
-          </div>
-          <div className="flex-1">
-            {isTrialExpired ? (
-              <>
-                <p className="font-semibold text-red-800">Votre période d'essai est terminée</p>
-                <p className="text-sm text-red-700 mt-1">
-                  Pour continuer à publier des missions, passez à l'abonnement premium à {SUBSCRIPTION_PRICE}€/mois.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="font-semibold text-amber-800">Offre Freemium</p>
-                <p className="text-sm text-amber-700 mt-1">
-                  Vous bénéficiez de <strong>{daysRemaining} jour{daysRemaining > 1 ? 's' : ''}</strong> d'essai gratuit 
-                  (jusqu'au {formatDate(trialEndsAt)}).
-                </p>
-                <p className="text-sm text-amber-700 mt-1">
-                  <strong>{missionsRemaining}</strong> mission{missionsRemaining > 1 ? 's' : ''} restante{missionsRemaining > 1 ? 's' : ''} sur {FREEMIUM_MAX_MISSIONS}.
-                </p>
-                <p className="text-sm text-amber-600 mt-2">
-                  Après cette période, l'abonnement passe à <strong>{SUBSCRIPTION_PRICE}€/mois</strong>.
-                </p>
-              </>
-            )}
-            <button
-              onClick={() => navigate('/establishment/subscribe')}
-              className={`mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isTrialExpired 
-                  ? 'bg-red-600 text-white hover:bg-red-700' 
-                  : 'bg-amber-600 text-white hover:bg-amber-700'
-              }`}
-            >
-              {isTrialExpired ? 'Souscrire maintenant' : 'Passer à Premium'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+  // Composant Badge Premium/Freemium (cliquable)
+  const StatusBadge = () => {
+    if (isPremium) {
+      const daysRemaining = getDaysRemaining()
+      return (
+        <button
+          onClick={() => navigate('/establishment/subscription')}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-sm font-medium rounded-full shadow-sm hover:shadow-md transition-all"
+          title="Voir mon abonnement"
+        >
+          <span>⭐</span>
+          <span>Premium</span>
+          <span className="text-xs opacity-80">• {daysRemaining}j</span>
+        </button>
+      )
+    }
+    
+    if (isFreemium) {
+      const daysRemaining = getDaysRemaining()
+      if (isTrialExpired) {
+        return (
+          <button
+            onClick={() => navigate('/establishment/subscribe')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-700 text-sm font-medium rounded-full hover:bg-red-200 transition-colors animate-pulse"
+          >
+            <span>⚠️</span>
+            <span>Essai terminé</span>
+          </button>
+        )
+      }
+      return (
+        <button
+          onClick={() => navigate('/establishment/subscription')}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 text-sm font-medium rounded-full hover:bg-amber-200 transition-colors"
+        >
+          <span>🎁</span>
+          <span>{daysRemaining}j restants</span>
+          <span className="text-xs opacity-70">• {missionsRemaining}/{FREEMIUM_MAX_MISSIONS}</span>
+        </button>
+      )
+    }
+    
+    return null
   }
 
   const DashboardHome = () => (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Header avec Badge */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Mon Dashboard</h1>
-              <p className="text-sm text-gray-500">{profile.name} 🏢</p>
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Mon Dashboard</h1>
+                <p className="text-sm text-gray-500">{profile.name} 🏢</p>
+              </div>
+              {/* Badge Premium/Freemium */}
+              <StatusBadge />
             </div>
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -215,23 +222,17 @@ export default function EstablishmentDashboard() {
         </div>
       </nav>
 
-      {/* Bannière Freemium */}
-      <div className="max-w-4xl mx-auto">
-        <FreemiumBanner />
-      </div>
-
       {/* Liste des options */}
       <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="flex flex-col gap-3">
           
           {/* Créer une mission */}
           <button
-            onClick={() => canCreateMission ? navigate('/establishment/create-mission') : null}
-            disabled={!canCreateMission}
+            onClick={() => canCreateMission ? navigate('/establishment/create-mission') : navigate('/establishment/subscribe')}
             className={`bg-white rounded-xl p-4 border transition-all flex items-center gap-4 ${
               canCreateMission 
                 ? 'border-gray-200 hover:border-gray-300 hover:shadow-sm cursor-pointer' 
-                : 'border-gray-200 opacity-60 cursor-not-allowed'
+                : 'border-red-200 bg-red-50 cursor-pointer'
             }`}
           >
             <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
@@ -242,13 +243,18 @@ export default function EstablishmentDashboard() {
               {canCreateMission ? (
                 <p className="text-sm text-gray-500">Publier une nouvelle offre</p>
               ) : (
-                <p className="text-sm text-red-500">
+                <p className="text-sm text-red-600">
                   {isTrialExpired 
                     ? 'Période d\'essai expirée - Passez à Premium' 
-                    : 'Limite de missions atteinte - Passez à Premium'}
+                    : 'Limite atteinte - Passez à Premium'}
                 </p>
               )}
             </div>
+            {isPremium && (
+              <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-500 text-white px-2 py-1 rounded-full">
+                ∞ Illimité
+              </span>
+            )}
             {isFreemium && canCreateMission && (
               <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
                 {missionsRemaining} restante{missionsRemaining > 1 ? 's' : ''}
@@ -298,6 +304,47 @@ export default function EstablishmentDashboard() {
             </div>
           </button>
 
+          {/* Mon abonnement - NOUVEL ONGLET */}
+          <button
+            onClick={() => navigate('/establishment/subscription')}
+            className={`rounded-xl p-4 border transition-all flex items-center gap-4 ${
+              isPremium 
+                ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200 hover:border-amber-300' 
+                : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
+            }`}
+          >
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+                isPremium 
+                  ? 'bg-gradient-to-br from-amber-400 to-yellow-500' 
+                  : 'bg-gray-100'
+              }`}>
+                {isPremium ? '⭐' : '💳'}
+              </div>
+            </div>
+            <div className="text-left flex-1">
+              <p className="font-semibold text-gray-900">Mon abonnement</p>
+              <p className="text-sm text-gray-500">
+                {isPremium 
+                  ? `Premium actif • Renouvellement dans ${getDaysRemaining()}j` 
+                  : isTrialExpired 
+                    ? 'Essai terminé • Passez à Premium'
+                    : `Freemium • ${getDaysRemaining()}j restants`
+                }
+              </p>
+            </div>
+            {isPremium && (
+              <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-500 text-white px-3 py-1 rounded-full font-medium">
+                {SUBSCRIPTION_PRICE}€/mois
+              </span>
+            )}
+            {isFreemium && !isTrialExpired && (
+              <span className="text-xs bg-primary-100 text-primary-700 px-3 py-1 rounded-full font-medium">
+                Passer à Premium
+              </span>
+            )}
+          </button>
+
           {/* Mes infos */}
           <button
             onClick={() => navigate('/establishment/edit-profile')}
@@ -337,6 +384,7 @@ export default function EstablishmentDashboard() {
       <Route path="/edit-profile" element={<EstablishmentProfileEdit />} />
       <Route path="/chat" element={<ChatList userType="establishment" />} />
       <Route path="/chat/:applicationId" element={<ChatWindow userType="establishment" />} />
+      <Route path="/subscription" element={<SubscriptionManager />} />
     </Routes>
   )
 }

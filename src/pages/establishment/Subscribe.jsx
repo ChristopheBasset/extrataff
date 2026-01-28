@@ -46,8 +46,19 @@ export default function Subscribe() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       
+      if (!session) {
+        throw new Error('Session non trouvée. Veuillez vous reconnecter.')
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      if (!supabaseUrl) {
+        throw new Error('Configuration manquante. Contactez le support.')
+      }
+
+      console.log('Appel Edge Function:', `${supabaseUrl}/functions/v1/create-checkout-session`)
+      
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
+        `${supabaseUrl}/functions/v1/create-checkout-session`,
         {
           method: 'POST',
           headers: {
@@ -62,8 +73,12 @@ export default function Subscribe() {
 
       const data = await response.json()
 
-      if (data.error) {
-        throw new Error(data.error)
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Erreur lors de la création du paiement')
+      }
+
+      if (!data.url) {
+        throw new Error('URL de paiement non reçue')
       }
 
       // Rediriger vers Stripe Checkout

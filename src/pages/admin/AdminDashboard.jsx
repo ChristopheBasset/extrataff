@@ -114,7 +114,7 @@ export default function AdminDashboard() {
     try {
       const { data, error } = await supabase
         .from('establishments')
-        .select('id, user_id, name, phone, city, type, is_blocked, created_at')
+        .select('id, user_id, name, phone, city, establishment_type, is_blocked, created_at')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -460,7 +460,7 @@ export default function AdminDashboard() {
                         <td className="px-4 py-3 text-sm text-gray-900">{establishment.name}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{establishment.phone}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{establishment.city || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{establishment.type || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{establishment.establishment_type || '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{formatDate(establishment.created_at)}</td>
                         <td className="px-4 py-3">
                           {establishment.is_blocked ? (

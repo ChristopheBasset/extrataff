@@ -9,6 +9,12 @@ export default function TalentProfileEdit() {
   const [error, setError] = useState(null)
   const [initialLoading, setInitialLoading] = useState(true)
   
+  // État pour le CV
+  const [cvFile, setCvFile] = useState(null)
+  const [cvUploading, setCvUploading] = useState(false)
+  const [cvFileName, setCvFileName] = useState('')
+  const [existingCvUrl, setExistingCvUrl] = useState(null)
+  
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -53,7 +59,7 @@ export default function TalentProfileEdit() {
           city: data.city || '',
           postal_code: data.postal_code || '',
           department: data.department || '',
-          coordinates: null, // On ne récupère pas les coordonnées existantes
+          coordinates: null,
           search_radius: data.search_radius || 10,
           preferred_departments: data.preferred_departments || [],
           position_types: data.position_types || [],
@@ -61,8 +67,13 @@ export default function TalentProfileEdit() {
           contract_preferences: data.contract_preferences || [],
           min_hourly_rate: data.min_hourly_rate || '',
           bio: data.bio || '',
-          accepts_coupure: data.accepts_coupure !== false // Par défaut true si non défini
+          accepts_coupure: data.accepts_coupure !== false
         })
+        
+        // Charger le CV existant
+        if (data.cv_url) {
+          setExistingCvUrl(data.cv_url)
+        }
       }
     } catch (err) {
       console.error('Erreur chargement profil:', err)
@@ -90,6 +101,79 @@ export default function TalentProfileEdit() {
       department: addressData.department,
       coordinates: addressData.coordinates
     }))
+  }
+
+  // Gestion du fichier CV
+  const handleCvChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        setError('Seuls les fichiers PDF sont acceptés')
+        return
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Le fichier ne doit pas dépasser 5 Mo')
+        return
+      }
+      setCvFile(file)
+      setCvFileName(file.name)
+      setError(null)
+    }
+  }
+
+  // Supprimer le CV (nouveau ou existant)
+  const handleRemoveCv = async () => {
+    if (existingCvUrl && !cvFile) {
+      // Supprimer le CV existant du storage
+      try {
+        const { error } = await supabase.storage
+          .from('cv')
+          .remove([existingCvUrl])
+        
+        if (error) throw error
+        
+        // Mettre à jour la base
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase
+          .from('talents')
+          .update({ cv_url: null })
+          .eq('user_id', user.id)
+        
+        setExistingCvUrl(null)
+        alert('CV supprimé')
+      } catch (err) {
+        console.error('Erreur suppression CV:', err)
+        setError('Erreur lors de la suppression du CV')
+      }
+    } else {
+      // Annuler le nouveau fichier sélectionné
+      setCvFile(null)
+      setCvFileName('')
+    }
+  }
+
+  // Télécharger le CV existant
+  const handleDownloadCv = async () => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('cv')
+        .download(existingCvUrl)
+      
+      if (error) throw error
+      
+      // Créer un lien de téléchargement
+      const url = URL.createObjectURL(data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `CV_${formData.first_name}_${formData.last_name}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Erreur téléchargement CV:', err)
+      setError('Erreur lors du téléchargement du CV')
+    }
   }
 
   const handlePositionToggle = (position) => {
@@ -127,6 +211,32 @@ export default function TalentProfileEdit() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
+      // Upload du nouveau CV si présent
+      let cvUrl = existingCvUrl
+      if (cvFile) {
+        setCvUploading(true)
+        
+        // Supprimer l'ancien CV si existe
+        if (existingCvUrl) {
+          await supabase.storage.from('cv').remove([existingCvUrl])
+        }
+        
+        const fileExt = cvFile.name.split('.').pop()
+        const fileName = `${user.id}_${Date.now()}.${fileExt}`
+        const filePath = `${user.id}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('cv')
+          .upload(filePath, cvFile)
+
+        if (uploadError) {
+          throw new Error('Erreur lors de l\'upload du CV: ' + uploadError.message)
+        }
+
+        cvUrl = filePath
+        setCvUploading(false)
+      }
+
       // Préparer les données à mettre à jour
       const updateData = {
         first_name: formData.first_name,
@@ -143,7 +253,8 @@ export default function TalentProfileEdit() {
         contract_preferences: formData.contract_preferences,
         min_hourly_rate: formData.min_hourly_rate ? parseFloat(formData.min_hourly_rate) : null,
         bio: formData.bio || null,
-        accepts_coupure: formData.accepts_coupure
+        accepts_coupure: formData.accepts_coupure,
+        cv_url: cvUrl
       }
 
       // Mettre à jour les coordonnées seulement si une nouvelle adresse a été sélectionnée
@@ -165,6 +276,7 @@ export default function TalentProfileEdit() {
       setError(err.message)
     } finally {
       setLoading(false)
+      setCvUploading(false)
     }
   }
 
@@ -251,6 +363,115 @@ export default function TalentProfileEdit() {
                   required
                 />
               </div>
+            </div>
+          </div>
+
+          {/* CV */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              CV (optionnel)
+            </label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+              {/* CV existant */}
+              {existingCvUrl && !cvFile && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded">
+                      <svg className="h-6 w-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">CV enregistré ✓</p>
+                      <p className="text-xs text-gray-500">PDF</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDownloadCv}
+                      className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+                    >
+                      Télécharger
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCv}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Nouveau CV sélectionné */}
+              {cvFile && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded">
+                      <svg className="h-6 w-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{cvFileName}</p>
+                      <p className="text-xs text-gray-500">Nouveau fichier (sera enregistré)</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCv}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              {/* Zone d'upload (si pas de CV) */}
+              {!existingCvUrl && !cvFile && (
+                <div className="text-center">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <div className="mt-2">
+                    <label className="cursor-pointer">
+                      <span className="text-primary-600 hover:text-primary-500 font-medium">
+                        Choisir un fichier
+                      </span>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={handleCvChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">PDF uniquement, 5 Mo max</p>
+                </div>
+              )}
+
+              {/* Bouton remplacer si CV existe */}
+              {existingCvUrl && !cvFile && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <label className="cursor-pointer">
+                    <span className="text-primary-600 hover:text-primary-500 text-sm font-medium">
+                      Remplacer par un nouveau CV
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleCvChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
             </div>
           </div>
 
@@ -478,10 +699,10 @@ export default function TalentProfileEdit() {
             </button>
             <button
               type="submit"
-              disabled={loading || formData.position_types.length === 0}
+              disabled={loading || cvUploading || formData.position_types.length === 0}
               className="btn-primary flex-1"
             >
-              {loading ? 'Enregistrement...' : 'Enregistrer les modifications'}
+              {loading || cvUploading ? 'Enregistrement...' : 'Enregistrer les modifications'}
             </button>
           </div>
         </form>

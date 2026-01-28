@@ -10,6 +10,7 @@ export default function EstablishmentProfileForm() {
   const [formData, setFormData] = useState({
     name: '',
     type: '',
+    otherType: '',
     address: '',
     phone: '',
     description: ''
@@ -39,13 +40,16 @@ export default function EstablishmentProfileForm() {
       // On ajoutera la vraie géolocalisation plus tard
       const defaultLocation = 'POINT(2.3522 48.8566)' // Paris
 
+      // Déterminer le type final (si "autre", utiliser le champ texte)
+      const finalType = formData.type === 'autre' ? formData.otherType : formData.type
+
       // Créer le profil établissement
       const { data, error } = await supabase
         .from('establishments')
         .insert({
           user_id: user.id,
           name: formData.name,
-          type: formData.type,
+          type: finalType,
           address: formData.address,
           location: defaultLocation,
           phone: formData.phone,
@@ -132,6 +136,24 @@ export default function EstablishmentProfileForm() {
                   ))}
                 </select>
               </div>
+
+              {/* Champ texte si "Autre" est sélectionné */}
+              {formData.type === 'autre' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Précisez le type d'établissement *
+                  </label>
+                  <input
+                    type="text"
+                    name="otherType"
+                    value={formData.otherType}
+                    onChange={handleChange}
+                    placeholder="Ex: Food truck, Cave à vin, Épicerie fine..."
+                    className="input"
+                    required
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

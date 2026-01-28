@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+
+const TURNSTILE_SITE_KEY = '0x4AAAAAACU7qpGVX9XhKmW1'
 
 export default function Signup() {
   const [searchParams] = useSearchParams()
@@ -12,10 +14,43 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [turnstileToken, setTurnstileToken] = useState(null)
+  const turnstileRef = useRef(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    // Charger le script Turnstile
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    document.head.appendChild(script)
+
+    script.onload = () => {
+      if (window.turnstile && turnstileRef.current) {
+        window.turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token) => setTurnstileToken(token),
+          'expired-callback': () => setTurnstileToken(null),
+        })
+      }
+    }
+
+    return () => {
+      // Cleanup
+      if (document.head.contains(script)) {
+        document.head.removeChild(script)
+      }
+    }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    if (!turnstileToken) {
+      setError('Veuillez valider le captcha')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -32,6 +67,11 @@ export default function Signup() {
     if (error) {
       setError(error.message)
       setLoading(false)
+      // Reset Turnstile
+      if (window.turnstile) {
+        window.turnstile.reset()
+        setTurnstileToken(null)
+      }
       return
     }
 
@@ -51,10 +91,10 @@ export default function Signup() {
           <p className="text-gray-600 mt-2">Créer votre compte</p>
         </div>
 
-        <div className="card">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -67,7 +107,7 @@ export default function Signup() {
                 <button
                   type="button"
                   onClick={() => setRole('establishment')}
-                  className={`p-3 rounded-lg border-2 text-center transition-colors ${
+                  className={`p-3 rounded-xl border-2 text-center transition-colors ${
                     role === 'establishment'
                       ? 'border-primary-600 bg-primary-50'
                       : 'border-gray-200 hover:border-gray-300'
@@ -79,7 +119,7 @@ export default function Signup() {
                 <button
                   type="button"
                   onClick={() => setRole('talent')}
-                  className={`p-3 rounded-lg border-2 text-center transition-colors ${
+                  className={`p-3 rounded-xl border-2 text-center transition-colors ${
                     role === 'talent'
                       ? 'border-primary-600 bg-primary-50'
                       : 'border-gray-200 hover:border-gray-300'
@@ -99,7 +139,7 @@ export default function Signup() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="input"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 required
               />
             </div>
@@ -113,7 +153,7 @@ export default function Signup() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input pr-12"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 pr-12"
                   required
                   minLength={6}
                 />
@@ -137,10 +177,15 @@ export default function Signup() {
               <p className="text-xs text-gray-500 mt-1">Minimum 6 caractères</p>
             </div>
 
+            {/* Turnstile Captcha */}
+            <div className="flex justify-center">
+              <div ref={turnstileRef}></div>
+            </div>
+
             <button
               type="submit"
-              disabled={loading}
-              className="btn-primary w-full"
+              disabled={loading || !turnstileToken}
+              className="w-full bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Création...' : 'Créer mon compte'}
             </button>

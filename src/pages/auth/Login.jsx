@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+
+const TURNSTILE_SITE_KEY = '0x4AAAAAACU7qpGVX9XhKmW1'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -8,10 +10,43 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [turnstileToken, setTurnstileToken] = useState(null)
+  const turnstileRef = useRef(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    // Charger le script Turnstile
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    document.head.appendChild(script)
+
+    script.onload = () => {
+      if (window.turnstile && turnstileRef.current) {
+        window.turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token) => setTurnstileToken(token),
+          'expired-callback': () => setTurnstileToken(null),
+        })
+      }
+    }
+
+    return () => {
+      // Cleanup
+      if (document.head.contains(script)) {
+        document.head.removeChild(script)
+      }
+    }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    if (!turnstileToken) {
+      setError('Veuillez valider le captcha')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -21,8 +56,15 @@ export default function Login() {
     })
 
     if (error) {
-      setError(error.message)
+      setError(error.message === 'Invalid login credentials' 
+        ? 'Email ou mot de passe incorrect' 
+        : error.message)
       setLoading(false)
+      // Reset Turnstile
+      if (window.turnstile) {
+        window.turnstile.reset()
+        setTurnstileToken(null)
+      }
       return
     }
 
@@ -43,10 +85,10 @@ export default function Login() {
           <p className="text-gray-600 mt-2">Connexion à votre compte</p>
         </div>
 
-        <div className="card">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -59,7 +101,7 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="input"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 required
               />
             </div>
@@ -73,7 +115,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input pr-12"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 pr-12"
                   required
                 />
                 <button
@@ -93,12 +135,22 @@ export default function Login() {
                   )}
                 </button>
               </div>
+              <div className="text-right mt-1">
+                <Link to="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">
+                  Mot de passe oublié ?
+                </Link>
+              </div>
+            </div>
+
+            {/* Turnstile Captcha */}
+            <div className="flex justify-center">
+              <div ref={turnstileRef}></div>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
-              className="btn-primary w-full"
+              disabled={loading || !turnstileToken}
+              className="w-full bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>

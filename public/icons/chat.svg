@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- Chat bubble -->
+  <path d="M10 15 h50 a10 10 0 0 1 10 10 v25 a10 10 0 0 1 -10 10 h-30 l-15 12 v-12 h-5 a10 10 0 0 1 -10 -10 v-25 a10 10 0 0 1 10 -10 z" fill="#1f2937"/>
+  <!-- 3 dots -->
+  <circle cx="25" cy="37" r="5" fill="white"/>
+  <circle cx="40" cy="37" r="5" fill="white"/>
+  <circle cx="55" cy="37" r="5" fill="white"/>
+</svg>

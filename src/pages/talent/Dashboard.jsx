@@ -19,7 +19,8 @@ export default function TalentDashboard() {
   const [stats, setStats] = useState({
     missionsCount: 0,
     applicationsCount: 0,
-    conversationsCount: 0
+    conversationsCount: 0,
+    confirmedCount: 0
   })
 
   useEffect(() => {
@@ -57,10 +58,17 @@ export default function TalentDashboard() {
         .eq('talent_id', talentId)
         .eq('status', 'accepted')
 
+      const { count: confirmedCount } = await supabase
+        .from('applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('talent_id', talentId)
+        .eq('status', 'confirmed')
+
       setStats({
         missionsCount: 0,
         applicationsCount: appCount || 0,
-        conversationsCount: convCount || 0
+        conversationsCount: convCount || 0,
+        confirmedCount: confirmedCount || 0
       })
     } catch (err) {
       console.error('Erreur chargement stats:', err)
@@ -113,95 +121,85 @@ export default function TalentDashboard() {
         </div>
       </nav>
 
-      {/* Grille 2x2 */}
+      {/* Liste des options */}
       <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           
           {/* Missions matchées */}
           <button
             onClick={() => navigate('/talent/missions')}
-            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
           >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <img src="/icons/mission.png" alt="Missions" className="w-20 h-20 object-contain" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Missions</p>
-                <p className="text-xs text-gray-500">matchées</p>
-              </div>
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/mes-missions.svg" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Missions</p>
+              <p className="text-sm text-gray-500">Offres qui te correspondent</p>
             </div>
           </button>
 
           {/* Mes candidatures */}
           <button
             onClick={() => navigate('/talent/applications')}
-            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
           >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <img src="/icons/candidature.png" alt="Candidatures" className="w-20 h-20 object-contain" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Mes</p>
-                <p className="text-xs text-gray-500">Candidatures</p>
-              </div>
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/candidatures.svg" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Mes candidatures</p>
+              <p className="text-sm text-gray-500">{stats.applicationsCount} candidature{stats.applicationsCount > 1 ? 's' : ''} envoyée{stats.applicationsCount > 1 ? 's' : ''}</p>
             </div>
           </button>
 
           {/* Chat en live */}
           <button
             onClick={() => navigate('/talent/chat')}
-            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
           >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <img src="/icons/conversation.png" alt="Chat" className="w-20 h-20 object-contain" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Chat</p>
-                <p className="text-xs text-gray-500">en live</p>
-              </div>
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/chat.svg" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Chat en live</p>
+              <p className="text-sm text-gray-500">{stats.conversationsCount} conversation{stats.conversationsCount > 1 ? 's' : ''}</p>
             </div>
           </button>
 
-          {/* Mon profil */}
+          {/* Mon Agenda */}
+          <button
+            onClick={() => navigate('/talent/agenda')}
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
+          >
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/agenda.png" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Mon agenda</p>
+              <p className="text-sm text-gray-500">{stats.confirmedCount} mission{stats.confirmedCount > 1 ? 's' : ''} confirmée{stats.confirmedCount > 1 ? 's' : ''}</p>
+            </div>
+          </button>
+
+          {/* Mes infos */}
           <button
             onClick={() => navigate('/talent/edit-profile')}
-            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
           >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <img src="/icons/profil.png" alt="Profil" className="w-20 h-20 object-contain" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Mon Profil</p>
-                <p className="text-xs text-gray-500">Mes infos</p>
-              </div>
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/mon-profil.svg" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Mes infos</p>
+              <p className="text-sm text-gray-500">Modifier mon profil</p>
             </div>
           </button>
 
         </div>
 
-        {/* Mon Agenda - pleine largeur */}
-        <button
-          onClick={() => navigate('/talent/agenda')}
-          className="w-full mt-3 bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
-        >
-          <div className="flex items-center justify-center gap-4">
-            <div className="w-16 h-16 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <img src="/icons/agenda.png" alt="Agenda" className="w-16 h-16 object-contain" />
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-semibold text-gray-900">Mon Agenda</p>
-              <p className="text-xs text-gray-500">Missions confirmées</p>
-            </div>
-          </div>
-        </button>
-
         {/* Logo en bas */}
         <div className="text-center mt-10">
-          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-24 h-24 mx-auto" />
+          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-20 h-20 mx-auto" />
           <p className="text-sm text-gray-400 mt-2">Staff & Taff en temps réel</p>
         </div>
       </div>

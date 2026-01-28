@@ -135,91 +135,85 @@ export default function EstablishmentDashboard() {
         </div>
       </nav>
 
-      {/* Grille 2x2 */}
+      {/* Liste des options */}
       <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           
           {/* Créer une mission */}
           <button
             onClick={() => navigate('/establishment/create-mission')}
-            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
           >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="text-4xl text-white font-bold">+</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Créer</p>
-                <p className="text-xs text-gray-500">une mission</p>
-              </div>
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/creer-mission.svg" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Créer une mission</p>
+              <p className="text-sm text-gray-500">Publier une nouvelle offre</p>
             </div>
           </button>
 
           {/* Mes missions */}
           <button
             onClick={() => navigate('/establishment/missions')}
-            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
           >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <img src="/icons/mission.png" alt="Missions" className="w-20 h-20 object-contain" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Mes</p>
-                <p className="text-xs text-gray-500">Missions</p>
-              </div>
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/mes-missions.svg" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Mes missions</p>
+              <p className="text-sm text-gray-500">{stats.missionsCount} mission{stats.missionsCount > 1 ? 's' : ''} en cours</p>
             </div>
           </button>
 
-          {/* Candidatures */}
+          {/* Les candidatures */}
           <button
             onClick={() => navigate('/establishment/candidatures')}
-            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
           >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <img src="/icons/candidature.png" alt="Candidatures" className="w-20 h-20 object-contain" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Les</p>
-                <p className="text-xs text-gray-500">Candidatures</p>
-              </div>
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/candidatures.svg" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Les candidatures</p>
+              <p className="text-sm text-gray-500">{stats.applicationsCount} en attente</p>
             </div>
           </button>
 
-          {/* Conversations */}
+          {/* Chat en live */}
           <button
             onClick={() => navigate('/establishment/chat')}
-            className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
           >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="w-20 h-20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <img src="/icons/conversation.png" alt="Chat" className="w-20 h-20 object-contain" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Chat</p>
-                <p className="text-xs text-gray-500">en live</p>
-              </div>
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/chat.svg" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Chat en live</p>
+              <p className="text-sm text-gray-500">{stats.conversationsCount} conversation{stats.conversationsCount > 1 ? 's' : ''}</p>
+            </div>
+          </button>
+
+          {/* Mes infos */}
+          <button
+            onClick={() => navigate('/establishment/edit-profile')}
+            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
+          >
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <img src="/icons/mon-profil.svg" alt="" className="w-12 h-12" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-gray-900">Mes infos</p>
+              <p className="text-sm text-gray-500">Modifier mon profil</p>
             </div>
           </button>
 
         </div>
 
-        {/* Bouton profil en bas */}
-        <button
-          onClick={() => navigate('/establishment/edit-profile')}
-          className="w-full mt-4 bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3"
-        >
-          <img src="/icons/profil.png" alt="Profil" className="w-10 h-10 object-contain" />
-          <div className="text-left">
-            <p className="text-sm font-semibold text-gray-900">Mon Profil</p>
-            <p className="text-xs text-gray-500">Mes infos établissement</p>
-          </div>
-        </button>
-
         {/* Logo en bas */}
-        <div className="text-center mt-8">
-          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-24 h-24 mx-auto" />
+        <div className="text-center mt-10">
+          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-20 h-20 mx-auto" />
           <p className="text-sm text-gray-400 mt-2">Staff & Taff en temps réel</p>
         </div>
       </div>

@@ -43,7 +43,10 @@ export default function MyApplications() {
             contract_type,
             urgency_level,
             comment,
-            status
+            status,
+            establishments (
+              name
+            )
           )
         `)
         .eq('talent_id', talent.id)
@@ -65,12 +68,22 @@ export default function MyApplications() {
   const confirmMission = async (applicationId) => {
     setConfirmingId(applicationId)
     try {
+      const application = applications.find(a => a.id === applicationId)
+      
+      // Mettre à jour talent_confirmed
+      const updateData = { 
+        talent_confirmed: true
+      }
+      
+      // Si l'établissement a déjà confirmé, on passe en status 'confirmed'
+      if (application.establishment_confirmed) {
+        updateData.status = 'confirmed'
+        updateData.confirmed_at = new Date().toISOString()
+      }
+
       const { error } = await supabase
         .from('applications')
-        .update({ 
-          status: 'confirmed',
-          confirmed_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', applicationId)
 
       if (error) throw error
@@ -79,10 +92,22 @@ export default function MyApplications() {
       setApplications(prev => 
         prev.map(app => 
           app.id === applicationId 
-            ? { ...app, status: 'confirmed', confirmed_at: new Date().toISOString() }
+            ? { 
+                ...app, 
+                talent_confirmed: true,
+                status: application.establishment_confirmed ? 'confirmed' : app.status,
+                confirmed_at: application.establishment_confirmed ? new Date().toISOString() : app.confirmed_at
+              }
             : app
         )
       )
+
+      // Message de succès adapté
+      if (application.establishment_confirmed) {
+        alert('🎉 Mission confirmée des deux côtés ! Elle est maintenant dans votre agenda.')
+      } else {
+        alert('✅ Vous avez accepté la mission. En attente de la confirmation de l\'établissement.')
+      }
     } catch (err) {
       console.error('Erreur confirmation:', err)
       setError('Erreur lors de la confirmation')
@@ -91,20 +116,44 @@ export default function MyApplications() {
     }
   }
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (application) => {
+    const { status, talent_confirmed, establishment_confirmed } = application
+    
+    // Cas spécial : accepté mais en attente de confirmations
+    if (status === 'accepted') {
+      if (talent_confirmed && !establishment_confirmed) {
+        return {
+          label: '✅ Vous avez accepté',
+          subLabel: 'En attente du recruteur',
+          bgColor: 'bg-yellow-100',
+          textColor: 'text-yellow-700'
+        }
+      }
+      if (!talent_confirmed && establishment_confirmed) {
+        return {
+          label: '⏳ À confirmer',
+          subLabel: 'Le recruteur a confirmé',
+          bgColor: 'bg-orange-100',
+          textColor: 'text-orange-700'
+        }
+      }
+      return {
+        label: '✅ Accepté',
+        subLabel: 'À confirmer des deux côtés',
+        bgColor: 'bg-green-100',
+        textColor: 'text-green-700'
+      }
+    }
+
     const badges = {
       interested: {
         label: '⏳ En attente',
         bgColor: 'bg-blue-100',
         textColor: 'text-blue-700'
       },
-      accepted: {
-        label: '✅ Accepté',
-        bgColor: 'bg-green-100',
-        textColor: 'text-green-700'
-      },
       confirmed: {
-        label: '📅 Confirmé',
+        label: '🎉 Confirmé',
+        subLabel: 'Mission validée !',
         bgColor: 'bg-purple-100',
         textColor: 'text-purple-700'
       },
@@ -114,9 +163,9 @@ export default function MyApplications() {
         textColor: 'text-red-700'
       },
       completed: {
-        label: '🎉 Terminé',
-        bgColor: 'bg-purple-100',
-        textColor: 'text-purple-700'
+        label: '🏁 Terminé',
+        bgColor: 'bg-gray-100',
+        textColor: 'text-gray-700'
       },
       cancelled: {
         label: '🚫 Annulé',
@@ -173,7 +222,7 @@ export default function MyApplications() {
 
         {applications.length === 0 ? (
           <div className="card text-center py-12">
-            <p className="text-xl text-gray-600 mb-4">🔭 Aucune candidature pour le moment</p>
+            <p className="text-xl text-gray-600 mb-4">📭 Aucune candidature pour le moment</p>
             <p className="text-gray-500 mb-6">
               Consultez les missions disponibles et postulez !
             </p>
@@ -192,7 +241,7 @@ export default function MyApplications() {
               // Sécurité supplémentaire
               if (!mission) return null
               
-              const statusBadge = getStatusBadge(application.status)
+              const statusBadge = getStatusBadge(application)
               const urgencyBadge = getUrgencyBadge(mission.urgency_level)
 
               return (
@@ -203,14 +252,22 @@ export default function MyApplications() {
                       <h3 className="text-xl font-bold text-gray-900">
                         {mission.position}
                       </h3>
+                      <p className="text-primary-600 font-medium">
+                        {mission.establishments?.name || 'Établissement'}
+                      </p>
                       <p className="text-gray-600 text-sm">
                         Candidature envoyée le {formatDateTime(application.created_at)}
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col items-end gap-2">
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge.bgColor} ${statusBadge.textColor}`}>
                         {statusBadge.label}
                       </span>
+                      {statusBadge.subLabel && (
+                        <span className="text-xs text-gray-500">
+                          {statusBadge.subLabel}
+                        </span>
+                      )}
                       {urgencyBadge && (
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${urgencyBadge.bgColor} ${urgencyBadge.textColor}`}>
                           {urgencyBadge.emoji} {urgencyBadge.label}
@@ -274,8 +331,23 @@ export default function MyApplications() {
                     </div>
                   )}
 
-                  {/* Actions selon le statut */}
+                  {/* Indicateur de confirmation */}
                   {application.status === 'accepted' && (
+                    <div className="mb-4 p-3 bg-gray-100 rounded-lg">
+                      <p className="text-sm font-medium text-gray-700 mb-2">État des confirmations :</p>
+                      <div className="flex gap-4">
+                        <span className={`text-sm ${application.establishment_confirmed ? 'text-green-600' : 'text-gray-400'}`}>
+                          {application.establishment_confirmed ? '✅' : '⏳'} Recruteur
+                        </span>
+                        <span className={`text-sm ${application.talent_confirmed ? 'text-green-600' : 'text-gray-400'}`}>
+                          {application.talent_confirmed ? '✅' : '⏳'} Vous
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions selon le statut */}
+                  {application.status === 'accepted' && !application.talent_confirmed && (
                     <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
                       <p className="text-green-800 font-medium mb-2">
                         🎉 Votre candidature a été acceptée !
@@ -286,25 +358,42 @@ export default function MyApplications() {
                       <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           onClick={() => navigate(`/talent/chat/${application.id}`)}
-                          className="btn-primary flex-1"
+                          className="btn-secondary flex-1"
                         >
                           💬 Ouvrir la conversation
                         </button>
                         <button
                           onClick={() => confirmMission(application.id)}
                           disabled={confirmingId === application.id}
-                          className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                          className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 font-medium"
                         >
-                          {confirmingId === application.id ? '⏳ Confirmation...' : '📅 Confirmer la mission'}
+                          {confirmingId === application.id ? '⏳ Confirmation...' : '✅ Accepter la mission'}
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {application.status === 'accepted' && application.talent_confirmed && !application.establishment_confirmed && (
+                    <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                      <p className="text-yellow-800 font-medium mb-2">
+                        ⏳ En attente de confirmation du recruteur
+                      </p>
+                      <p className="text-yellow-700 text-sm mb-3">
+                        Vous avez accepté la mission. Dès que le recruteur confirme, elle sera ajoutée à votre agenda.
+                      </p>
+                      <button
+                        onClick={() => navigate(`/talent/chat/${application.id}`)}
+                        className="btn-primary w-full"
+                      >
+                        💬 Ouvrir la conversation
+                      </button>
                     </div>
                   )}
 
                   {application.status === 'confirmed' && (
                     <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg">
                       <p className="text-purple-800 font-medium mb-2">
-                        📅 Mission confirmée !
+                        🎉 Mission confirmée des deux côtés !
                       </p>
                       <p className="text-purple-700 text-sm mb-3">
                         Cette mission est dans votre agenda. Vous pouvez continuer à échanger avec l'établissement.

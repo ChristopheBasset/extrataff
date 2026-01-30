@@ -10,6 +10,7 @@ export default function ApplicationsList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [establishmentName, setEstablishmentName] = useState('')
+  const [confirmingId, setConfirmingId] = useState(null)
 
   useEffect(() => {
     loadApplications()
@@ -193,11 +194,83 @@ export default function ApplicationsList() {
     }
   }
 
-  const getStatusBadge = (status) => {
+  const handleConfirmHire = async (applicationId) => {
+    setConfirmingId(applicationId)
+    try {
+      const application = applications.find(a => a.id === applicationId)
+      if (!application) return
+
+      // Mettre à jour establishment_confirmed
+      const updateData = { 
+        establishment_confirmed: true
+      }
+      
+      // Si le talent a déjà confirmé, on passe en status 'confirmed'
+      if (application.talent_confirmed) {
+        updateData.status = 'confirmed'
+        updateData.confirmed_at = new Date().toISOString()
+      }
+
+      const { error } = await supabase
+        .from('applications')
+        .update(updateData)
+        .eq('id', applicationId)
+
+      if (error) throw error
+
+      // Message de succès adapté
+      if (application.talent_confirmed) {
+        alert('🎉 Embauche confirmée des deux côtés ! La mission est validée.')
+      } else {
+        alert('✅ Vous avez confirmé l\'embauche. En attente de l\'acceptation du talent.')
+      }
+
+      loadApplications()
+    } catch (err) {
+      console.error('Erreur confirmation:', err)
+      alert('Erreur lors de la confirmation')
+    } finally {
+      setConfirmingId(null)
+    }
+  }
+
+  const getStatusBadge = (application) => {
+    const { status, talent_confirmed, establishment_confirmed } = application
+    
+    // Cas spécial : accepté mais en attente de confirmations
+    if (status === 'accepted') {
+      if (establishment_confirmed && !talent_confirmed) {
+        return {
+          label: '✅ Vous avez confirmé',
+          subLabel: 'En attente du talent',
+          bgColor: 'bg-yellow-100',
+          textColor: 'text-yellow-700'
+        }
+      }
+      if (!establishment_confirmed && talent_confirmed) {
+        return {
+          label: '⏳ À confirmer',
+          subLabel: 'Le talent a accepté',
+          bgColor: 'bg-orange-100',
+          textColor: 'text-orange-700'
+        }
+      }
+      return {
+        label: '✅ Accepté',
+        subLabel: 'À confirmer des deux côtés',
+        bgColor: 'bg-green-100',
+        textColor: 'text-green-700'
+      }
+    }
+
     const badges = {
       interested: { label: '⏳ En attente', bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
-      accepted: { label: '✅ Accepté', bgColor: 'bg-green-100', textColor: 'text-green-700' },
-      confirmed: { label: '✅ Confirmé', bgColor: 'bg-green-100', textColor: 'text-green-700' },
+      confirmed: { 
+        label: '🎉 Confirmé', 
+        subLabel: 'Embauche validée !',
+        bgColor: 'bg-purple-100', 
+        textColor: 'text-purple-700' 
+      },
       rejected: { label: '❌ Refusé', bgColor: 'bg-red-100', textColor: 'text-red-700' },
       completed: { label: '🏁 Terminé', bgColor: 'bg-gray-100', textColor: 'text-gray-700' },
       cancelled: { label: '🚫 Annulé', bgColor: 'bg-orange-100', textColor: 'text-orange-700' }
@@ -283,7 +356,7 @@ export default function ApplicationsList() {
           <div className="space-y-4">
             {applications.map(application => {
               const talent = application.talents
-              const statusBadge = getStatusBadge(application.status)
+              const statusBadge = getStatusBadge(application)
               const matchBadge = getMatchBadge(application.match_score)
               
               // Infos mission (depuis mission chargée ou depuis la relation)
@@ -332,9 +405,16 @@ export default function ApplicationsList() {
                       </div>
                     </div>
 
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge.bgColor} ${statusBadge.textColor}`}>
-                      {statusBadge.label}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge.bgColor} ${statusBadge.textColor}`}>
+                        {statusBadge.label}
+                      </span>
+                      {statusBadge.subLabel && (
+                        <span className="text-xs text-gray-500">
+                          {statusBadge.subLabel}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Détails du talent */}
@@ -374,6 +454,21 @@ export default function ApplicationsList() {
                     </div>
                   )}
 
+                  {/* Indicateur de confirmation */}
+                  {application.status === 'accepted' && (
+                    <div className="mb-4 p-3 bg-gray-100 rounded-lg">
+                      <p className="text-sm font-medium text-gray-700 mb-2">État des confirmations :</p>
+                      <div className="flex gap-4">
+                        <span className={`text-sm ${application.establishment_confirmed ? 'text-green-600' : 'text-gray-400'}`}>
+                          {application.establishment_confirmed ? '✅' : '⏳'} Vous
+                        </span>
+                        <span className={`text-sm ${application.talent_confirmed ? 'text-green-600' : 'text-gray-400'}`}>
+                          {application.talent_confirmed ? '✅' : '⏳'} Talent
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Actions */}
                   {application.status === 'interested' && (
                     <div className="flex gap-3 pt-4 border-t">
@@ -392,13 +487,56 @@ export default function ApplicationsList() {
                     </div>
                   )}
 
-                  {(application.status === 'accepted' || application.status === 'confirmed') && (
+                  {application.status === 'accepted' && !application.establishment_confirmed && (
                     <div className="bg-green-50 border border-green-200 p-4 rounded-lg mt-4">
                       <p className="text-green-800 font-medium mb-2">
-                        ✅ Candidature {application.status === 'confirmed' ? 'confirmée' : 'acceptée'}
+                        ✅ Candidature acceptée
                       </p>
                       <p className="text-green-700 text-sm mb-3">
-                        Vous pouvez contacter {talent?.first_name} au {talent?.phone} ou discuter via le chat.
+                        Discutez avec {talent?.first_name} puis confirmez l'embauche pour valider la mission.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          onClick={() => navigate(`/establishment/chat/${application.id}`)}
+                          className="btn-secondary flex-1"
+                        >
+                          💬 Ouvrir la conversation
+                        </button>
+                        <button
+                          onClick={() => handleConfirmHire(application.id)}
+                          disabled={confirmingId === application.id}
+                          className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 font-medium"
+                        >
+                          {confirmingId === application.id ? '⏳ Confirmation...' : '🤝 Confirmer l\'embauche'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {application.status === 'accepted' && application.establishment_confirmed && !application.talent_confirmed && (
+                    <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mt-4">
+                      <p className="text-yellow-800 font-medium mb-2">
+                        ⏳ En attente de l'acceptation du talent
+                      </p>
+                      <p className="text-yellow-700 text-sm mb-3">
+                        Vous avez confirmé l'embauche. Dès que {talent?.first_name} accepte, la mission sera validée.
+                      </p>
+                      <button
+                        onClick={() => navigate(`/establishment/chat/${application.id}`)}
+                        className="btn-primary w-full"
+                      >
+                        💬 Ouvrir la conversation
+                      </button>
+                    </div>
+                  )}
+
+                  {application.status === 'confirmed' && (
+                    <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg mt-4">
+                      <p className="text-purple-800 font-medium mb-2">
+                        🎉 Embauche confirmée des deux côtés !
+                      </p>
+                      <p className="text-purple-700 text-sm mb-3">
+                        {talent?.first_name} travaillera avec vous. Vous pouvez continuer à échanger.
                       </p>
                       <button
                         onClick={() => navigate(`/establishment/chat/${application.id}`)}

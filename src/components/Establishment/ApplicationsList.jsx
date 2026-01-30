@@ -9,6 +9,7 @@ export default function ApplicationsList() {
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [establishmentName, setEstablishmentName] = useState('')
 
   useEffect(() => {
     loadApplications()
@@ -16,47 +17,110 @@ export default function ApplicationsList() {
 
   const loadApplications = async () => {
     try {
-      // Récupérer la mission avec l'établissement
-      const { data: missionData, error: missionError } = await supabase
-        .from('missions')
-        .select(`
-          *,
-          establishments (
-            name,
-            user_id
-          )
-        `)
-        .eq('id', missionId)
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      // Récupérer l'établissement de l'utilisateur connecté
+      const { data: establishment, error: estError } = await supabase
+        .from('establishments')
+        .select('id, name')
+        .eq('user_id', user.id)
         .single()
 
-      if (missionError) throw missionError
-      setMission(missionData)
+      if (estError) throw estError
+      if (!establishment) throw new Error('Établissement non trouvé')
+      
+      setEstablishmentName(establishment.name)
 
-      // Récupérer les candidatures avec les infos du talent
-      const { data: applicationsData, error: applicationsError } = await supabase
-        .from('applications')
-        .select(`
-          *,
-          talents!talent_id (
-            id,
-            user_id,
-            first_name,
-            last_name,
-            phone,
-            position_types,
-            years_experience,
-            min_hourly_rate,
-            bio,
-            avatar_initials,
-            total_missions_completed,
-            average_rating
-          )
-        `)
-        .eq('mission_id', missionId)
-        .order('match_score', { ascending: false })
+      // CAS 1 : missionId spécifié → charger candidatures de cette mission uniquement
+      if (missionId) {
+        const { data: missionData, error: missionError } = await supabase
+          .from('missions')
+          .select(`
+            *,
+            establishments (
+              name,
+              user_id
+            )
+          `)
+          .eq('id', missionId)
+          .single()
 
-      if (applicationsError) throw applicationsError
-      setApplications(applicationsData)
+        if (missionError) throw missionError
+        setMission(missionData)
+
+        const { data: applicationsData, error: applicationsError } = await supabase
+          .from('applications')
+          .select(`
+            *,
+            talents!talent_id (
+              id,
+              user_id,
+              first_name,
+              last_name,
+              phone,
+              position_types,
+              years_experience,
+              min_hourly_rate,
+              bio,
+              avatar_initials,
+              total_missions_completed,
+              average_rating
+            )
+          `)
+          .eq('mission_id', missionId)
+          .order('match_score', { ascending: false })
+
+        if (applicationsError) throw applicationsError
+        setApplications(applicationsData)
+
+      } else {
+        // CAS 2 : Pas de missionId → charger TOUTES les candidatures de l'établissement
+        const { data: missions } = await supabase
+          .from('missions')
+          .select('id')
+          .eq('establishment_id', establishment.id)
+
+        if (missions && missions.length > 0) {
+          const missionIds = missions.map(m => m.id)
+          
+          const { data: applicationsData, error: applicationsError } = await supabase
+            .from('applications')
+            .select(`
+              *,
+              talents!talent_id (
+                id,
+                user_id,
+                first_name,
+                last_name,
+                phone,
+                position_types,
+                years_experience,
+                min_hourly_rate,
+                bio,
+                avatar_initials,
+                total_missions_completed,
+                average_rating
+              ),
+              missions!mission_id (
+                id,
+                position,
+                location_fuzzy,
+                start_date,
+                establishments (
+                  name,
+                  user_id
+                )
+              )
+            `)
+            .in('mission_id', missionIds)
+            .order('created_at', { ascending: false })
+
+          if (applicationsError) throw applicationsError
+          setApplications(applicationsData)
+        } else {
+          setApplications([])
+        }
+      }
     } catch (err) {
       console.error('Erreur chargement candidatures:', err)
       setError(err.message)
@@ -69,11 +133,9 @@ export default function ApplicationsList() {
     if (!confirm('Êtes-vous sûr de vouloir accepter cette candidature ?')) return
 
     try {
-      // Trouver l'application
       const application = applications.find(a => a.id === applicationId)
       if (!application) return
 
-      // Mettre à jour le statut
       const { error } = await supabase
         .from('applications')
         .update({ status: 'accepted' })
@@ -81,11 +143,14 @@ export default function ApplicationsList() {
 
       if (error) throw error
 
-      // Créer une notification pour le talent
+      // Notification pour le talent
+      const missionName = mission ? mission.establishments.name : application.missions?.establishments?.name
+      const positionName = mission ? mission.position : application.missions?.position
+
       await notifyApplicationAccepted(
         application.talents.user_id,
-        mission.establishments.name,
-        mission.position,
+        missionName || establishmentName,
+        positionName || 'poste',
         applicationId
       )
 
@@ -101,11 +166,9 @@ export default function ApplicationsList() {
     if (!confirm('Êtes-vous sûr de vouloir refuser cette candidature ?')) return
 
     try {
-      // Trouver l'application
       const application = applications.find(a => a.id === applicationId)
       if (!application) return
 
-      // Mettre à jour le statut
       const { error } = await supabase
         .from('applications')
         .update({ status: 'rejected' })
@@ -113,11 +176,13 @@ export default function ApplicationsList() {
 
       if (error) throw error
 
-      // Créer une notification pour le talent
+      const missionName = mission ? mission.establishments.name : application.missions?.establishments?.name
+      const positionName = mission ? mission.position : application.missions?.position
+
       await notifyApplicationRejected(
         application.talents.user_id,
-        mission.establishments.name,
-        mission.position
+        missionName || establishmentName,
+        positionName || 'poste'
       )
 
       alert('Candidature refusée.')
@@ -132,15 +197,28 @@ export default function ApplicationsList() {
     const badges = {
       interested: { label: '⏳ En attente', bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
       accepted: { label: '✅ Accepté', bgColor: 'bg-green-100', textColor: 'text-green-700' },
-      rejected: { label: '❌ Refusé', bgColor: 'bg-red-100', textColor: 'text-red-700' }
+      confirmed: { label: '✅ Confirmé', bgColor: 'bg-green-100', textColor: 'text-green-700' },
+      rejected: { label: '❌ Refusé', bgColor: 'bg-red-100', textColor: 'text-red-700' },
+      completed: { label: '🏁 Terminé', bgColor: 'bg-gray-100', textColor: 'text-gray-700' },
+      cancelled: { label: '🚫 Annulé', bgColor: 'bg-orange-100', textColor: 'text-orange-700' }
     }
     return badges[status] || badges.interested
   }
 
   const getMatchBadge = (score) => {
+    if (!score) return { label: '—', color: 'text-gray-400' }
     if (score >= 90) return { label: '🎯 Excellent', color: 'text-green-600' }
     if (score >= 75) return { label: '👍 Bon', color: 'text-orange-600' }
     return { label: '✓ Correct', color: 'text-gray-600' }
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    return new Date(dateStr).toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    })
   }
 
   if (loading) {
@@ -154,6 +232,15 @@ export default function ApplicationsList() {
     )
   }
 
+  // Titre dynamique selon le contexte
+  const pageTitle = mission 
+    ? `Candidatures - ${mission.position}`
+    : 'Toutes les candidatures'
+
+  const pageSubtitle = mission
+    ? `${applications.length} candidature${applications.length > 1 ? 's' : ''} reçue${applications.length > 1 ? 's' : ''}`
+    : `${applications.length} candidature${applications.length > 1 ? 's' : ''} au total`
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -161,10 +248,10 @@ export default function ApplicationsList() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <button
-              onClick={() => navigate('/establishment/missions')}
+              onClick={() => navigate(missionId ? '/establishment/missions' : '/establishment')}
               className="text-gray-600 hover:text-gray-900"
             >
-              ← Retour aux missions
+              ← {missionId ? 'Retour aux missions' : 'Retour au dashboard'}
             </button>
             <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
             <div className="w-20"></div>
@@ -174,16 +261,10 @@ export default function ApplicationsList() {
 
       {/* Contenu */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {mission && (
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">
-              Candidatures - {mission.position}
-            </h2>
-            <p className="text-gray-600 mt-2">
-              {applications.length} candidature{applications.length > 1 ? 's' : ''} reçue{applications.length > 1 ? 's' : ''}
-            </p>
-          </div>
-        )}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">{pageTitle}</h2>
+          <p className="text-gray-600 mt-2">{pageSubtitle}</p>
+        </div>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
@@ -204,6 +285,12 @@ export default function ApplicationsList() {
               const talent = application.talents
               const statusBadge = getStatusBadge(application.status)
               const matchBadge = getMatchBadge(application.match_score)
+              
+              // Infos mission (depuis mission chargée ou depuis la relation)
+              const missionInfo = mission || application.missions
+              const positionName = missionInfo?.position || 'Poste'
+              const missionLocation = missionInfo?.location_fuzzy || ''
+              const missionDate = missionInfo?.start_date
 
               return (
                 <div key={application.id} className="card">
@@ -212,22 +299,31 @@ export default function ApplicationsList() {
                     <div className="flex items-center gap-4">
                       {/* Avatar */}
                       <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xl">
-                        {talent.avatar_initials}
+                        {talent?.avatar_initials || '??'}
                       </div>
                       
                       {/* Infos */}
                       <div>
                         <h3 className="text-xl font-bold text-gray-900">
-                          {talent.first_name} {talent.last_name}
+                          {talent?.first_name} {talent?.last_name}
                         </h3>
+                        
+                        {/* Afficher la mission si vue globale */}
+                        {!missionId && missionInfo && (
+                          <p className="text-primary-600 font-medium text-sm">
+                            📋 {positionName} {missionLocation && `• ${missionLocation}`}
+                            {missionDate && ` • ${formatDate(missionDate)}`}
+                          </p>
+                        )}
+                        
                         <p className="text-gray-600 text-sm">
                           Candidature envoyée le {formatDateTime(application.created_at)}
                         </p>
                         <div className="flex gap-2 mt-1">
                           <span className={`text-sm font-medium ${matchBadge.color}`}>
-                            {matchBadge.label} ({application.match_score}%)
+                            {matchBadge.label} {application.match_score && `(${application.match_score}%)`}
                           </span>
-                          {talent.average_rating && (
+                          {talent?.average_rating && (
                             <span className="text-sm text-yellow-600">
                               ⭐ {talent.average_rating.toFixed(1)}
                             </span>
@@ -245,15 +341,15 @@ export default function ApplicationsList() {
                   <div className="grid md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <p className="text-sm text-gray-600">📞 Téléphone</p>
-                      <p className="font-medium">{talent.phone}</p>
+                      <p className="font-medium">{talent?.phone || 'Non renseigné'}</p>
                     </div>
 
                     <div>
                       <p className="text-sm text-gray-600">💼 Expérience</p>
-                      <p className="font-medium">{talent.years_experience} an{talent.years_experience > 1 ? 's' : ''}</p>
+                      <p className="font-medium">{talent?.years_experience || 0} an{(talent?.years_experience || 0) > 1 ? 's' : ''}</p>
                     </div>
 
-                    {talent.min_hourly_rate && (
+                    {talent?.min_hourly_rate && (
                       <div>
                         <p className="text-sm text-gray-600">💰 Tarif minimum</p>
                         <p className="font-medium">{talent.min_hourly_rate}€/h</p>
@@ -262,17 +358,17 @@ export default function ApplicationsList() {
 
                     <div>
                       <p className="text-sm text-gray-600">🎯 Missions complétées</p>
-                      <p className="font-medium">{talent.total_missions_completed || 0}</p>
+                      <p className="font-medium">{talent?.total_missions_completed || 0}</p>
                     </div>
 
                     <div className="md:col-span-2">
                       <p className="text-sm text-gray-600">🔧 Postes</p>
-                      <p className="font-medium">{talent.position_types?.join(', ')}</p>
+                      <p className="font-medium">{talent?.position_types?.join(', ') || 'Non renseigné'}</p>
                     </div>
                   </div>
 
                   {/* Bio */}
-                  {talent.bio && (
+                  {talent?.bio && (
                     <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                       <p className="text-sm text-gray-700 italic">"{talent.bio}"</p>
                     </div>
@@ -296,13 +392,13 @@ export default function ApplicationsList() {
                     </div>
                   )}
 
-                  {application.status === 'accepted' && (
+                  {(application.status === 'accepted' || application.status === 'confirmed') && (
                     <div className="bg-green-50 border border-green-200 p-4 rounded-lg mt-4">
                       <p className="text-green-800 font-medium mb-2">
-                        ✅ Candidature acceptée
+                        ✅ Candidature {application.status === 'confirmed' ? 'confirmée' : 'acceptée'}
                       </p>
                       <p className="text-green-700 text-sm mb-3">
-                        Vous pouvez contacter {talent.first_name} au {talent.phone} ou discuter via le chat.
+                        Vous pouvez contacter {talent?.first_name} au {talent?.phone} ou discuter via le chat.
                       </p>
                       <button
                         onClick={() => navigate(`/establishment/chat/${application.id}`)}

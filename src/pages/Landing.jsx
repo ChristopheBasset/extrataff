@@ -14,7 +14,7 @@ export default function Landing() {
     },
     {
       question: "C'est gratuit ?",
-      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, nous offrons 2 mois d'essai gratuits, puis l'abonnement est à 49,90€/mois, sans engagement."
+      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, nous offrons 2 mois d'essai gratuits, puis l'abonnement est à 59,90€/mois, sans engagement."
     },
     {
       question: "Comment créer un compte ?",
@@ -67,7 +67,7 @@ export default function Landing() {
       </p>
 
       {/* CTA Buttons */}
-      <div className="w-full max-w-md space-y-4 mb-12">
+      <div className="w-full max-w-md space-y-4 mb-8">
         
         {/* Recruter */}
         <button
@@ -93,6 +93,17 @@ export default function Landing() {
           className="w-full bg-white bg-opacity-20 text-white font-bold py-3 rounded-full hover:bg-opacity-30 transition border-2 border-white"
         >
           Je me connecte
+        </button>
+      </div>
+
+      {/* Lien Offre Groupe */}
+      <div className="mb-12">
+        <button
+          onClick={() => navigate('/groupe')}
+          className="text-white/80 hover:text-white underline underline-offset-4 flex items-center gap-2 transition"
+        >
+          <span>🏢</span>
+          <span>Vous gérez plusieurs établissements ? Découvrir l'offre Groupe</span>
         </button>
       </div>
 

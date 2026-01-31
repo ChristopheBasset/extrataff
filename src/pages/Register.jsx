@@ -214,6 +214,18 @@ export default function Register() {
               {loading ? 'Création...' : 'Continuer'}
             </button>
           </form>
+
+          {/* Lien discret offre Groupe (uniquement pour établissement) */}
+          {userType === 'establishment' && (
+            <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+              <button
+                onClick={() => navigate('/groupe')}
+                className="text-sm text-gray-500 hover:text-primary-600 transition"
+              >
+                🏢 Vous gérez plusieurs établissements ? <span className="underline">Voir l'offre Groupe →</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

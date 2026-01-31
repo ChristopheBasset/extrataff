@@ -28,6 +28,9 @@ import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminActivate from './pages/admin/AdminActivate'
 
+// Groupe
+import GroupLanding from './pages/groupe/GroupLanding'
+
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -70,6 +73,9 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Routes Groupe */}
+        <Route path="/groupe" element={<GroupLanding />} />
 
         {/* Routes Admin */}
         <Route path="/admin" element={<AdminLogin />} />

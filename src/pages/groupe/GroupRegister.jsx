@@ -1,81 +1,89 @@
-import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+// GroupRegister.jsx - Inscription Groupe avec role establishment
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { ESTABLISHMENT_TYPES } from '../../utils/constants'
 
+const TURNSTILE_SITE_KEY = '0x4AAAAAACU7qpGVX9XhKmW1'
+
 export default function GroupRegister() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const initialCount = parseInt(searchParams.get('count')) || 2
-
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [showPassword, setShowPassword] = useState(false)
-
-  // Données du formulaire
+  const [turnstileToken, setTurnstileToken] = useState(null)
+  const turnstileRef = useRef(null)
+  
   const [formData, setFormData] = useState({
-    // Étape 1 : Mode de gestion
-    managementType: '', // 'single' ou 'multiple'
-    establishmentCount: initialCount,
+    // Mode gestion
+    managementMode: '', // 'solo' ou 'multiple'
     
-    // Étape 2 : Compte
+    // Compte
     email: '',
     password: '',
-    confirmPassword: '',
+    passwordConfirm: '',
     
-    // Étape 3 : Groupe + 1er établissement
+    // Groupe
     groupName: '',
+    
+    // Premier établissement
     establishmentName: '',
     establishmentType: '',
+    address: '',
     phone: '',
-    address: '', // Adresse complète (comme le formulaire existant)
     description: ''
   })
 
-  // Calcul du prix
-  const calculatePrice = (count) => {
-    if (count === 1) return 59.90
-    return 59.90 + (count - 1) * 39.90
-  }
+  useEffect(() => {
+    // Charger le script Turnstile
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    document.head.appendChild(script)
 
-  const totalPrice = calculatePrice(formData.establishmentCount)
+    script.onload = () => {
+      if (window.turnstile && turnstileRef.current) {
+        window.turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token) => setTurnstileToken(token),
+          'expired-callback': () => setTurnstileToken(null),
+        })
+      }
+    }
 
-  // Étape 1 : Choix du mode
-  const handleModeSelect = (mode) => {
-    setFormData({ ...formData, managementType: mode })
-    setStep(2)
-  }
+    return () => {
+      if (document.head.contains(script)) {
+        document.head.removeChild(script)
+      }
+    }
+  }, [])
 
-  // Étape 2 : Validation compte
-  const handleAccountSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setError(null)
+    
+    if (!turnstileToken) {
+      setError('Veuillez valider le captcha')
+      return
+    }
 
-    if (formData.password !== formData.confirmPassword) {
+    if (formData.password !== formData.passwordConfirm) {
       setError('Les mots de passe ne correspondent pas')
       return
     }
 
-    if (formData.password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères')
-      return
-    }
-
-    setStep(3)
-  }
-
-  // Étape 3 : Création finale
-  const handleFinalSubmit = async (e) => {
-    e.preventDefault()
     setLoading(true)
     setError(null)
 
     try {
-      // 1. Créer le compte utilisateur
+      // 1. Créer le compte utilisateur AVEC LE ROLE ESTABLISHMENT
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        options: {
+          data: {
+            role: 'establishment'  // ← IMPORTANT pour la redirection login
+          }
+        }
       })
 
       if (authError) throw authError
@@ -87,17 +95,16 @@ export default function GroupRegister() {
         .from('groups')
         .insert({
           name: formData.groupName,
-          owner_user_id: userId,
-          management_type: formData.managementType,
-          establishment_count: formData.establishmentCount
+          owner_id: userId,
+          management_mode: formData.managementMode
         })
         .select()
         .single()
 
       if (groupError) throw groupError
 
-      // 3. Créer le premier établissement (même format que formulaire existant)
-      const { error: estError } = await supabase
+      // 3. Créer le premier établissement
+      const { error: estabError } = await supabase
         .from('establishments')
         .insert({
           user_id: userId,
@@ -105,402 +112,313 @@ export default function GroupRegister() {
           is_group_owner: true,
           name: formData.establishmentName,
           type: formData.establishmentType,
-          phone: formData.phone,
           address: formData.address,
+          phone: formData.phone,
           description: formData.description || null,
-          // Freemium par défaut
           subscription_status: 'freemium',
           missions_used: 0,
-          trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +60 jours
+          trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // 60 jours
         })
 
-      if (estError) throw estError
+      if (estabError) throw estabError
 
-      // Succès ! Rediriger vers le dashboard
-      navigate('/establishment/dashboard')
+      // 4. Rediriger vers le dashboard
+      navigate('/establishment')
 
     } catch (err) {
-      console.error('Erreur inscription groupe:', err)
-      setError(err.message || 'Erreur lors de la création du compte')
+      console.error('Erreur inscription:', err)
+      setError(err.message || 'Une erreur est survenue')
+      
+      // Reset Turnstile
+      if (window.turnstile) {
+        window.turnstile.reset()
+        setTurnstileToken(null)
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <button
-              onClick={() => step > 1 ? setStep(step - 1) : navigate('/groupe')}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              ← Retour
-            </button>
-            <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff Groupe</h1>
-            <div className="w-20"></div>
-          </div>
-        </div>
-      </nav>
+  // Étape 1 : Choix du mode de gestion
+  const Step1 = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900">Comment gérez-vous vos établissements ?</h2>
+        <p className="text-gray-600 mt-2">Choisissez le mode qui correspond à votre organisation</p>
+      </div>
 
-      {/* Progress */}
-      <div className="max-w-2xl mx-auto px-4 pt-8">
-        <div className="flex items-center justify-center mb-8">
-          {[1, 2, 3].map((num) => (
-            <div key={num} className="flex items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                step >= num 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-200 text-gray-500'
-              }`}>
-                {step > num ? '✓' : num}
-              </div>
-              {num < 3 && (
-                <div className={`w-16 h-1 mx-2 ${
-                  step > num ? 'bg-blue-600' : 'bg-gray-200'
-                }`}></div>
-              )}
+      <div className="grid gap-4">
+        <button
+          type="button"
+          onClick={() => {
+            setFormData({ ...formData, managementMode: 'solo' })
+            setStep(2)
+          }}
+          className="p-6 border-2 border-gray-200 rounded-2xl hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center text-2xl">
+              👤
             </div>
-          ))}
-        </div>
-        <div className="flex justify-center gap-8 text-sm text-gray-600 mb-8">
-          <span className={step === 1 ? 'text-blue-600 font-medium' : ''}>Mode</span>
-          <span className={step === 2 ? 'text-blue-600 font-medium' : ''}>Compte</span>
-          <span className={step === 3 ? 'text-blue-600 font-medium' : ''}>Établissement</span>
+            <div>
+              <h3 className="font-semibold text-lg text-gray-900">Je gère seul</h3>
+              <p className="text-gray-600 mt-1">
+                Vous êtes le seul responsable de tous vos établissements.
+                Vous pourrez basculer facilement entre eux.
+              </p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setFormData({ ...formData, managementMode: 'multiple' })
+            setStep(2)
+          }}
+          className="p-6 border-2 border-gray-200 rounded-2xl hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-2xl">
+              👥
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg text-gray-900">Plusieurs responsables</h3>
+              <p className="text-gray-600 mt-1">
+                Chaque établissement a son propre responsable.
+                Vous pourrez inviter des gestionnaires par email.
+              </p>
+            </div>
+          </div>
+        </button>
+      </div>
+    </div>
+  )
+
+  // Étape 2 : Création du compte
+  const Step2 = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900">Créez votre compte</h2>
+        <p className="text-gray-600 mt-2">
+          {formData.managementMode === 'solo' 
+            ? 'Ce compte vous permettra de gérer tous vos établissements'
+            : 'Ce sera le compte administrateur principal du groupe'
+          }
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <input
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+        <input
+          type="password"
+          value={formData.password}
+          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          minLength={6}
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer le mot de passe</label>
+        <input
+          type="password"
+          value={formData.passwordConfirm}
+          onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          minLength={6}
+          required
+        />
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <button
+          type="button"
+          onClick={() => setStep(1)}
+          className="flex-1 py-3 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          Retour
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (formData.email && formData.password && formData.password === formData.passwordConfirm) {
+              setStep(3)
+            } else if (formData.password !== formData.passwordConfirm) {
+              setError('Les mots de passe ne correspondent pas')
+            }
+          }}
+          className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors"
+        >
+          Continuer
+        </button>
+      </div>
+    </div>
+  )
+
+  // Étape 3 : Infos groupe + premier établissement
+  const Step3 = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900">Votre groupe</h2>
+        <p className="text-gray-600 mt-2">Donnez un nom à votre groupe et ajoutez votre premier établissement</p>
+      </div>
+
+      {/* Nom du groupe */}
+      <div className="bg-primary-50 rounded-xl p-4">
+        <label className="block text-sm font-medium text-primary-700 mb-1">
+          Nom du groupe
+        </label>
+        <input
+          type="text"
+          value={formData.groupName}
+          onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
+          placeholder="Ex: Groupe Ducasse, Mes Restaurants..."
+          className="w-full px-4 py-3 border border-primary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+          required
+        />
+      </div>
+
+      <div className="border-t pt-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Premier établissement</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'établissement</label>
+            <input
+              type="text"
+              value={formData.establishmentName}
+              onChange={(e) => setFormData({ ...formData, establishmentName: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Type d'établissement</label>
+            <select
+              value={formData.establishmentType}
+              onChange={(e) => setFormData({ ...formData, establishmentType: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              required
+            >
+              <option value="">Sélectionner...</option>
+              {ESTABLISHMENT_TYPES.map(type => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Adresse complète</label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="123 rue de Paris, 75001 Paris"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description (optionnel)</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={3}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="Décrivez votre établissement..."
+            />
+          </div>
         </div>
       </div>
 
-      {/* Contenu */}
-      <div className="max-w-2xl mx-auto px-4 pb-12">
-        
-        {/* ==================== ÉTAPE 1 : Mode de gestion ==================== */}
-        {step === 1 && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="text-center mb-8">
-              <div className="text-5xl mb-4">🏢</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Comment gérez-vous vos {formData.establishmentCount} établissements ?
-              </h2>
-              <p className="text-gray-600">
-                Choisissez le mode qui vous correspond
-              </p>
+      {/* Turnstile Captcha */}
+      <div className="flex justify-center">
+        <div ref={turnstileRef}></div>
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <button
+          type="button"
+          onClick={() => setStep(2)}
+          className="flex-1 py-3 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          Retour
+        </button>
+        <button
+          type="submit"
+          disabled={loading || !turnstileToken}
+          className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Création...' : 'Créer mon groupe'}
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+      <div className="max-w-lg w-full">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-primary-600">⚡ ExtraTaff</h1>
+          <p className="text-gray-600 mt-2">Inscription Groupe Multi-Établissements</p>
+        </div>
+
+        {/* Progress bar */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={`h-2 rounded-full transition-all ${
+                s === step ? 'w-8 bg-primary-600' : s < step ? 'w-8 bg-primary-300' : 'w-8 bg-gray-200'
+              }`}
+            />
+          ))}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
+              {error}
             </div>
+          )}
 
-            <div className="space-y-4">
-              {/* Option 1 : Je gère seul */}
-              <button
-                onClick={() => handleModeSelect('single')}
-                className="w-full p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition text-left group"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="text-4xl">👤</div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700">
-                      Je gère tout seul
-                    </h3>
-                    <p className="text-gray-600 mt-1">
-                      Un seul compte pour gérer tous vos établissements. 
-                      Vous pourrez switcher facilement entre eux.
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                        ✓ 1 compte
-                      </span>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                        ✓ Switch rapide
-                      </span>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                        ✓ Vue globale
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-gray-400 group-hover:text-blue-500">→</div>
-                </div>
-              </button>
+          <form onSubmit={handleSubmit}>
+            {step === 1 && <Step1 />}
+            {step === 2 && <Step2 />}
+            {step === 3 && <Step3 />}
+          </form>
+        </div>
 
-              {/* Option 2 : Plusieurs responsables */}
-              <button
-                onClick={() => handleModeSelect('multiple')}
-                className="w-full p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition text-left group"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="text-4xl">👥</div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700">
-                      Plusieurs responsables
-                    </h3>
-                    <p className="text-gray-600 mt-1">
-                      Chaque établissement a son propre responsable avec son compte. 
-                      Vous inviterez vos équipes après l'inscription.
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                        ✓ Comptes séparés
-                      </span>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                        ✓ Invitations email
-                      </span>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                        ✓ Autonomie
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-gray-400 group-hover:text-blue-500">→</div>
-                </div>
-              </button>
-            </div>
-
-            {/* Récap prix */}
-            <div className="mt-8 p-4 bg-gray-50 rounded-xl text-center">
-              <p className="text-gray-600">
-                {formData.establishmentCount} établissements = {' '}
-                <span className="font-bold text-gray-900">
-                  {totalPrice.toFixed(2).replace('.', ',')}€/mois
-                </span>
-                <span className="text-sm text-gray-500 ml-2">(après essai gratuit)</span>
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ==================== ÉTAPE 2 : Création compte ==================== */}
-        {step === 2 && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="text-center mb-8">
-              <div className="text-5xl mb-4">🔐</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Créez votre compte
-              </h2>
-              <p className="text-gray-600">
-                {formData.managementType === 'single' 
-                  ? 'Ce compte vous permettra de gérer tous vos établissements'
-                  : 'Ce sera le compte administrateur du groupe'
-                }
-              </p>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleAccountSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="email@exemple.com"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mot de passe * (min 6 caractères)
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
-                    placeholder="••••••••"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-700"
-                  >
-                    {showPassword ? '🙈' : '👁️'}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirmer le mot de passe *
-                </label>
-                <input
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="••••••••"
-                  required
-                  minLength={6}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition mt-6"
-              >
-                Continuer →
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* ==================== ÉTAPE 3 : Groupe + Établissement ==================== */}
-        {step === 3 && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="text-center mb-8">
-              <div className="text-5xl mb-4">🏪</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Informations du groupe
-              </h2>
-              <p className="text-gray-600">
-                Renseignez les infos de votre groupe et de votre premier établissement
-              </p>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleFinalSubmit} className="space-y-6">
-              
-              {/* Nom du groupe */}
-              <div className="p-4 bg-blue-50 rounded-xl">
-                <label className="block text-sm font-medium text-blue-900 mb-1">
-                  Nom du groupe *
-                </label>
-                <input
-                  type="text"
-                  value={formData.groupName}
-                  onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
-                  className="w-full px-4 py-3 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  placeholder="Ex: Groupe Bertrand, Mes Restaurants..."
-                  required
-                />
-              </div>
-
-              <div className="border-t pt-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Premier établissement</h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nom de l'établissement *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.establishmentName}
-                      onChange={(e) => setFormData({ ...formData, establishmentName: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Le Café du Centre"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Type d'établissement *
-                    </label>
-                    <select
-                      value={formData.establishmentType}
-                      onChange={(e) => setFormData({ ...formData, establishmentType: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    >
-                      <option value="">Sélectionnez...</option>
-                      {ESTABLISHMENT_TYPES && ESTABLISHMENT_TYPES.map(type => (
-                        <option key={type.value} value={type.value}>{type.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Adresse complète *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="12 rue de la Paix 75001 Paris"
-                      required
-                    />
-                    <p className="text-xs text-amber-600 mt-1">
-                      ⚠️ Important : Incluez le code postal (ex: 75001) pour que les talents de ce département reçoivent vos missions
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Téléphone *
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="06 12 34 56 78"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Description de l'établissement
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Décrivez votre établissement en quelques mots..."
-                      rows={3}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Récap */}
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Mode :</span>
-                  <span className="font-medium">
-                    {formData.managementType === 'single' ? '👤 Je gère seul' : '👥 Plusieurs responsables'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm mt-2">
-                  <span className="text-gray-600">Établissements :</span>
-                  <span className="font-medium">{formData.establishmentCount}</span>
-                </div>
-                <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                  <span className="text-gray-600">Total après essai :</span>
-                  <span className="font-bold text-blue-600">{totalPrice.toFixed(2).replace('.', ',')}€/mois</span>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                {loading ? 'Création en cours...' : 'Créer mon compte Groupe ✓'}
-              </button>
-
-              <p className="text-center text-xs text-gray-500">
-                En créant votre compte, vous acceptez nos conditions d'utilisation.<br />
-                Vous bénéficiez de 2 mois d'essai gratuit.
-              </p>
-            </form>
-          </div>
-        )}
+        <p className="text-center text-sm text-gray-500 mt-4">
+          Déjà un compte ?{' '}
+          <a href="/login" className="text-primary-600 hover:underline">Se connecter</a>
+        </p>
       </div>
     </div>
   )

@@ -102,8 +102,15 @@ export default function MyApplications() {
         )
       )
 
-      // Message de succès adapté
+      // Si confirmation complète, envoyer SMS récap
       if (application.establishment_confirmed) {
+        try {
+          await supabase.functions.invoke('sms-hire-confirmed', {
+            body: { applicationId }
+          })
+        } catch (smsErr) {
+          console.error('Erreur envoi SMS confirmation:', smsErr)
+        }
         alert('🎉 Mission confirmée des deux côtés ! Elle est maintenant dans votre agenda.')
       } else {
         alert('✅ Vous avez accepté la mission. En attente de la confirmation de l\'établissement.')

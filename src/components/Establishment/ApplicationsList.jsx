@@ -218,8 +218,15 @@ export default function ApplicationsList() {
 
       if (error) throw error
 
-      // Message de succès adapté
+      // Si confirmation complète, envoyer SMS récap
       if (application.talent_confirmed) {
+        try {
+          await supabase.functions.invoke('sms-hire-confirmed', {
+            body: { applicationId }
+          })
+        } catch (smsErr) {
+          console.error('Erreur envoi SMS confirmation:', smsErr)
+        }
         alert('🎉 Embauche confirmée des deux côtés ! La mission est validée.')
       } else {
         alert('✅ Vous avez confirmé l\'embauche. En attente de l\'acceptation du talent.')

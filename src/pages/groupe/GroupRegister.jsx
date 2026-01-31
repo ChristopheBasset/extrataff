@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ESTABLISHMENT_TYPES, FRENCH_DEPARTMENTS } from '../../utils/constants'
+import { ESTABLISHMENT_TYPES } from '../../utils/constants'
 
 export default function GroupRegister() {
   const navigate = useNavigate()
@@ -29,10 +29,8 @@ export default function GroupRegister() {
     establishmentName: '',
     establishmentType: '',
     phone: '',
-    address: '',
-    city: '',
-    postalCode: '',
-    department: ''
+    address: '', // Adresse complète (comme le formulaire existant)
+    description: ''
   })
 
   // Calcul du prix
@@ -98,7 +96,7 @@ export default function GroupRegister() {
 
       if (groupError) throw groupError
 
-      // 3. Créer le premier établissement
+      // 3. Créer le premier établissement (même format que formulaire existant)
       const { error: estError } = await supabase
         .from('establishments')
         .insert({
@@ -109,9 +107,7 @@ export default function GroupRegister() {
           type: formData.establishmentType,
           phone: formData.phone,
           address: formData.address,
-          city: formData.city,
-          postal_code: formData.postalCode,
-          department: formData.department,
+          description: formData.description || null,
           // Freemium par défaut
           subscription_status: 'freemium',
           missions_used: 0,
@@ -428,6 +424,23 @@ export default function GroupRegister() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Adresse complète *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="12 rue de la Paix 75001 Paris"
+                      required
+                    />
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Important : Incluez le code postal (ex: 75001) pour que les talents de ce département reçoivent vos missions
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Téléphone *
                     </label>
                     <input
@@ -442,62 +455,15 @@ export default function GroupRegister() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Adresse *
+                      Description de l'établissement
                     </label>
-                    <input
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="12 rue de la Paix"
-                      required
+                      placeholder="Décrivez votre établissement en quelques mots..."
+                      rows={3}
                     />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Code postal *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.postalCode}
-                        onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="75001"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Ville *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.city}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Paris"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Département *
-                    </label>
-                    <select
-                      value={formData.department}
-                      onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    >
-                      <option value="">Sélectionnez...</option>
-                      {FRENCH_DEPARTMENTS && FRENCH_DEPARTMENTS.map(dept => (
-                        <option key={dept.value} value={dept.value}>{dept.label}</option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               </div>

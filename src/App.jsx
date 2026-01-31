@@ -30,6 +30,7 @@ import AdminActivate from './pages/admin/AdminActivate'
 
 // Groupe
 import GroupLanding from './pages/groupe/GroupLanding'
+import GroupRegister from './pages/groupe/GroupRegister'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -76,6 +77,7 @@ function App() {
 
         {/* Routes Groupe */}
         <Route path="/groupe" element={<GroupLanding />} />
+        <Route path="/groupe/register" element={<GroupRegister />} />
 
         {/* Routes Admin */}
         <Route path="/admin" element={<AdminLogin />} />

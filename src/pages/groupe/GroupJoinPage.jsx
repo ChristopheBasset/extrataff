@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { ESTABLISHMENT_TYPES } from '../../utils/constants'
-import AddressAutocomplete from '../shared/AddressAutocomplete'
+import AddressAutocomplete from '../../components/shared/AddressAutocomplete'
 
 const TURNSTILE_SITE_KEY = '0x4AAAAAACU7qpGVX9XhKmW1'
 

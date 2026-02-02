@@ -1,4 +1,4 @@
-// GroupRegister.jsx - Inscription Groupe (corrigé - pas de sous-composants)
+// GroupRegister.jsx - Inscription Groupe (captcha à l'étape 3)
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
@@ -12,6 +12,7 @@ export default function GroupRegister() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [turnstileToken, setTurnstileToken] = useState(null)
+  const [turnstileLoaded, setTurnstileLoaded] = useState(false)
   const turnstileRef = useRef(null)
   
   const [formData, setFormData] = useState({
@@ -27,28 +28,34 @@ export default function GroupRegister() {
     description: ''
   })
 
+  // Charger le script Turnstile une seule fois
   useEffect(() => {
-    const script = document.createElement('script')
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
-    script.async = true
-    document.head.appendChild(script)
-
-    script.onload = () => {
-      if (window.turnstile && turnstileRef.current) {
-        window.turnstile.render(turnstileRef.current, {
-          sitekey: TURNSTILE_SITE_KEY,
-          callback: (token) => setTurnstileToken(token),
-          'expired-callback': () => setTurnstileToken(null),
-        })
-      }
-    }
-
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script)
-      }
+    if (!document.querySelector('script[src*="turnstile"]')) {
+      const script = document.createElement('script')
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+      script.async = true
+      script.onload = () => setTurnstileLoaded(true)
+      document.head.appendChild(script)
+    } else {
+      setTurnstileLoaded(true)
     }
   }, [])
+
+  // Rendre le captcha quand on arrive à l'étape 3
+  useEffect(() => {
+    if (step === 3 && turnstileLoaded && turnstileRef.current && window.turnstile) {
+      // Petit délai pour s'assurer que le DOM est prêt
+      setTimeout(() => {
+        if (turnstileRef.current && !turnstileRef.current.hasChildNodes()) {
+          window.turnstile.render(turnstileRef.current, {
+            sitekey: TURNSTILE_SITE_KEY,
+            callback: (token) => setTurnstileToken(token),
+            'expired-callback': () => setTurnstileToken(null),
+          })
+        }
+      }, 100)
+    }
+  }, [step, turnstileLoaded])
 
   const handleChange = (field) => (e) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }))

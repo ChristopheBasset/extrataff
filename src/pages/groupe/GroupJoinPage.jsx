@@ -72,7 +72,8 @@ export default function GroupJoinPage() {
   }, [groupId, token])
 
   const verifyInvitation = async () => {
-    try {
+    try {console.log('groupId:', groupId)
+console.log('token:', token)
       setLoading(true)
 
       if (!groupId || !token) {

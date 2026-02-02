@@ -31,6 +31,9 @@ import AdminActivate from './pages/admin/AdminActivate'
 // Groupe
 import GroupLanding from './pages/groupe/GroupLanding'
 import GroupRegister from './pages/groupe/GroupRegister'
+import GroupInvitePage from './pages/groupe/GroupInvitePage'
+import GroupJoinPage from './pages/groupe/GroupJoinPage'
+import GroupAdminDashboard from './pages/group-admin/GroupAdminDashboard'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -78,6 +81,9 @@ function App() {
         {/* Routes Groupe */}
         <Route path="/groupe" element={<GroupLanding />} />
         <Route path="/groupe/register" element={<GroupRegister />} />
+        <Route path="/group-invite" element={session ? <GroupInvitePage /> : <Navigate to="/login" />} />
+        <Route path="/groupe/:groupId/join" element={<GroupJoinPage />} />
+        <Route path="/group-admin" element={session ? <GroupAdminDashboard /> : <Navigate to="/login" />} />
 
         {/* Routes Admin */}
         <Route path="/admin" element={<AdminLogin />} />

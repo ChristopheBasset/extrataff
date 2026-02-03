@@ -44,7 +44,7 @@ export default function Register() {
     }
 
     try {
-      // Créer le compte auth
+      // Créer le compte auth (Email + Mot de passe)
       const { data, error } = await supabase.auth.signUp({
         email: authData.email,
         password: authData.password
@@ -56,48 +56,10 @@ export default function Register() {
         throw new Error('Erreur lors de la création du compte')
       }
 
-      // ✅ CORRECTION: Récupérer le token JWT
-      await supabase.auth.refreshSession()
-      const { data: sessionData } = await supabase.auth.getSession()
-      const token = sessionData?.session?.access_token
+      console.log('✅ Compte créé avec succès:', data.user.id)
 
-      if (!token) {
-        throw new Error('Impossible de récupérer le token')
-      }
-
-      // ✅ CORRECTION: Appeler l'Edge Function create-profile
-      try {
-  console.log('📤 Sending to create-profile with token:', token.slice(0, 20) + '...')  // ← AJOUTER CETTE LIGNE
-  
-  const response = await fetch(
-    'https://yixuosrfwrxhttbhqelj.supabase.co/functions/v1/create-profile',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              role: userType,
-              email: authData.email
-            })
-          }
-        )
-
-        const profileResult = await response.json()
-
-        if (!response.ok) {
-          console.error('Profile creation failed:', profileResult)
-          throw new Error('Erreur lors de la création du profil')
-        }
-
-        console.log('✅ Profile created:', profileResult)
-      } catch (fetchError) {
-        console.error('Fetch error:', fetchError)
-        throw new Error('Erreur lors de la création du profil')
-      }
-
-      // Rediriger vers le formulaire de profil complet
+      // Rediriger vers le formulaire de profil détaillé
+      // Le profil sera créé à l'étape 2 (ProfileForm)
       if (userType === 'talent') {
         navigate('/talent/profile-form')
       } else {

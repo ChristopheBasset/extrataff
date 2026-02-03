@@ -50,30 +50,54 @@ export default function Login() {
     setLoading(true)
     setError(null)
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      // 1. Connexion
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) {
-      setError(error.message === 'Invalid login credentials' 
-        ? 'Email ou mot de passe incorrect' 
-        : error.message)
+      if (loginError) {
+        setError(loginError.message === 'Invalid login credentials' 
+          ? 'Email ou mot de passe incorrect' 
+          : loginError.message)
+        setLoading(false)
+        // Reset Turnstile
+        if (window.turnstile) {
+          window.turnstile.reset()
+          setTurnstileToken(null)
+        }
+        return
+      }
+
+      // 2. Récupérer le role depuis la table profiles
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single()
+
+      if (profileError) {
+        console.error('Erreur récupération profile:', profileError)
+        // Si pas de profile trouvé, défaut à 'talent'
+        navigate('/talent')
+        return
+      }
+
+      // 3. Rediriger selon le rôle
+      if (profile?.role === 'establishment') {
+        navigate('/establishment')
+      } else {
+        navigate('/talent')
+      }
+    } catch (err) {
+      console.error('Erreur login:', err)
+      setError('Erreur lors de la connexion')
       setLoading(false)
-      // Reset Turnstile
       if (window.turnstile) {
         window.turnstile.reset()
         setTurnstileToken(null)
       }
-      return
-    }
-
-    // Rediriger selon le rôle
-    const role = data.user.user_metadata?.role
-    if (role === 'establishment') {
-      navigate('/establishment')
-    } else {
-      navigate('/talent')
     }
   }
 
@@ -102,6 +126,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="your@email.com"
                 required
               />
             </div>
@@ -116,6 +141,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 pr-12"
+                  placeholder="••••••••"
                   required
                 />
                 <button

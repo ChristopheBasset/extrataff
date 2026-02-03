@@ -15,6 +15,9 @@ export default function AddressAutocomplete({
   const [error, setError] = useState(null)
   const wrapperRef = useRef(null)
 
+  // URL de la Edge Function Supabase
+  const EDGE_FUNCTION_URL = 'https://yixuosrfwrxhttbhqelj.supabase.co/functions/v1/search-address'
+
   // Fermer les suggestions quand on clique ailleurs
   useEffect(() => {
     function handleClickOutside(event) {
@@ -45,13 +48,14 @@ export default function AddressAutocomplete({
       setLoading(true)
       setError(null)
       try {
-        const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`
-        console.log('Appel API adresse:', url)
+        // Appel à la Edge Function Supabase
+        const url = `${EDGE_FUNCTION_URL}?q=${encodeURIComponent(query)}`
+        console.log('Appel Edge Function:', url)
         
         const response = await fetch(url)
         
         if (!response.ok) {
-          throw new Error(`HTTP Error: ${response.status}`)
+          throw new Error(`Erreur HTTP: ${response.status}`)
         }
         
         const data = await response.json()
@@ -153,7 +157,7 @@ export default function AddressAutocomplete({
       {/* Afficher les erreurs */}
       {error && (
         <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs">
-          ⚠️ {error}
+          ⚠️ Erreur: {error}
         </div>
       )}
 

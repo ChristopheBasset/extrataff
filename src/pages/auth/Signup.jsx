@@ -88,8 +88,18 @@ export default function Signup() {
         return
       }
 
-      // 2. Insérer le role dans la table profiles
+      console.log('Utilisateur créé:', data.user.id)
+
+      // 2. Rafraîchir la session pour être sûr que le token est valide
+      const { error: refreshError } = await supabase.auth.refreshSession()
+      if (refreshError) {
+        console.warn('Attention: refreshSession échoué, on continue quand même')
+      }
+
+      // 3. Insérer le role dans la table profiles
       const userId = data.user.id
+      console.log('Insertion dans profiles pour userId:', userId, 'role:', role)
+      
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
@@ -98,18 +108,31 @@ export default function Signup() {
         })
 
       if (profileError) {
-        console.error('Erreur insertion profile:', profileError)
-        setError('Erreur lors de la création du profil')
+        console.error('ERREUR INSERTION PROFILE:', profileError)
+        console.error('Code erreur:', profileError.code)
+        console.error('Message:', profileError.message)
+        console.error('Détails:', profileError.details)
+        
+        // Même si ça échoue, on affiche l'erreur mais on redirige quand même
+        setError(`Erreur profil: ${profileError.message}`)
         setLoading(false)
-        // Reset Turnstile
         if (window.turnstile) {
           window.turnstile.reset()
           setTurnstileToken(null)
         }
+        
+        // On redirige quand même vers le bon dashboard
+        if (role === 'establishment') {
+          navigate('/establishment')
+        } else {
+          navigate('/talent')
+        }
         return
       }
 
-      // 3. Rediriger directement vers le dashboard selon le rôle
+      console.log('Profile créé avec succès')
+
+      // 4. Rediriger directement vers le dashboard selon le rôle
       if (role === 'establishment') {
         navigate('/establishment')
       } else {
@@ -117,7 +140,7 @@ export default function Signup() {
       }
     } catch (err) {
       console.error('Erreur signup:', err)
-      setError('Erreur lors de la création du compte')
+      setError('Erreur lors de la création du compte: ' + err.message)
       setLoading(false)
       if (window.turnstile) {
         window.turnstile.reset()

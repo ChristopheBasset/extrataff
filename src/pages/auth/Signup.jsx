@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 import TurnstileCaptcha from '../components/shared/TurnstileCaptcha'
 
 export default function Signup() {

@@ -65,17 +65,29 @@ export default function Signup() {
 
       await supabase.auth.refreshSession()
 
+      // ✅ CORRECTION: Récupérer le token JWT de la session
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+
+      if (!token) {
+        setError('Erreur: impossible de récupérer le token')
+        setLoading(false)
+        return
+      }
+
       try {
+        // ✅ CORRECTION: Ajouter le JWT dans l'Authorization header
         const response = await fetch(
           'https://yixuosrfwrxhttbhqelj.supabase.co/functions/v1/create-profile',
           {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`  // ✅ JWT envoyé ici!
             },
             body: JSON.stringify({
-              userId: userId,
-              role: initialRole
+              role: initialRole,  // ✅ Edge Function accepte 'role' maintenant
+              email: formData.email
             })
           }
         )
@@ -88,6 +100,8 @@ export default function Signup() {
           setLoading(false)
           return
         }
+
+        console.log('✅ Profile created:', profileResult)
       } catch (fetchError) {
         console.error('Fetch error:', fetchError)
         setError('Erreur de connexion')

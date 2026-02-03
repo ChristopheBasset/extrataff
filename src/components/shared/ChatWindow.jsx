@@ -124,6 +124,79 @@ export default function ChatWindow({ userType }) {
     }
   }
 
+  // ✅ CORRECTION: handleSend avec remplacement du message optimiste
+  const handleSend = async (e) => {
+    e.preventDefault()
+    if (!newMessage.trim() || sending) return
+
+    const messageText = newMessage.trim()
+    setNewMessage('')
+    setSending(true)
+    
+    try {
+      const receiverId = userType === 'talent'
+        ? application.missions.establishments.user_id
+        : application.talents.user_id
+
+      const senderName = userType === 'talent'
+        ? `${application.talents.first_name} ${application.talents.last_name}`
+        : application.missions.establishments.name
+
+      // Message optimiste
+      const tempId = `temp-${Date.now()}`
+      const optimisticMessage = {
+        id: tempId,
+        application_id: applicationId,
+        mission_id: application.missions.id,
+        sender_id: currentUserId,
+        receiver_id: receiverId,
+        content: messageText,
+        created_at: new Date().toISOString()
+      }
+
+      setMessages(prev => [...prev, optimisticMessage])
+      scrollToBottom()
+
+      // ✅ Récupérer l'ID réel avec .select()
+      const { data: insertedMessage, error } = await supabase
+        .from('messages')
+        .insert({
+          application_id: applicationId,
+          mission_id: application.missions.id,
+          sender_id: currentUserId,
+          receiver_id: receiverId,
+          content: messageText
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // ✅ Remplacer le message optimiste par le vrai message
+      setMessages(prev => 
+        prev.map(msg => msg.id === tempId ? insertedMessage : msg)
+      )
+
+      const receiverPath = userType === 'talent' ? 'establishment' : 'talent'
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: receiverId,
+          type: 'new_message',
+          title: 'Nouveau message',
+          content: `${senderName} : "${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}"`,
+          link: `/${receiverPath}/chat/${applicationId}`
+        })
+
+    } catch (err) {
+      console.error('Erreur envoi message:', err)
+      alert('Erreur lors de l\'envoi du message')
+      loadChat()
+    } finally {
+      setSending(false)
+    }
+  }
+
   // Demander le CV (côté établissement)
   const handleRequestCv = async () => {
     if (sending || cvRequested) return
@@ -229,74 +302,12 @@ export default function ChatWindow({ userType }) {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+
     } catch (err) {
       console.error('Erreur téléchargement CV:', err)
       alert('Erreur lors du téléchargement du CV')
     } finally {
       setDownloadingCv(false)
-    }
-  }
-
-  const handleSend = async (e) => {
-    e.preventDefault()
-    if (!newMessage.trim() || sending) return
-
-    const messageText = newMessage.trim()
-    setNewMessage('')
-    setSending(true)
-    
-    try {
-      const receiverId = userType === 'talent'
-        ? application.missions.establishments.user_id
-        : application.talents.user_id
-
-      const senderName = userType === 'talent'
-        ? `${application.talents.first_name} ${application.talents.last_name}`
-        : application.missions.establishments.name
-
-      // Message optimiste
-      const optimisticMessage = {
-        id: `temp-${Date.now()}`,
-        application_id: applicationId,
-        mission_id: application.missions.id,
-        sender_id: currentUserId,
-        receiver_id: receiverId,
-        content: messageText,
-        created_at: new Date().toISOString()
-      }
-
-      setMessages(prev => [...prev, optimisticMessage])
-      scrollToBottom()
-
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          application_id: applicationId,
-          mission_id: application.missions.id,
-          sender_id: currentUserId,
-          receiver_id: receiverId,
-          content: messageText
-        })
-
-      if (error) throw error
-
-      const receiverPath = userType === 'talent' ? 'establishment' : 'talent'
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: receiverId,
-          type: 'new_message',
-          title: 'Nouveau message',
-          content: `${senderName} : "${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}"`,
-          link: `/${receiverPath}/chat/${applicationId}`
-        })
-
-    } catch (err) {
-      console.error('Erreur envoi message:', err)
-      alert('Erreur lors de l\'envoi du message')
-      loadChat()
-    } finally {
-      setSending(false)
     }
   }
 

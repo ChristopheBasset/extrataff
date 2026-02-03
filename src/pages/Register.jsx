@@ -67,8 +67,10 @@ export default function Register() {
 
       // ✅ CORRECTION: Appeler l'Edge Function create-profile
       try {
-        const response = await fetch(
-          'https://yixuosrfwrxhttbhqelj.supabase.co/functions/v1/create-profile',
+  console.log('📤 Sending to create-profile with token:', token.slice(0, 20) + '...')  // ← AJOUTER CETTE LIGNE
+  
+  const response = await fetch(
+    'https://yixuosrfwrxhttbhqelj.supabase.co/functions/v1/create-profile',
           {
             method: 'POST',
             headers: {

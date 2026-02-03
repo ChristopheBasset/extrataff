@@ -37,10 +37,14 @@ export default function ChatWindow({ userType }) {
           filter: `application_id=eq.${applicationId}`
         },
         (payload) => {
-          setMessages(prev => [...prev, payload.new])
-          // Vérifier si c'est une demande ou partage de CV
-          checkCvStatus([payload.new])
-          scrollToBottom()
+          // ✅ Ignorer les messages qu'on vient d'envoyer (évite le doublon)
+          // Ils sont déjà ajoutés via le .select() dans handleSend
+          if (payload.new.sender_id !== currentUserId) {
+            setMessages(prev => [...prev, payload.new])
+            // Vérifier si c'est une demande ou partage de CV
+            checkCvStatus([payload.new])
+            scrollToBottom()
+          }
         }
       )
       .subscribe()
@@ -48,7 +52,7 @@ export default function ChatWindow({ userType }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [applicationId])
+  }, [applicationId, currentUserId])
 
   useEffect(() => {
     scrollToBottom()

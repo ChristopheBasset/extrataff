@@ -70,26 +70,37 @@ export default function Login() {
         return
       }
 
-      // ✅ CORRECTION: Récupérer le 'role' depuis la table profiles (colonne qui existe!)
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single()
+      // ✅ CORRECTION: Vérifier si l'utilisateur a un profil établissement
+      const { data: establishment, error: establishmentError } = await supabase
+        .from('establishments')
+        .select('*')
+        .eq('user_id', data.user.id)
+        .maybeSingle()
 
-      if (profileError) {
-        console.error('Erreur récupération profile:', profileError)
-        // Si pas de profile trouvé, défaut à 'talent'
-        navigate('/talent')
+      if (establishment) {
+        // C'est un établissement → aller au dashboard établissement
+        console.log('✅ Login établissement:', data.user.id)
+        navigate('/establishment/dashboard')
         return
       }
 
-      // ✅ CORRECTION: Rediriger selon le 'role' (pas 'type')
-      if (profile?.role === 'establishment') {
-        navigate('/establishment')
-      } else {
-        navigate('/talent')
+      // ✅ Vérifier si l'utilisateur a un profil talent
+      const { data: talent, error: talentError } = await supabase
+        .from('talents')
+        .select('*')
+        .eq('user_id', data.user.id)
+        .maybeSingle()
+
+      if (talent) {
+        // C'est un talent → aller au dashboard talent
+        console.log('✅ Login talent:', data.user.id)
+        navigate('/talent/dashboard')
+        return
       }
+
+      // Si pas de profil trouvé → rediriger vers le formulaire de création de profil
+      console.log('⚠️ Pas de profil trouvé, redirection vers /talent/profile-form')
+      navigate('/talent/profile-form')
     } catch (err) {
       console.error('Erreur login:', err)
       setError('Erreur lors de la connexion')

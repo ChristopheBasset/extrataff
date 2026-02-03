@@ -133,8 +133,9 @@ export default function EstablishmentProfileForm() {
           location: location,
           phone: normalizedPhone,
           description: formData.description || null,
-          subscription_status: 'freemium'
-          // trial_ends_at et missions_used sont gérés par le trigger SQL
+          subscription_status: 'freemium',
+          missions_used: 0,
+          trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +60 jours
         })
         .select()
         .single()

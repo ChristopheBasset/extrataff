@@ -70,10 +70,10 @@ export default function Login() {
         return
       }
 
-      // 2. Récupérer le role depuis la table profiles
+      // ✅ CORRECTION: Récupérer le 'type' depuis la table profiles (pas 'role')
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role')
+        .select('type')
         .eq('id', data.user.id)
         .single()
 
@@ -84,8 +84,8 @@ export default function Login() {
         return
       }
 
-      // 3. Rediriger selon le rôle
-      if (profile?.role === 'establishment') {
+      // ✅ CORRECTION: Rediriger selon le 'type' (pas 'role')
+      if (profile?.type === 'establishment') {
         navigate('/establishment')
       } else {
         navigate('/talent')

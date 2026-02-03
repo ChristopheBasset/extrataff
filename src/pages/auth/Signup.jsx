@@ -102,10 +102,12 @@ export default function Signup() {
       
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           id: userId,
           role: role
-        })
+       }, {
+          onConflict: 'id'
+       })
 
       if (profileError) {
         console.error('ERREUR INSERTION PROFILE:', profileError)

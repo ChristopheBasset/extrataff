@@ -65,36 +65,44 @@ export default function Signup() {
         return
       }
 
-      const userId = data.user?.id
-      if (!userId) {
+      if (!data.user) {
         setError('Erreur lors de la création du compte')
         setLoading(false)
         return
       }
 
+      const userId = data.user.id
+
       // 2. Rafraîchir la session
       await supabase.auth.refreshSession()
 
-      // 3. ✅ NOUVEAU : Appeler l'Edge Function pour créer le profil
-      const response = await fetch(
-        'https://yixuosrfwrxhttbhqelj.supabase.co/functions/v1/create-profile',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            userId: userId,
-            role: initialRole
-          })
+      // 3. Appeler l'Edge Function pour créer le profil
+      try {
+        const response = await fetch(
+          'https://yixuosrfwrxhttbhqelj.supabase.co/functions/v1/create-profile',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              userId: userId,
+              role: initialRole
+            })
+          }
+        )
+
+        const profileResult = await response.json()
+
+        if (!response.ok) {
+          console.error('Profile creation failed:', profileResult)
+          setError('Erreur lors de la création du profil')
+          setLoading(false)
+          return
         }
-      )
-
-      const profileResult = await response.json()
-
-      if (!response.ok) {
-        console.error('Profile creation failed:', profileResult)
-        setError('Erreur lors de la création du profil: ' + profileResult.error)
+      } catch (fetchError) {
+        console.error('Fetch error:', fetchError)
+        setError('Erreur de connexion: ' + fetchError.message)
         setLoading(false)
         return
       }

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import TurnstileCaptcha from '../../components/shared/TurnstileCaptcha'
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -15,8 +14,6 @@ export default function Signup() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [captchaToken, setCaptchaToken] = useState('')
-  const [captchaError, setCaptchaError] = useState('')
 
   const handleChange = (e) => {
     setFormData({
@@ -28,12 +25,6 @@ export default function Signup() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-
-    // Validation captcha
-    if (!captchaToken) {
-      setCaptchaError('Veuillez compléter le captcha')
-      return
-    }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas')
@@ -172,40 +163,3 @@ export default function Signup() {
             <input
               type="password"
               name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-
-          <TurnstileCaptcha
-            onSuccess={setCaptchaToken}
-            onError={setCaptchaError}
-            error={captchaError}
-          />
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition"
-          >
-            {loading ? 'Création en cours...' : 'S\'inscrire'}
-          </button>
-
-          <p className="text-center text-sm text-gray-600">
-            Vous avez un compte ?{' '}
-            <a href="/login" className="text-blue-600 hover:underline font-medium">
-              Se connecter
-            </a>
-          </p>
-        </form>
-
-        <p className="text-center text-xs text-gray-500 mt-4">
-          Role sélectionné: <strong>{initialRole === 'establishment' ? '🏪 Établissement' : '👤 Talent'}</strong>
-        </p>
-      </div>
-    </div>
-  )
-}

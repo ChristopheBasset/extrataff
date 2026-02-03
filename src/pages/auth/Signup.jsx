@@ -6,7 +6,7 @@ const TURNSTILE_SITE_KEY = '0x4AAAAAACU7qpGVX9XhKmW1'
 
 export default function Signup() {
   const [searchParams] = useSearchParams()
-  const initialRole = searchParams.get('role') || 'talent'
+  const initialRole = searchParams.get('type') || searchParams.get('role') || 'talent'
   
   const [role, setRole] = useState(initialRole)
   const [email, setEmail] = useState('')

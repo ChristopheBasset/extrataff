@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import AddressAutocomplete from '../../components/shared/AddressAutocomplete'
 import { ESTABLISHMENT_TYPES, FRENCH_DEPARTMENTS } from '../../utils/constants.js'
 
 export default function GroupRegister() {
@@ -449,60 +450,21 @@ export default function GroupRegister() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Adresse *
                     </label>
-                    <input
-                      type="text"
+                    <AddressAutocomplete
                       value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="12 rue de la Paix"
-                      required
+                      onChange={(addressData) => {
+                        setFormData({
+                          ...formData,
+                          address: addressData.address || formData.address,
+                          city: addressData.city || formData.city,
+                          postalCode: addressData.postalCode || formData.postalCode,
+                          department: addressData.department || formData.department
+                        })
+                      }}
+                      onLocationChange={(lat, lon) => {
+                        // Optionnel : si tu veux stocker les coordonnées
+                      }}
                     />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Code postal *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.postalCode}
-                        onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="75001"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Ville *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.city}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Paris"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Département *
-                    </label>
-                    <select
-                      value={formData.department}
-                      onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    >
-                      <option value="">Sélectionnez...</option>
-                      {FRENCH_DEPARTMENTS && FRENCH_DEPARTMENTS.map(dept => (
-                        <option key={dept.value} value={dept.value}>{dept.label}</option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               </div>

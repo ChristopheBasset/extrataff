@@ -70,10 +70,10 @@ export default function Login() {
         return
       }
 
-      // ✅ CORRECTION: Récupérer le 'type' depuis la table profiles (pas 'role')
+      // ✅ CORRECTION: Récupérer le 'role' depuis la table profiles (colonne qui existe!)
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('type')
+        .select('role')
         .eq('id', data.user.id)
         .single()
 
@@ -84,8 +84,8 @@ export default function Login() {
         return
       }
 
-      // ✅ CORRECTION: Rediriger selon le 'type' (pas 'role')
-      if (profile?.type === 'establishment') {
+      // ✅ CORRECTION: Rediriger selon le 'role' (pas 'type')
+      if (profile?.role === 'establishment') {
         navigate('/establishment')
       } else {
         navigate('/talent')

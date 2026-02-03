@@ -74,17 +74,28 @@ export default function GroupAdminDashboard() {
 
         setMissions(missionsData || [])
 
-        // Récupérer toutes les candidatures
+       // Récupérer toutes les candidatures (sans imbrication complexe pour éviter l'erreur)
         const { data: applicationsData, error: appError } = await supabase
           .from('applications')
-          .select('*, missions(title, establishments(name)), talents(name)')
+          .select('*')
           .in('mission_id', missionsData.map(m => m.id))
           .order('created_at', { ascending: false })
 
         if (appError) throw appError
 
-        setApplications(applicationsData || [])
-      }
+        // Enrichir les candidatures avec les données des missions
+        const enrichedApplications = (applicationsData || []).map(app => {
+          const mission = missionsData.find(m => m.id === app.mission_id)
+          return {
+            ...app,
+            missions: mission ? {
+              title: mission.title,
+              establishments: mission.establishments
+            } : null
+          }
+        })
+
+        setApplications(enrichedApplications)
 
     } catch (err) {
       console.error('Erreur fetch:', err)

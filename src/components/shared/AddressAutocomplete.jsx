@@ -12,6 +12,7 @@ export default function AddressAutocomplete({
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const wrapperRef = useRef(null)
 
   // Fermer les suggestions quand on clique ailleurs
@@ -36,29 +37,45 @@ export default function AddressAutocomplete({
   useEffect(() => {
     if (query.length < 3) {
       setSuggestions([])
+      setShowSuggestions(false)
       return
     }
 
     const timeoutId = setTimeout(async () => {
       setLoading(true)
+      setError(null)
       try {
-        const response = await fetch(
-          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`
-        )
-        const data = await response.json()
+        const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`
+        console.log('Appel API adresse:', url)
         
-        if (data.features) {
-          setSuggestions(data.features.map(feature => ({
+        const response = await fetch(url)
+        
+        if (!response.ok) {
+          throw new Error(`HTTP Error: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        console.log('Réponse API:', data)
+        
+        if (data.features && data.features.length > 0) {
+          const mappedSuggestions = data.features.map(feature => ({
             label: feature.properties.label,
             city: feature.properties.city,
             postcode: feature.properties.postcode,
             context: feature.properties.context,
             coordinates: feature.geometry.coordinates // [lng, lat]
-          })))
+          }))
+          
+          console.log('Suggestions mappées:', mappedSuggestions)
+          setSuggestions(mappedSuggestions)
+          setShowSuggestions(true)
+        } else {
+          setSuggestions([])
           setShowSuggestions(true)
         }
-      } catch (error) {
-        console.error('Erreur recherche adresse:', error)
+      } catch (err) {
+        console.error('Erreur recherche adresse:', err)
+        setError(err.message)
         setSuggestions([])
       } finally {
         setLoading(false)
@@ -69,22 +86,27 @@ export default function AddressAutocomplete({
   }, [query])
 
   const handleSelect = (suggestion) => {
+    console.log('Adresse sélectionnée:', suggestion)
     setQuery(suggestion.label)
     setShowSuggestions(false)
     
     // Retourner l'objet complet au parent
-    onChange({
+    const addressData = {
       address: suggestion.label,
       city: suggestion.city,
       postcode: suggestion.postcode,
       department: suggestion.context?.split(',')[0]?.trim() || '',
       coordinates: suggestion.coordinates
-    })
+    }
+    
+    console.log('Envoi au parent:', addressData)
+    onChange(addressData)
   }
 
   const handleInputChange = (e) => {
     const newValue = e.target.value
     setQuery(newValue)
+    setError(null)
     
     // Si l'utilisateur efface, notifier le parent
     if (!newValue) {
@@ -128,6 +150,13 @@ export default function AddressAutocomplete({
         )}
       </div>
 
+      {/* Afficher les erreurs */}
+      {error && (
+        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs">
+          ⚠️ {error}
+        </div>
+      )}
+
       {/* Liste des suggestions */}
       {showSuggestions && suggestions.length > 0 && (
         <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg mt-1 shadow-lg max-h-60 overflow-auto">
@@ -145,7 +174,7 @@ export default function AddressAutocomplete({
       )}
 
       {/* Message si pas de résultats */}
-      {showSuggestions && query.length >= 3 && suggestions.length === 0 && !loading && (
+      {showSuggestions && query.length >= 3 && suggestions.length === 0 && !loading && !error && (
         <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg mt-1 shadow-lg p-3 text-gray-500 text-sm">
           Aucune adresse trouvée
         </div>

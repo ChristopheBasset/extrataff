@@ -74,7 +74,7 @@ export default function GroupAdminDashboard() {
 
         setMissions(missionsData || [])
 
-       // Récupérer toutes les candidatures (sans imbrication complexe pour éviter l'erreur)
+        // Récupérer toutes les candidatures (sans imbrication complexe)
         const { data: applicationsData, error: appError } = await supabase
           .from('applications')
           .select('*')
@@ -96,6 +96,7 @@ export default function GroupAdminDashboard() {
         })
 
         setApplications(enrichedApplications)
+      }
 
     } catch (err) {
       console.error('Erreur fetch:', err)
@@ -216,57 +217,51 @@ export default function GroupAdminDashboard() {
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <p className="text-sm text-gray-600">Candidatures</p>
-                <p className="text-3xl font-bold text-orange-600 mt-2">{applications.length}</p>
+                <p className="text-3xl font-bold text-purple-600 mt-2">{applications.length}</p>
               </div>
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Abonnements Premium</p>
-                <p className="text-3xl font-bold text-purple-600 mt-2">
+                <p className="text-sm text-gray-600">Actifs</p>
+                <p className="text-3xl font-bold text-orange-600 mt-2">
                   {establishments.filter(e => e.subscription_status === 'active').length}
                 </p>
               </div>
             </div>
 
-            {/* Résumé des restaurants */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="font-bold text-gray-900 mb-4">Résumé des restaurants</h3>
-
+            {/* Tableau restaurants */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="font-bold text-gray-900">Résumé des restaurants</h3>
+              </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 font-semibold text-gray-700">Nom</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Type</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Missions</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Candidatures</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Statut</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Nom</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Missions</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Statut</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {establishments.map((estab) => {
-                      const estabMissions = missions.filter(m => m.establishment_id === estab.id)
-                      const estabApps = applications.filter(
-                        a => estabMissions.some(m => m.id === a.mission_id)
-                      )
-
-                      return (
-                        <tr key={estab.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 font-semibold text-gray-900">{estab.name}</td>
-                          <td className="py-3 text-gray-600">{estab.type}</td>
-                          <td className="py-3 text-gray-600">{estabMissions.length}</td>
-                          <td className="py-3 text-gray-600">{estabApps.length}</td>
-                          <td className="py-3">
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                              estab.subscription_status === 'active'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                            }`}>
-                              {estab.subscription_status === 'active' ? '✅ Premium' : '⚡ Freemium'}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {establishments.map((estab) => (
+                      <tr key={estab.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="px-6 py-3 text-gray-900 font-medium">{estab.name}</td>
+                        <td className="px-6 py-3 text-gray-600 text-sm">{estab.type}</td>
+                        <td className="px-6 py-3 text-gray-600 text-sm">
+                          {missions.filter(m => m.establishment_id === estab.id).length}
+                        </td>
+                        <td className="px-6 py-3">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                            estab.subscription_status === 'active'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {estab.subscription_status === 'active' ? '✅ Premium' : '⚡ Freemium'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -328,7 +323,7 @@ export default function GroupAdminDashboard() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <h3 className="font-bold text-gray-900">
-                          {app.talents?.name} → {app.missions?.title}
+                          {app.talent_id} → {app.missions?.title}
                         </h3>
                         <p className="text-sm text-gray-600 mt-1">
                           🏪 {app.missions?.establishments?.name}

@@ -120,12 +120,24 @@ function App() {
           element={session ? <SubscribeSuccess /> : <Navigate to="/login" />} 
         />
 
+        {/* Dashboard Établissement - Route spécifique */}
+        <Route 
+          path="/establishment/dashboard" 
+          element={session ? <EstablishmentDashboard /> : <Navigate to="/login" />} 
+        />
+
         {/* Routes protégées - Établissement */}
         <Route
           path="/establishment/*"
           element={
             session ? <EstablishmentDashboard /> : <Navigate to="/login" />
           }
+        />
+
+        {/* Dashboard Talent - Route spécifique */}
+        <Route 
+          path="/talent/dashboard" 
+          element={session ? <TalentDashboard /> : <Navigate to="/login" />} 
         />
 
         {/* Routes protégées - Talent */}

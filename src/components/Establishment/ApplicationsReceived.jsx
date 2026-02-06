@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, formatDate, formatDateTime } from '../../lib/supabase'
+import { supabase, formatDateTime } from '../../lib/supabase'
 
 export default function ApplicationsReceived({ establishmentId }) {
   const navigate = useNavigate()
@@ -32,9 +32,8 @@ export default function ApplicationsReceived({ establishmentId }) {
         .from('applications')
         .select(`
           *,
-          missions (id, position, location_fuzzy, hourly_rate, start_date, end_date),
+          missions (id, position),
           talents!talent_id (
-            id,
             first_name,
             last_name,
             phone
@@ -93,9 +92,6 @@ export default function ApplicationsReceived({ establishmentId }) {
         <p className="text-gray-600 mt-1">{applications.length} candidature(s)</p>
       </div>
 
-      {/* Modal profil talent */}
-      {/* SUPPRIMÉ - On affiche tout directement */}
-
       {applications.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 text-center py-12">
           <p className="text-xl text-gray-600 mb-4">👥 Aucune candidature</p>
@@ -107,6 +103,7 @@ export default function ApplicationsReceived({ establishmentId }) {
             const badge = getStatusBadge(app.status)
             return (
               <div key={app.id} className="bg-white rounded-lg border border-gray-200 p-6">
+                {/* Header */}
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">
@@ -152,49 +149,6 @@ export default function ApplicationsReceived({ establishmentId }) {
                 )}
 
                 {/* Boutons d'action */}
-                {app.status === 'interested' && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => updateStatus(app.id, 'accepted')}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                    >
-                      ✅ Accepter
-                    </button>
-                    <button
-                      onClick={() => updateStatus(app.id, 'rejected')}
-                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                    >
-                      ❌ Refuser
-                    </button>
-                  </div>
-                )}
-
-                {(app.status === 'accepted' || app.status === 'confirmed') && (
-                  <button
-                    onClick={() => navigate(`/establishment/chat/${app.id}`)}
-                    className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
-                  >
-                    💬 Ouvrir la conversation
-                  </button>
-                )}
-
-                {/* État des confirmations */}
-                {app.status === 'accepted' && (
-                  <div className="mb-4 p-3 bg-gray-100 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700 mb-2">État des confirmations :</p>
-                    <div className="flex gap-4">
-                      <span className={`text-sm ${app.establishment_confirmed ? 'text-green-600' : 'text-gray-400'}`}>
-                        {app.establishment_confirmed ? '✅' : '⏳'} Établissement (vous)
-                      </span>
-                      <span className={`text-sm ${app.talent_confirmed ? 'text-green-600' : 'text-gray-400'}`}>
-                        {app.talent_confirmed ? '✅' : '⏳'} Talent
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Boutons d'action */}
-
                 {app.status === 'interested' && (
                   <div className="flex gap-2">
                     <button

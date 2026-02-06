@@ -241,7 +241,7 @@ export default function EstablishmentDashboard() {
 
         {/* Missions */}
         {tab === 'missions' && (
-          <MyMissions />
+          <MyMissions onViewCandidates={() => setTab('candidates')} />
         )}
 
         {/* Candidatures */}

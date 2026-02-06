@@ -6,6 +6,7 @@ import NotificationBadge from '../../components/shared/NotificationBadge'
 import NotificationList from '../../components/shared/NotificationList'
 import MissionManage from '../../components/Establishment/MissionManage'
 import ApplicationsReceived from '../../components/Establishment/ApplicationsReceived'
+import EstablishmentAgenda from '../../components/Establishment/EstablishmentAgenda'
 import EstablishmentProfileEdit from '../../components/Establishment/EstablishmentProfileEdit'
 
 export default function EstablishmentDashboard() {
@@ -120,6 +121,7 @@ export default function EstablishmentDashboard() {
     { id: 'overview', label: '📊 Vue d\'ensemble' },
     { id: 'missions', label: '📋 Missions' },
     { id: 'candidates', label: '👥 Candidatures' },
+    { id: 'agenda', label: '📅 Agenda' },
     { id: 'chat', label: '💬 Messagerie' },
     { id: 'profile', label: '⚙️ Profil' }
   ]
@@ -220,6 +222,14 @@ export default function EstablishmentDashboard() {
               </button>
 
               <button
+                onClick={() => setTab('agenda')}
+                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+              >
+                <p className="text-lg font-semibold text-gray-900">📅 Missions confirmées</p>
+                <p className="text-sm text-gray-600 mt-1">Vos missions validées des deux côtés</p>
+              </button>
+
+              <button
                 onClick={() => setTab('chat')}
                 className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
               >
@@ -246,6 +256,11 @@ export default function EstablishmentDashboard() {
         {/* Candidatures */}
         {tab === 'candidates' && (
           <ApplicationsReceived establishmentId={profile.id} />
+        )}
+
+        {/* Agenda */}
+        {tab === 'agenda' && (
+          <EstablishmentAgenda establishmentId={profile.id} />
         )}
 
         {/* Messagerie */}

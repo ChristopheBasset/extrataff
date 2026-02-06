@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase, notifyNewApplication, FRENCH_DEPARTMENTS, extractDepartment } from '../../lib/supabase'
 import { getMatchedMissions } from '../../lib/matching'
 import MissionCard from './MissionCard'
+import { formatDate } from '../../lib/supabase'
 
 export default function MissionList() {
   const navigate = useNavigate()
@@ -11,6 +12,8 @@ export default function MissionList() {
   const [talent, setTalent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showAgenda, setShowAgenda] = useState(false)
+  const [confirmedMissions, setConfirmedMissions] = useState([])
   
   // Filtres
   const [selectedDepartments, setSelectedDepartments] = useState([])
@@ -108,11 +111,43 @@ export default function MissionList() {
       const matchedMissions = getMatchedMissions(availableMissions, talentData)
       
       setMissions(matchedMissions)
+
+      // 7. Charger les missions confirmées pour l'agenda
+      loadConfirmedMissions(talentData.id)
     } catch (err) {
       console.error('Erreur chargement missions:', err)
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadConfirmedMissions = async (talentId) => {
+    try {
+      const { data } = await supabase
+        .from('applications')
+        .select(`
+          id,
+          missions (
+            id,
+            position,
+            location_fuzzy,
+            start_date,
+            hourly_rate,
+            shift_start_time,
+            shift_end_time,
+            establishments (
+              name
+            )
+          )
+        `)
+        .eq('talent_id', talentId)
+        .eq('status', 'confirmed')
+        .order('created_at', { ascending: false })
+
+      setConfirmedMissions(data || [])
+    } catch (err) {
+      console.error('Erreur chargement missions confirmées:', err)
     }
   }
 
@@ -237,16 +272,57 @@ export default function MissionList() {
 
       {/* Contenu */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Missions Matchées</h2>
-          <p className="text-gray-600 mt-2">
-            {filteredMissions.length} mission{filteredMissions.length > 1 ? 's' : ''} correspondant à votre profil
-            {!showAllDepartments && selectedDepartments.length > 0 && (
-              <span> dans {selectedDepartments.length} département(s)</span>
-            )}
-            {showAllDepartments && <span> (toutes régions)</span>}
-          </p>
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900">Missions Matchées</h2>
+            <p className="text-gray-600 mt-2">
+              {filteredMissions.length} mission{filteredMissions.length > 1 ? 's' : ''} correspondant à votre profil
+              {!showAllDepartments && selectedDepartments.length > 0 && (
+                <span> dans {selectedDepartments.length} département(s)</span>
+              )}
+              {showAllDepartments && <span> (toutes régions)</span>}
+            </p>
+          </div>
+          
+          {/* Bouton Voir mon agenda */}
+          {confirmedMissions.length > 0 && (
+            <button
+              onClick={() => setShowAgenda(!showAgenda)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm"
+            >
+              📅 {showAgenda ? 'Fermer' : 'Voir mon agenda'} ({confirmedMissions.length})
+            </button>
+          )}
         </div>
+
+        {/* Panel Agenda */}
+        {showAgenda && confirmedMissions.length > 0 && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 mb-8">
+            <h3 className="text-lg font-bold text-purple-900 mb-4">📅 Vos missions confirmées</h3>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {confirmedMissions.map(app => {
+                const mission = app.missions
+                return (
+                  <div key={app.id} className="bg-white rounded-lg p-4 border border-purple-100">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{mission.position}</h4>
+                        <p className="text-sm text-gray-600">{mission.establishments?.name}</p>
+                        <p className="text-sm text-purple-600 font-medium mt-1">
+                          🎯 {formatDate(mission.start_date)}
+                          {mission.shift_start_time && ` • ${mission.shift_start_time.slice(0,5)}`}
+                        </p>
+                      </div>
+                      {mission.hourly_rate && (
+                        <span className="text-sm font-bold text-purple-600">{mission.hourly_rate}€/h</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Filtres */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">

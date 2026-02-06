@@ -33,7 +33,7 @@ export default function ApplicationsReceived({ establishmentId }) {
         .select(`
           *,
           missions (id, position),
-          talents (first_name, last_name, phone)
+          talents!talent_id (first_name, last_name, phone)
         `)
         .in('mission_id', missionIds)
         .order('created_at', { ascending: false })

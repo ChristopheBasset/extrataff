@@ -126,6 +126,21 @@ export default function ApplicationsReceived({ establishmentId }) {
                   </div>
                 )}
 
+                {/* Afficher l'état des confirmations */}
+                {app.status === 'accepted' && (
+                  <div className="mb-4 p-3 bg-gray-100 rounded-lg">
+                    <p className="text-sm font-medium text-gray-700 mb-2">État des confirmations :</p>
+                    <div className="flex gap-4">
+                      <span className={`text-sm ${app.establishment_confirmed ? 'text-green-600' : 'text-gray-400'}`}>
+                        {app.establishment_confirmed ? '✅' : '⏳'} Établissement (vous)
+                      </span>
+                      <span className={`text-sm ${app.talent_confirmed ? 'text-green-600' : 'text-gray-400'}`}>
+                        {app.talent_confirmed ? '✅' : '⏳'} Talent
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {app.status === 'interested' && (
                   <div className="flex gap-2">
                     <button
@@ -143,7 +158,7 @@ export default function ApplicationsReceived({ establishmentId }) {
                   </div>
                 )}
 
-                {app.status === 'accepted' && (
+                {(app.status === 'accepted' || app.status === 'confirmed') && (
                   <button
                     onClick={() => navigate(`/establishment/chat/${app.id}`)}
                     className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"

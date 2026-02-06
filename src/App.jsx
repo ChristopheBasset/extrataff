@@ -17,6 +17,7 @@ import TalentProfileForm from './components/Talent/TalentProfileForm'
 import EstablishmentProfileForm from './components/Establishment/EstablishmentProfileForm'
 
 // Formulaires mission
+import MissionForm from './components/Establishment/MissionForm'
 import EditMissionForm from './components/Establishment/EditMissionForm'
 
 // Abonnement
@@ -94,7 +95,6 @@ function App() {
         />
 
         {/* Routes formulaires profil (après création compte) */}
-        {/* IMPORTANT: Ces routes doivent être AVANT les routes wildcard /* */}
         <Route 
           path="/talent/profile-form" 
           element={session ? <TalentProfileForm /> : <Navigate to="/login" />} 
@@ -104,12 +104,6 @@ function App() {
           element={session ? <EstablishmentProfileForm /> : <Navigate to="/login" />} 
         />
         
-        {/* Route édition mission (avant le wildcard) */}
-        <Route 
-          path="/establishment/edit-mission/:missionId" 
-          element={session ? <EditMissionForm /> : <Navigate to="/login" />} 
-        />
-
         {/* Routes abonnement Stripe */}
         <Route 
           path="/establishment/subscribe" 
@@ -120,13 +114,31 @@ function App() {
           element={session ? <SubscribeSuccess /> : <Navigate to="/login" />} 
         />
 
-        {/* Dashboard Établissement - Route spécifique */}
+        {/* ========== ROUTES ÉTABLISSEMENT ========== */}
+        
+        {/* Dashboard Établissement */}
+        <Route 
+          path="/establishment" 
+          element={session ? <EstablishmentDashboard /> : <Navigate to="/login" />} 
+        />
         <Route 
           path="/establishment/dashboard" 
           element={session ? <EstablishmentDashboard /> : <Navigate to="/login" />} 
         />
 
-        {/* Routes protégées - Établissement */}
+        {/* Mission - Créer une nouvelle mission */}
+        <Route 
+          path="/establishment/create-mission" 
+          element={session ? <MissionForm /> : <Navigate to="/login" />} 
+        />
+
+        {/* Mission - Éditer une mission existante */}
+        <Route 
+          path="/establishment/edit-mission/:missionId" 
+          element={session ? <EditMissionForm /> : <Navigate to="/login" />} 
+        />
+
+        {/* Routes protégées Établissement (wildcard - doit rester à la fin des routes établissement) */}
         <Route
           path="/establishment/*"
           element={
@@ -134,13 +146,15 @@ function App() {
           }
         />
 
-        {/* Dashboard Talent - Route spécifique */}
+        {/* ========== ROUTES TALENT ========== */}
+
+        {/* Dashboard Talent */}
         <Route 
           path="/talent/dashboard" 
           element={session ? <TalentDashboard /> : <Navigate to="/login" />} 
         />
 
-        {/* Routes protégées - Talent */}
+        {/* Routes protégées Talent */}
         <Route
           path="/talent/*"
           element={

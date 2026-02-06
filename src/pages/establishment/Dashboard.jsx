@@ -1,13 +1,12 @@
 import { supabase } from '../../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import ChatList from '../../components/shared/ChatList'
-import NotificationBadge from '../../components/shared/NotificationBadge'
-import NotificationList from '../../components/shared/NotificationList'
-import MissionManage from '../../components/Establishment/MissionManage'
+import MyMissions from '../../components/Establishment/MyMissions'
 import ApplicationsReceived from '../../components/Establishment/ApplicationsReceived'
 import EstablishmentAgenda from '../../components/Establishment/EstablishmentAgenda'
 import EstablishmentProfileEdit from '../../components/Establishment/EstablishmentProfileEdit'
+import NotificationBadge from '../../components/shared/NotificationBadge'
+import NotificationList from '../../components/shared/NotificationList'
 
 export default function EstablishmentDashboard() {
   const navigate = useNavigate()
@@ -50,6 +49,7 @@ export default function EstablishmentDashboard() {
         .from('missions')
         .select('*', { count: 'exact', head: true })
         .eq('establishment_id', establishmentId)
+        .eq('status', 'open')
 
       const { data: missions } = await supabase
         .from('missions')
@@ -121,8 +121,7 @@ export default function EstablishmentDashboard() {
     { id: 'overview', label: '📊 Vue d\'ensemble' },
     { id: 'missions', label: '📋 Missions' },
     { id: 'candidates', label: '👥 Candidatures' },
-    { id: 'agenda', label: '📅 Agenda' },
-    { id: 'chat', label: '💬 Messagerie' },
+    { id: 'agenda', label: '📅 Confirmées' },
     { id: 'profile', label: '⚙️ Profil' }
   ]
 
@@ -183,7 +182,7 @@ export default function EstablishmentDashboard() {
             {/* Cartes de stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Missions publiées</p>
+                <p className="text-sm text-gray-600">Missions ouvertes</p>
                 <p className="text-3xl font-bold text-blue-600 mt-2">{stats.missionsCount}</p>
               </div>
 
@@ -230,14 +229,6 @@ export default function EstablishmentDashboard() {
               </button>
 
               <button
-                onClick={() => setTab('chat')}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
-              >
-                <p className="text-lg font-semibold text-gray-900">💬 Messages</p>
-                <p className="text-sm text-gray-600 mt-1">Échangez avec les candidats</p>
-              </button>
-
-              <button
                 onClick={() => setTab('profile')}
                 className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
               >
@@ -250,7 +241,7 @@ export default function EstablishmentDashboard() {
 
         {/* Missions */}
         {tab === 'missions' && (
-          <MissionManage establishmentId={profile.id} />
+          <MyMissions />
         )}
 
         {/* Candidatures */}
@@ -258,14 +249,9 @@ export default function EstablishmentDashboard() {
           <ApplicationsReceived establishmentId={profile.id} />
         )}
 
-        {/* Agenda */}
+        {/* Agenda - Missions confirmées */}
         {tab === 'agenda' && (
           <EstablishmentAgenda establishmentId={profile.id} />
-        )}
-
-        {/* Messagerie */}
-        {tab === 'chat' && (
-          <ChatList userType="establishment" />
         )}
 
         {/* Profil */}

@@ -15,77 +15,111 @@ export default function ChatList({ userType }) {
   const loadConversations = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        navigate('/login')
+        return
+      }
 
       if (userType === 'talent') {
-        // TALENT - Récupérer le profil
-        const { data: talent } = await supabase
+        // ✅ TALENT - Récupérer les candidatures acceptées
+        const { data: talentData } = await supabase
           .from('talents')
           .select('id')
           .eq('user_id', user.id)
           .single()
 
-        // Récupérer les candidatures acceptées avec infos mission et établissement
+        if (!talentData) return
+
         const { data: applications, error } = await supabase
           .from('applications')
-          .select(`
-            id,
-            status,
-            created_at,
-            missions (
-              id,
-              position,
-              start_date,
-              establishments (
-                name
-              )
-            )
-          `)
-          .eq('talent_id', talent.id)
+          .select('*')
+          .eq('talent_id', talentData.id)
           .eq('status', 'accepted')
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        
-        // Filtrer les conversations dont la mission existe encore
-        const validConversations = (applications || []).filter(
+
+        // Enrichir avec les infos missions et établissements
+        const enriched = await Promise.all(
+          (applications || []).map(async (app) => {
+            const { data: mission } = await supabase
+              .from('missions')
+              .select('id, position, start_date, establishments(name)')
+              .eq('id', app.mission_id)
+              .single()
+
+            return {
+              ...app,
+              missions: mission
+            }
+          })
+        )
+
+        const validConversations = enriched.filter(
           app => app.missions && app.missions.establishments
         )
         setConversations(validConversations)
 
       } else {
-        // ÉTABLISSEMENT - Récupérer le profil
-        const { data: establishment } = await supabase
+        // ✅ ÉTABLISSEMENT - Récupérer les missions puis les applications
+        const { data: establishmentData } = await supabase
           .from('establishments')
           .select('id')
           .eq('user_id', user.id)
           .single()
 
-        // Récupérer les candidatures acceptées pour cet établissement
-        const { data: applications, error } = await supabase
+        if (!establishmentData) return
+
+        // Récupérer les missions de cet établissement
+        const { data: missions, error: missionsError } = await supabase
+          .from('missions')
+          .select('id')
+          .eq('establishment_id', establishmentData.id)
+
+        if (missionsError) throw missionsError
+
+        if (!missions || missions.length === 0) {
+          setConversations([])
+          setLoading(false)
+          return
+        }
+
+        const missionIds = missions.map(m => m.id)
+
+        // Récupérer les applications acceptées pour ces missions
+        const { data: applications, error: appError } = await supabase
           .from('applications')
-          .select(`
-            id,
-            status,
-            created_at,
-            missions!inner (
-              id,
-              position,
-              start_date,
-              establishment_id
-            ),
-            talents (
-              first_name,
-              last_name
-            )
-          `)
+          .select('*')
+          .in('mission_id', missionIds)
           .eq('status', 'accepted')
-          .eq('missions.establishment_id', establishment.id)
           .order('created_at', { ascending: false })
 
-        if (error) throw error
-        
-        // Filtrer les conversations valides
-        const validConversations = (applications || []).filter(
+        if (appError) throw appError
+
+        // Enrichir avec les infos talents et missions
+        const enriched = await Promise.all(
+          (applications || []).map(async (app) => {
+            const { data: talent } = await supabase
+              .from('talents')
+              .select('first_name, last_name')
+              .eq('id', app.talent_id)
+              .single()
+
+            const { data: mission } = await supabase
+              .from('missions')
+              .select('id, position')
+              .eq('id', app.mission_id)
+              .single()
+
+            return {
+              ...app,
+              talents: talent,
+              missions: mission
+            }
+          })
+        )
+
+        const validConversations = enriched.filter(
           app => app.missions && app.talents
         )
         setConversations(validConversations)
@@ -138,7 +172,7 @@ export default function ChatList({ userType }) {
 
         {conversations.length === 0 ? (
           <div className="card text-center py-12">
-            <p className="text-xl text-gray-600 mb-4">📭 Aucune conversation</p>
+            <p className="text-xl text-gray-600 mb-4">🔭 Aucune conversation</p>
             <p className="text-gray-500">
               Les conversations apparaissent quand vos candidatures sont acceptées
             </p>
@@ -146,7 +180,6 @@ export default function ChatList({ userType }) {
         ) : (
           <div className="space-y-3">
             {conversations.map(conv => {
-              // Sécurité supplémentaire
               if (!conv.missions) return null
               
               return (

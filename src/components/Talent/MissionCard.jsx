@@ -1,7 +1,7 @@
 import { getUrgencyBadge } from '../../lib/matching'
 import { formatDate, getLabel, CONTRACT_TYPES } from '../../lib/supabase'
 
-export default function MissionCard({ mission, matchCategory, onApply }) {
+export default function MissionCard({ mission, matchCategory, onApply, onHide }) {
   const urgencyBadge = getUrgencyBadge(mission.urgency_level)
 
   return (
@@ -71,13 +71,21 @@ export default function MissionCard({ mission, matchCategory, onApply }) {
         </div>
       )}
 
-      {/* Bouton candidature */}
-      <button
-        onClick={() => onApply(mission.id)}
-        className="btn-primary w-full"
-      >
-        ✋ Je suis intéressé(e)
-      </button>
+      {/* Boutons */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => onApply(mission.id)}
+          className="btn-primary flex-1"
+        >
+          ✋ Je suis intéressé(e)
+        </button>
+        <button
+          onClick={() => onHide(mission.id)}
+          className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+        >
+          👋 Passer
+        </button>
+      </div>
     </div>
   )
 }

@@ -12,9 +12,9 @@ export default function MissionList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Filtres - initialisés avec les départements préférés du talent
+  // Filtres
   const [selectedDepartments, setSelectedDepartments] = useState([])
-  const [showAllDepartments, setShowAllDepartments] = useState(false) // Pour élargir la recherche
+  const [showAllDepartments, setShowAllDepartments] = useState(false)
 
   useEffect(() => {
     loadMissions()
@@ -28,8 +28,7 @@ export default function MissionList() {
   const applyFilters = () => {
     let filtered = [...missions]
     
-    // Filtre par département (automatique selon le profil du talent)
-    // SAUF si l'utilisateur a cliqué sur "Voir toutes les régions"
+    // Filtre par département
     if (!showAllDepartments && selectedDepartments.length > 0) {
       filtered = filtered.filter(mission => {
         const dept = extractDepartment(mission.location_fuzzy) || extractDepartment(mission.location_exact)
@@ -46,7 +45,6 @@ export default function MissionList() {
         ? prev.filter(d => d !== dept)
         : [...prev, dept]
     )
-    // Si on modifie manuellement, on désactive "voir tout"
     setShowAllDepartments(false)
   }
 
@@ -64,13 +62,28 @@ export default function MissionList() {
       if (talentError) throw talentError
       setTalent(talentData)
 
-      // IMPORTANT: Initialiser les filtres avec les départements préférés du talent
-      // C'est le comportement de matching : le talent voit les missions de SES départements
+      // Initialiser les filtres avec les départements préférés
       if (talentData.preferred_departments && talentData.preferred_departments.length > 0) {
         setSelectedDepartments(talentData.preferred_departments)
       }
 
-      // 2. Récupérer toutes les missions ouvertes avec les infos établissement
+      // 2. Récupérer les missions_ids auxquelles le talent a déjà candidaté
+      const { data: applicationsData } = await supabase
+        .from('applications')
+        .select('mission_id')
+        .eq('talent_id', talentData.id)
+
+      const appliedMissionIds = applicationsData?.map(app => app.mission_id) || []
+
+      // 3. Récupérer les missions_ids que le talent a masquées
+      const { data: hiddenData } = await supabase
+        .from('hidden_missions')
+        .select('mission_id')
+        .eq('talent_id', talentData.id)
+
+      const hiddenMissionIds = hiddenData?.map(h => h.mission_id) || []
+
+      // 4. Récupérer toutes les missions ouvertes
       const { data: missionsData, error: missionsError } = await supabase
         .from('missions')
         .select(`
@@ -86,8 +99,13 @@ export default function MissionList() {
 
       if (missionsError) throw missionsError
 
-      // 3. Calculer les scores de matching et filtrer
-      const matchedMissions = getMatchedMissions(missionsData, talentData)
+      // 5. Filtrer les missions où le talent a déjà candidaté OU masquées
+      const availableMissions = (missionsData || []).filter(
+        mission => !appliedMissionIds.includes(mission.id) && !hiddenMissionIds.includes(mission.id)
+      )
+
+      // 6. Calculer les scores de matching
+      const matchedMissions = getMatchedMissions(availableMissions, talentData)
       
       setMissions(matchedMissions)
     } catch (err) {
@@ -112,7 +130,6 @@ export default function MissionList() {
       }
     } catch (err) {
       console.error('Erreur appel Edge Function SMS:', err)
-      // On ne bloque pas le processus si le SMS échoue
     }
   }
 
@@ -133,7 +150,7 @@ export default function MissionList() {
         return
       }
 
-      // Créer la candidature et récupérer l'ID
+      // Créer la candidature
       const { data: newApplication, error } = await supabase
         .from('applications')
         .insert({
@@ -166,6 +183,26 @@ export default function MissionList() {
     } catch (err) {
       console.error('Erreur candidature:', err)
       alert('Erreur lors de l\'envoi de la candidature')
+    }
+  }
+
+  const handleHideMission = async (missionId) => {
+    try {
+      const { error } = await supabase
+        .from('hidden_missions')
+        .insert({
+          talent_id: talent.id,
+          mission_id: missionId
+        })
+
+      if (error) throw error
+
+      // Retirer la mission de la liste localement
+      setMissions(prev => prev.filter(m => m.id !== missionId))
+      alert('Mission masquée ✓')
+    } catch (err) {
+      console.error('Erreur masquage mission:', err)
+      alert('Erreur lors du masquage de la mission')
     }
   }
 
@@ -212,7 +249,7 @@ export default function MissionList() {
         </div>
 
         {/* Filtres */}
-        <div className="card mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">🔍 Zone de recherche</h3>
             
@@ -226,7 +263,7 @@ export default function MissionList() {
                   }}
                   className="text-sm px-3 py-1 bg-primary-100 text-primary-700 rounded-full hover:bg-primary-200"
                 >
-                  📍 Mes départements uniquement
+                  🔍 Mes départements uniquement
                 </button>
               )}
               {!showAllDepartments && selectedDepartments.length > 0 && (
@@ -289,7 +326,7 @@ export default function MissionList() {
                   setSelectedDepartments(selected)
                   setShowAllDepartments(false)
                 }}
-                className="input min-h-[150px]"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl min-h-[150px]"
               >
                 {FRENCH_DEPARTMENTS.map(dept => (
                   <option key={dept.value} value={dept.value}>
@@ -311,7 +348,7 @@ export default function MissionList() {
         )}
 
         {filteredMissions.length === 0 ? (
-          <div className="card text-center py-12">
+          <div className="bg-white rounded-lg border border-gray-200 text-center py-12">
             <p className="text-xl text-gray-600 mb-4">🔍 Aucune mission trouvée</p>
             <p className="text-gray-500 mb-6">
               {!showAllDepartments && selectedDepartments.length > 0
@@ -322,14 +359,14 @@ export default function MissionList() {
             {!showAllDepartments && selectedDepartments.length > 0 ? (
               <button
                 onClick={() => setShowAllDepartments(true)}
-                className="btn-primary"
+                className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
               >
                 🌍 Voir toutes les régions
               </button>
             ) : (
               <button
                 onClick={() => navigate('/talent/edit-profile')}
-                className="btn-primary"
+                className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
               >
                 Modifier mon profil
               </button>
@@ -343,6 +380,7 @@ export default function MissionList() {
                 mission={mission}
                 matchCategory={mission.match_category}
                 onApply={handleApply}
+                onHide={handleHideMission}
               />
             ))}
           </div>

@@ -51,19 +51,64 @@ export default function ApplicationsReceived({ establishmentId }) {
     }
   }
 
-  const updateStatus = async (applicationId, newStatus) => {
+  const acceptApplication = async (applicationId) => {
     try {
       const { error } = await supabase
         .from('applications')
-        .update({ status: newStatus, establishment_confirmed: newStatus === 'accepted' })
+        .update({ 
+          status: 'accepted',
+          establishment_confirmed: true
+        })
         .eq('id', applicationId)
 
       if (error) throw error
       
-      alert(`Candidature ${newStatus === 'accepted' ? 'acceptée' : 'refusée'} !`)
+      alert('✅ Candidature acceptée ! En attente de confirmation du talent.')
       loadApplications()
     } catch (err) {
       console.error('Erreur mise à jour:', err)
+    }
+  }
+
+  const rejectApplication = async (applicationId) => {
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ status: 'rejected' })
+        .eq('id', applicationId)
+
+      if (error) throw error
+      
+      alert('❌ Candidature refusée')
+      loadApplications()
+    } catch (err) {
+      console.error('Erreur mise à jour:', err)
+    }
+  }
+
+  const confirmMission = async (applicationId) => {
+    try {
+      const app = applications.find(a => a.id === applicationId)
+      
+      if (!app.talent_confirmed) {
+        alert('⏳ En attente de confirmation du talent')
+        return
+      }
+
+      const { error } = await supabase
+        .from('applications')
+        .update({ 
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString()
+        })
+        .eq('id', applicationId)
+
+      if (error) throw error
+      
+      alert('🎉 Embauche validée ! La mission est confirmée.')
+      loadApplications()
+    } catch (err) {
+      console.error('Erreur confirmation:', err)
     }
   }
 
@@ -152,13 +197,13 @@ export default function ApplicationsReceived({ establishmentId }) {
                 {app.status === 'interested' && (
                   <div className="flex gap-2">
                     <button
-                      onClick={() => updateStatus(app.id, 'accepted')}
+                      onClick={() => acceptApplication(app.id)}
                       className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                     >
                       ✅ Accepter
                     </button>
                     <button
-                      onClick={() => updateStatus(app.id, 'rejected')}
+                      onClick={() => rejectApplication(app.id)}
                       className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
                     >
                       ❌ Refuser
@@ -166,7 +211,29 @@ export default function ApplicationsReceived({ establishmentId }) {
                   </div>
                 )}
 
-                {(app.status === 'accepted' || app.status === 'confirmed') && (
+                {app.status === 'accepted' && (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => confirmMission(app.id)}
+                      disabled={!app.talent_confirmed}
+                      className={`w-full px-4 py-2 rounded-lg transition-colors font-medium ${
+                        app.talent_confirmed
+                          ? 'bg-purple-600 text-white hover:bg-purple-700'
+                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {app.talent_confirmed ? '🎉 Valider l\'embauche' : '⏳ En attente du talent'}
+                    </button>
+                    <button
+                      onClick={() => navigate(`/establishment/chat/${app.id}`)}
+                      className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
+                    >
+                      💬 Ouvrir la conversation
+                    </button>
+                  </div>
+                )}
+
+                {app.status === 'confirmed' && (
                   <button
                     onClick={() => navigate(`/establishment/chat/${app.id}`)}
                     className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"

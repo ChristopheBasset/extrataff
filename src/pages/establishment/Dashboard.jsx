@@ -1,13 +1,7 @@
 import { supabase } from '../../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import EstablishmentProfileForm from '../../components/Establishment/EstablishmentProfileForm'
-import EstablishmentProfileEdit from '../../components/Establishment/EstablishmentProfileEdit'
-import MissionCreate from '../../components/Establishment/MissionCreate'
-import MissionManage from '../../components/Establishment/MissionManage'
-import ApplicationsReceived from '../../components/Establishment/ApplicationsReceived'
 import ChatList from '../../components/shared/ChatList'
-import ChatWindow from '../../components/shared/ChatWindow'
 import NotificationBadge from '../../components/shared/NotificationBadge'
 import NotificationList from '../../components/shared/NotificationList'
 
@@ -53,38 +47,19 @@ export default function EstablishmentDashboard() {
         .select('*', { count: 'exact', head: true })
         .eq('establishment_id', establishmentId)
 
-      const { count: appCount } = await supabase
-        .from('applications')
-        .select(`
-          id,
-          mission_id,
-          missions!inner(establishment_id)
-        `, { count: 'exact', head: true })
-        .eq('missions.establishment_id', establishmentId)
-
       const { count: convCount } = await supabase
         .from('applications')
-        .select(`
-          id,
-          mission_id,
-          missions!inner(establishment_id)
-        `, { count: 'exact', head: true })
-        .eq('missions.establishment_id', establishmentId)
+        .select('*', { count: 'exact', head: true })
         .eq('status', 'accepted')
 
       const { count: confirmedCount } = await supabase
         .from('applications')
-        .select(`
-          id,
-          mission_id,
-          missions!inner(establishment_id)
-        `, { count: 'exact', head: true })
-        .eq('missions.establishment_id', establishmentId)
+        .select('*', { count: 'exact', head: true })
         .eq('status', 'confirmed')
 
       setStats({
         missionsCount: missCount || 0,
-        applicationsCount: appCount || 0,
+        applicationsCount: 0,
         conversationsCount: convCount || 0,
         confirmedCount: confirmedCount || 0
       })
@@ -107,15 +82,19 @@ export default function EstablishmentDashboard() {
   }
 
   if (!profile) {
-    return <EstablishmentProfileForm />
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">Chargement du profil...</p>
+      </div>
+    )
   }
 
   const tabs = [
-    { id: 'overview', label: '📊 Vue d\'ensemble', icon: '📊' },
-    { id: 'missions', label: '📋 Missions', icon: '📋' },
-    { id: 'applications', label: '👥 Candidatures', icon: '👥' },
-    { id: 'chat', label: '💬 Messagerie', icon: '💬' },
-    { id: 'profile', label: '⚙️ Profil', icon: '⚙️' }
+    { id: 'overview', label: '📊 Vue d\'ensemble' },
+    { id: 'missions', label: '📋 Missions' },
+    { id: 'candidates', label: '👥 Candidatures' },
+    { id: 'chat', label: '💬 Messagerie' },
+    { id: 'profile', label: '⚙️ Profil' }
   ]
 
   return (
@@ -180,7 +159,7 @@ export default function EstablishmentDashboard() {
               </div>
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Candidatures reçues</p>
+                <p className="text-sm text-gray-600">Candidatures</p>
                 <p className="text-3xl font-bold text-green-600 mt-2">{stats.applicationsCount}</p>
               </div>
 
@@ -206,7 +185,7 @@ export default function EstablishmentDashboard() {
               </button>
 
               <button
-                onClick={() => setTab('applications')}
+                onClick={() => setTab('candidates')}
                 className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
               >
                 <p className="text-lg font-semibold text-gray-900">👥 Candidatures</p>
@@ -234,12 +213,24 @@ export default function EstablishmentDashboard() {
 
         {/* Missions */}
         {tab === 'missions' && (
-          <MissionManage establishmentId={profile.id} />
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+            <p className="text-gray-600 mb-4">📋 Gestion des missions</p>
+            <p className="text-sm text-gray-500 mb-6">Fonction en préparation</p>
+            <button
+              onClick={() => navigate('/establishment/create-mission')}
+              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
+            >
+              + Créer une mission
+            </button>
+          </div>
         )}
 
         {/* Candidatures */}
-        {tab === 'applications' && (
-          <ApplicationsReceived establishmentId={profile.id} />
+        {tab === 'candidates' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+            <p className="text-gray-600 mb-4">👥 Candidatures reçues</p>
+            <p className="text-sm text-gray-500">Vous n'avez pas encore reçu de candidatures</p>
+          </div>
         )}
 
         {/* Messagerie */}
@@ -249,7 +240,33 @@ export default function EstablishmentDashboard() {
 
         {/* Profil */}
         {tab === 'profile' && (
-          <EstablishmentProfileEdit />
+          <div className="bg-white rounded-lg border border-gray-200 p-8">
+            <h3 className="text-lg font-bold text-gray-900 mb-6">Profil de l'établissement</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600">Nom</p>
+                <p className="text-gray-900 font-medium">{profile.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Type</p>
+                <p className="text-gray-900 font-medium">{profile.type}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Adresse</p>
+                <p className="text-gray-900 font-medium">{profile.address}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Téléphone</p>
+                <p className="text-gray-900 font-medium">{profile.phone}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/establishment/edit-profile')}
+              className="mt-6 bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
+            >
+              Modifier le profil
+            </button>
+          </div>
         )}
       </div>
     </div>

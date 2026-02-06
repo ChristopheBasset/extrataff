@@ -20,6 +20,9 @@ import EstablishmentProfileForm from './components/Establishment/EstablishmentPr
 import MissionForm from './components/Establishment/MissionForm'
 import EditMissionForm from './components/Establishment/EditMissionForm'
 
+// Chat
+import ChatWindow from './components/shared/ChatWindow'
+
 // Abonnement
 import Subscribe from './pages/establishment/Subscribe'
 import SubscribeSuccess from './pages/establishment/SubscribeSuccess'
@@ -138,6 +141,12 @@ function App() {
           element={session ? <EditMissionForm /> : <Navigate to="/login" />} 
         />
 
+        {/* Chat - Conversation avec un candidat/talent */}
+        <Route 
+          path="/establishment/chat/:applicationId" 
+          element={session ? <ChatWindow userType="establishment" /> : <Navigate to="/login" />} 
+        />
+
         {/* Routes protégées Établissement (wildcard - doit rester à la fin des routes établissement) */}
         <Route
           path="/establishment/*"
@@ -152,6 +161,12 @@ function App() {
         <Route 
           path="/talent/dashboard" 
           element={session ? <TalentDashboard /> : <Navigate to="/login" />} 
+        />
+
+        {/* Chat Talent */}
+        <Route 
+          path="/talent/chat/:applicationId" 
+          element={session ? <ChatWindow userType="talent" /> : <Navigate to="/login" />} 
         />
 
         {/* Routes protégées Talent */}

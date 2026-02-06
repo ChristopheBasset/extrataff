@@ -37,10 +37,7 @@ export default function ApplicationsReceived({ establishmentId }) {
             id,
             first_name,
             last_name,
-            phone,
-            experience_years,
-            completed_missions,
-            preferred_positions
+            phone
           )
         `)
         .in('mission_id', missionIds)
@@ -128,36 +125,6 @@ export default function ApplicationsReceived({ establishmentId }) {
                 {/* Contact */}
                 {app.talents?.phone && (
                   <p className="text-gray-600 text-sm mb-4">📱 {app.talents.phone}</p>
-                )}
-
-                {/* Profil du talent */}
-                <div className="mb-4 grid md:grid-cols-3 gap-3">
-                  {app.talents?.experience_years !== null && app.talents?.experience_years !== undefined && (
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <p className="text-xs text-blue-600 font-medium">💼 Expérience</p>
-                      <p className="text-sm font-bold text-gray-900">{app.talents.experience_years} ans</p>
-                    </div>
-                  )}
-                  
-                  {app.talents?.completed_missions !== null && app.talents?.completed_missions !== undefined && (
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <p className="text-xs text-green-600 font-medium">🎯 Missions complétées</p>
-                      <p className="text-sm font-bold text-gray-900">{app.talents.completed_missions}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Postes recherchés */}
-                {app.talents?.preferred_positions && app.talents.preferred_positions.length > 0 && (
-                  <div className="mb-4 p-3 bg-purple-50 rounded-lg">
-                    <p className="text-xs text-purple-600 font-medium mb-2">📋 Postes</p>
-                    <p className="text-sm text-gray-800">
-                      {Array.isArray(app.talents.preferred_positions) 
-                        ? app.talents.preferred_positions.join(', ')
-                        : app.talents.preferred_positions
-                      }
-                    </p>
-                  </div>
                 )}
 
                 {/* Score matching */}

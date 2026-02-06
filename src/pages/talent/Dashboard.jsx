@@ -16,6 +16,7 @@ export default function TalentDashboard() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [tab, setTab] = useState('overview')
   const [stats, setStats] = useState({
     missionsCount: 0,
     applicationsCount: 0,
@@ -92,14 +93,23 @@ export default function TalentDashboard() {
     return <TalentProfileForm />
   }
 
-  const DashboardHome = () => (
+  const tabs = [
+    { id: 'overview', label: '📊 Vue d\'ensemble', icon: '📊' },
+    { id: 'missions', label: '🎯 Missions', icon: '🎯' },
+    { id: 'applications', label: '📝 Candidatures', icon: '📝' },
+    { id: 'chat', label: '💬 Messagerie', icon: '💬' },
+    { id: 'agenda', label: '📅 Agenda', icon: '📅' },
+    { id: 'profile', label: '⚙️ Profil', icon: '⚙️' }
+  ]
+
+  return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
+      <nav className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center mb-4">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Mon Dashboard</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Mon Dashboard</h1>
               <p className="text-sm text-gray-500">Bonjour {profile.first_name} 👋</p>
             </div>
             <div className="flex items-center gap-4">
@@ -118,103 +128,119 @@ export default function TalentDashboard() {
               </button>
             </div>
           </div>
+
+          {/* Onglets */}
+          <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`py-3 px-4 font-medium text-sm whitespace-nowrap transition-colors ${
+                  tab === t.id
+                    ? 'border-b-2 border-primary-600 text-primary-600'
+                    : 'border-b-2 border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </nav>
 
-      {/* Liste des options */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="flex flex-col gap-3">
-          
-          {/* Missions matchées */}
-          <button
-            onClick={() => navigate('/talent/missions')}
-            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
-          >
-            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
-              <img src="/icons/mes-missions.svg" alt="" className="w-12 h-12" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-900">Missions</p>
-              <p className="text-sm text-gray-500">Offres qui te correspondent</p>
-            </div>
-          </button>
+      {/* Contenu */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        
+        {/* Vue d'ensemble */}
+        {tab === 'overview' && (
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Bienvenue sur ExtraTaff</h2>
 
-          {/* Mes candidatures */}
-          <button
-            onClick={() => navigate('/talent/applications')}
-            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
-          >
-            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
-              <img src="/icons/candidatures.svg" alt="" className="w-12 h-12" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-900">Mes candidatures</p>
-              <p className="text-sm text-gray-500">{stats.applicationsCount} candidature{stats.applicationsCount > 1 ? 's' : ''} envoyée{stats.applicationsCount > 1 ? 's' : ''}</p>
-            </div>
-          </button>
+            {/* Cartes de stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">Missions vues</p>
+                <p className="text-3xl font-bold text-blue-600 mt-2">{stats.missionsCount}</p>
+              </div>
 
-          {/* Chat en live */}
-          <button
-            onClick={() => navigate('/talent/chat')}
-            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
-          >
-            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
-              <img src="/icons/chat.svg" alt="" className="w-12 h-12" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-900">Chat en live</p>
-              <p className="text-sm text-gray-500">{stats.conversationsCount} conversation{stats.conversationsCount > 1 ? 's' : ''}</p>
-            </div>
-          </button>
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">Candidatures</p>
+                <p className="text-3xl font-bold text-green-600 mt-2">{stats.applicationsCount}</p>
+              </div>
 
-          {/* Mon Agenda */}
-          <button
-            onClick={() => navigate('/talent/agenda')}
-            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
-          >
-            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
-              <img src="/icons/agenda.png" alt="" className="w-12 h-12" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-900">Mon agenda</p>
-              <p className="text-sm text-gray-500">{stats.confirmedCount} mission{stats.confirmedCount > 1 ? 's' : ''} confirmée{stats.confirmedCount > 1 ? 's' : ''}</p>
-            </div>
-          </button>
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">Conversations</p>
+                <p className="text-3xl font-bold text-purple-600 mt-2">{stats.conversationsCount}</p>
+              </div>
 
-          {/* Mes infos */}
-          <button
-            onClick={() => navigate('/talent/edit-profile')}
-            className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all flex items-center gap-4"
-          >
-            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
-              <img src="/icons/mon-profil.svg" alt="" className="w-12 h-12" />
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">Missions confirmées</p>
+                <p className="text-3xl font-bold text-orange-600 mt-2">{stats.confirmedCount}</p>
+              </div>
             </div>
-            <div className="text-left">
-              <p className="font-semibold text-gray-900">Mes infos</p>
-              <p className="text-sm text-gray-500">Modifier mon profil</p>
+
+            {/* Actions rapides */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setTab('missions')}
+                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+              >
+                <p className="text-lg font-semibold text-gray-900">🎯 Explorer les missions</p>
+                <p className="text-sm text-gray-600 mt-1">Découvrez les offres qui vous correspondent</p>
+              </button>
+
+              <button
+                onClick={() => setTab('chat')}
+                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+              >
+                <p className="text-lg font-semibold text-gray-900">💬 Vos conversations</p>
+                <p className="text-sm text-gray-600 mt-1">Échangez avec les établissements</p>
+              </button>
+
+              <button
+                onClick={() => setTab('applications')}
+                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+              >
+                <p className="text-lg font-semibold text-gray-900">📝 Mes candidatures</p>
+                <p className="text-sm text-gray-600 mt-1">Suivez l'état de vos candidatures</p>
+              </button>
+
+              <button
+                onClick={() => setTab('agenda')}
+                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+              >
+                <p className="text-lg font-semibold text-gray-900">📅 Mon agenda</p>
+                <p className="text-sm text-gray-600 mt-1">Vos missions confirmées</p>
+              </button>
             </div>
-          </button>
+          </div>
+        )}
 
-        </div>
+        {/* Missions */}
+        {tab === 'missions' && (
+          <MissionList />
+        )}
 
-        {/* Logo en bas */}
-        <div className="text-center mt-10">
-          <img src="/icons/icon-192.png" alt="ExtraTaff" className="w-20 h-20 mx-auto" />
-          <p className="text-sm text-gray-400 mt-2">Staff & Taff en temps réel</p>
-        </div>
+        {/* Candidatures */}
+        {tab === 'applications' && (
+          <MyApplications />
+        )}
+
+        {/* Messagerie */}
+        {tab === 'chat' && (
+          <ChatList userType="talent" />
+        )}
+
+        {/* Agenda */}
+        {tab === 'agenda' && (
+          <MyAgenda />
+        )}
+
+        {/* Profil */}
+        {tab === 'profile' && (
+          <TalentProfileEdit />
+        )}
       </div>
     </div>
-  )
-
-  return (
-    <Routes>
-      <Route path="/" element={<DashboardHome />} />
-      <Route path="/missions" element={<MissionList />} />
-      <Route path="/applications" element={<MyApplications />} />
-      <Route path="/agenda" element={<MyAgenda />} />
-      <Route path="/edit-profile" element={<TalentProfileEdit />} />
-      <Route path="/chat" element={<ChatList userType="talent" />} />
-      <Route path="/chat/:applicationId" element={<ChatWindow userType="talent" />} />
-    </Routes>
   )
 }

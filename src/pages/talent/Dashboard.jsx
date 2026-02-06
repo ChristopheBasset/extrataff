@@ -1,15 +1,15 @@
 import { supabase } from '../../lib/supabase'
-import { useNavigate, Routes, Route } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import TalentProfileForm from '../../components/Talent/TalentProfileForm'
 import TalentProfileEdit from '../../components/Talent/TalentProfileEdit'
 import MissionList from '../../components/Talent/MissionList'
 import MyApplications from '../../components/Talent/MyApplications'
-import MyAgenda from '../../components/Talent/MyAgenda'
 import ChatList from '../../components/shared/ChatList'
 import ChatWindow from '../../components/shared/ChatWindow'
 import NotificationBadge from '../../components/shared/NotificationBadge'
 import NotificationList from '../../components/shared/NotificationList'
+import { formatDate } from '../../lib/supabase'
 
 export default function TalentDashboard() {
   const navigate = useNavigate()
@@ -17,6 +17,7 @@ export default function TalentDashboard() {
   const [loading, setLoading] = useState(true)
   const [showNotifications, setShowNotifications] = useState(false)
   const [tab, setTab] = useState('overview')
+  const [confirmedMissions, setConfirmedMissions] = useState([])
   const [stats, setStats] = useState({
     missionsCount: 0,
     applicationsCount: 0,
@@ -41,6 +42,7 @@ export default function TalentDashboard() {
     
     if (data) {
       loadStats(data.id)
+      loadConfirmedMissions(data.id)
     }
     
     setLoading(false)
@@ -73,6 +75,37 @@ export default function TalentDashboard() {
       })
     } catch (err) {
       console.error('Erreur chargement stats:', err)
+    }
+  }
+
+  const loadConfirmedMissions = async (talentId) => {
+    try {
+      const { data } = await supabase
+        .from('applications')
+        .select(`
+          id,
+          status,
+          missions (
+            id,
+            position,
+            location_fuzzy,
+            start_date,
+            end_date,
+            hourly_rate,
+            shift_start_time,
+            shift_end_time,
+            establishments (
+              name
+            )
+          )
+        `)
+        .eq('talent_id', talentId)
+        .eq('status', 'confirmed')
+        .order('created_at', { ascending: false })
+
+      setConfirmedMissions(data || [])
+    } catch (err) {
+      console.error('Erreur chargement missions confirmées:', err)
     }
   }
 
@@ -159,23 +192,23 @@ export default function TalentDashboard() {
             {/* Cartes de stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Missions vues</p>
-                <p className="text-3xl font-bold text-blue-600 mt-2">{stats.missionsCount}</p>
-              </div>
-
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <p className="text-sm text-gray-600">Candidatures</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{stats.applicationsCount}</p>
+                <p className="text-3xl font-bold text-blue-600 mt-2">{stats.applicationsCount}</p>
               </div>
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <p className="text-sm text-gray-600">Conversations</p>
-                <p className="text-3xl font-bold text-purple-600 mt-2">{stats.conversationsCount}</p>
+                <p className="text-3xl font-bold text-green-600 mt-2">{stats.conversationsCount}</p>
               </div>
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <p className="text-sm text-gray-600">Missions confirmées</p>
-                <p className="text-3xl font-bold text-orange-600 mt-2">{stats.confirmedCount}</p>
+                <p className="text-3xl font-bold text-purple-600 mt-2">{stats.confirmedCount}</p>
+              </div>
+
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <p className="text-sm text-gray-600">À explorer</p>
+                <p className="text-3xl font-bold text-orange-600 mt-2">∞</p>
               </div>
             </div>
 
@@ -233,7 +266,73 @@ export default function TalentDashboard() {
 
         {/* Agenda */}
         {tab === 'agenda' && (
-          <MyAgenda />
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">📅 Mon Agenda</h2>
+
+            {confirmedMissions.length === 0 ? (
+              <div className="bg-white rounded-lg border border-gray-200 text-center py-12">
+                <p className="text-xl text-gray-600 mb-4">📅 Aucune mission confirmée</p>
+                <p className="text-gray-500 mb-6">
+                  Vos missions confirmées apparaîtront ici
+                </p>
+                <button
+                  onClick={() => setTab('applications')}
+                  className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
+                >
+                  Voir mes candidatures
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {confirmedMissions.map(app => {
+                  const mission = app.missions
+                  return (
+                    <div key={app.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">{mission.position}</h3>
+                          <p className="text-primary-600 font-medium">{mission.establishments?.name}</p>
+                        </div>
+                        <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                          🎉 Confirmée
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm text-gray-600">📍 Lieu</p>
+                          <p className="font-medium">{mission.location_fuzzy || 'Non précisé'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">📅 Début</p>
+                          <p className="font-medium">{formatDate(mission.start_date)}</p>
+                        </div>
+                        {mission.hourly_rate && (
+                          <div>
+                            <p className="text-sm text-gray-600">💰 Tarif</p>
+                            <p className="font-medium text-primary-600">{mission.hourly_rate}€/h</p>
+                          </div>
+                        )}
+                        {mission.shift_start_time && mission.shift_end_time && (
+                          <div>
+                            <p className="text-sm text-gray-600">🕐 Horaires</p>
+                            <p className="font-medium">{mission.shift_start_time.slice(0,5)} - {mission.shift_end_time.slice(0,5)}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => setTab('chat')}
+                        className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 w-full"
+                      >
+                        💬 Contacter l'établissement
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Profil */}

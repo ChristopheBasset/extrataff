@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import ChatList from '../../components/shared/ChatList'
 import NotificationBadge from '../../components/shared/NotificationBadge'
 import NotificationList from '../../components/shared/NotificationList'
+import MissionManage from '../../components/Establishment/MissionManage'
+import ApplicationsReceived from '../../components/Establishment/ApplicationsReceived'
+import EstablishmentProfileEdit from '../../components/Establishment/EstablishmentProfileEdit'
 
 export default function EstablishmentDashboard() {
   const navigate = useNavigate()
@@ -47,21 +50,45 @@ export default function EstablishmentDashboard() {
         .select('*', { count: 'exact', head: true })
         .eq('establishment_id', establishmentId)
 
-      const { count: convCount } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'accepted')
+      const { data: missions } = await supabase
+        .from('missions')
+        .select('id')
+        .eq('establishment_id', establishmentId)
 
-      const { count: confirmedCount } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'confirmed')
+      let appCount = 0
+      let convCount = 0
+      let confirmedCount = 0
+
+      if (missions && missions.length > 0) {
+        const missionIds = missions.map(m => m.id)
+
+        const { count: appC } = await supabase
+          .from('applications')
+          .select('*', { count: 'exact', head: true })
+          .in('mission_id', missionIds)
+
+        const { count: convC } = await supabase
+          .from('applications')
+          .select('*', { count: 'exact', head: true })
+          .in('mission_id', missionIds)
+          .eq('status', 'accepted')
+
+        const { count: confC } = await supabase
+          .from('applications')
+          .select('*', { count: 'exact', head: true })
+          .in('mission_id', missionIds)
+          .eq('status', 'confirmed')
+
+        appCount = appC || 0
+        convCount = convC || 0
+        confirmedCount = confC || 0
+      }
 
       setStats({
         missionsCount: missCount || 0,
-        applicationsCount: 0,
-        conversationsCount: convCount || 0,
-        confirmedCount: confirmedCount || 0
+        applicationsCount: appCount,
+        conversationsCount: convCount,
+        confirmedCount: confirmedCount
       })
     } catch (err) {
       console.error('Erreur chargement stats:', err)
@@ -164,12 +191,12 @@ export default function EstablishmentDashboard() {
               </div>
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Conversations actives</p>
+                <p className="text-sm text-gray-600">Conversations</p>
                 <p className="text-3xl font-bold text-purple-600 mt-2">{stats.conversationsCount}</p>
               </div>
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Missions confirmées</p>
+                <p className="text-sm text-gray-600">Confirmées</p>
                 <p className="text-3xl font-bold text-orange-600 mt-2">{stats.confirmedCount}</p>
               </div>
             </div>
@@ -181,7 +208,7 @@ export default function EstablishmentDashboard() {
                 className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
               >
                 <p className="text-lg font-semibold text-gray-900">📋 Gérer les missions</p>
-                <p className="text-sm text-gray-600 mt-1">Créer et suivre vos offres d'emploi</p>
+                <p className="text-sm text-gray-600 mt-1">Créer et suivre vos offres</p>
               </button>
 
               <button
@@ -189,7 +216,7 @@ export default function EstablishmentDashboard() {
                 className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
               >
                 <p className="text-lg font-semibold text-gray-900">👥 Candidatures</p>
-                <p className="text-sm text-gray-600 mt-1">Voir et traiter les candidatures reçues</p>
+                <p className="text-sm text-gray-600 mt-1">Voir et traiter les candidatures</p>
               </button>
 
               <button
@@ -213,24 +240,12 @@ export default function EstablishmentDashboard() {
 
         {/* Missions */}
         {tab === 'missions' && (
-          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-            <p className="text-gray-600 mb-4">📋 Gestion des missions</p>
-            <p className="text-sm text-gray-500 mb-6">Fonction en préparation</p>
-            <button
-              onClick={() => navigate('/establishment/create-mission')}
-              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
-            >
-              + Créer une mission
-            </button>
-          </div>
+          <MissionManage establishmentId={profile.id} />
         )}
 
         {/* Candidatures */}
         {tab === 'candidates' && (
-          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-            <p className="text-gray-600 mb-4">👥 Candidatures reçues</p>
-            <p className="text-sm text-gray-500">Vous n'avez pas encore reçu de candidatures</p>
-          </div>
+          <ApplicationsReceived establishmentId={profile.id} />
         )}
 
         {/* Messagerie */}
@@ -240,33 +255,7 @@ export default function EstablishmentDashboard() {
 
         {/* Profil */}
         {tab === 'profile' && (
-          <div className="bg-white rounded-lg border border-gray-200 p-8">
-            <h3 className="text-lg font-bold text-gray-900 mb-6">Profil de l'établissement</h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600">Nom</p>
-                <p className="text-gray-900 font-medium">{profile.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Type</p>
-                <p className="text-gray-900 font-medium">{profile.type}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Adresse</p>
-                <p className="text-gray-900 font-medium">{profile.address}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Téléphone</p>
-                <p className="text-gray-900 font-medium">{profile.phone}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate('/establishment/edit-profile')}
-              className="mt-6 bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
-            >
-              Modifier le profil
-            </button>
-          </div>
+          <EstablishmentProfileEdit />
         )}
       </div>
     </div>

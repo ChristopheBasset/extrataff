@@ -32,8 +32,19 @@ export default function ApplicationsReceived({ establishmentId }) {
         .from('applications')
         .select(`
           *,
-          missions (id, position),
-          talents!talent_id (first_name, last_name, phone)
+          missions (id, position, location_fuzzy, hourly_rate, start_date, end_date),
+          talents!talent_id (
+            id,
+            first_name,
+            last_name,
+            phone,
+            email,
+            bio,
+            experience_years,
+            preferred_departments,
+            skills,
+            availability
+          )
         `)
         .in('mission_id', missionIds)
         .order('created_at', { ascending: false })
@@ -104,7 +115,7 @@ export default function ApplicationsReceived({ establishmentId }) {
                     <h3 className="text-lg font-bold text-gray-900">
                       {app.talents?.first_name} {app.talents?.last_name}
                     </h3>
-                    <p className="text-gray-600">{app.missions?.position}</p>
+                    <p className="text-gray-600 font-medium">{app.missions?.position}</p>
                     <p className="text-sm text-gray-500 mt-1">
                       Candidature envoyée le {formatDateTime(app.created_at)}
                     </p>
@@ -114,17 +125,72 @@ export default function ApplicationsReceived({ establishmentId }) {
                   </span>
                 </div>
 
-                {app.talents?.phone && (
-                  <p className="text-gray-600 text-sm mb-4">📱 {app.talents.phone}</p>
-                )}
+                {/* Infos de contact */}
+                <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-2">
+                  {app.talents?.phone && (
+                    <p className="text-gray-600 text-sm">📱 <span className="font-medium">{app.talents.phone}</span></p>
+                  )}
+                  {app.talents?.email && (
+                    <p className="text-gray-600 text-sm">📧 <span className="font-medium">{app.talents.email}</span></p>
+                  )}
+                </div>
 
-                {app.match_score && (
+                {/* Profil du talent */}
+                <div className="mb-4 grid md:grid-cols-2 gap-4">
+                  {app.talents?.experience_years && (
+                    <div className="p-3 bg-blue-50 rounded-lg">
+                      <p className="text-xs text-blue-600 font-medium">💼 Expérience</p>
+                      <p className="text-sm font-semibold text-gray-900">{app.talents.experience_years} ans</p>
+                    </div>
+                  )}
+                  
+                  {app.talents?.availability && (
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <p className="text-xs text-green-600 font-medium">📅 Disponibilité</p>
+                      <p className="text-sm font-semibold text-gray-900">{app.talents.availability}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bio du talent */}
+                {app.talents?.bio && (
                   <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700">
-                      🎯 Score de matching: {app.match_score}%
-                    </p>
+                    <p className="text-xs text-gray-600 font-medium mb-1">À propos</p>
+                    <p className="text-sm text-gray-700">{app.talents.bio}</p>
                   </div>
                 )}
+
+                {/* Compétences */}
+                {app.talents?.skills && app.talents.skills.length > 0 && (
+                  <div className="mb-4 p-3 bg-purple-50 rounded-lg">
+                    <p className="text-xs text-purple-600 font-medium mb-2">🎯 Compétences</p>
+                    <div className="flex flex-wrap gap-2">
+                      {app.talents.skills.map((skill, i) => (
+                        <span key={i} className="px-2 py-1 bg-purple-200 text-purple-700 rounded-full text-xs font-medium">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Infos matching et mission */}
+                <div className="mb-4 p-3 bg-amber-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-2">
+                    {app.match_score && (
+                      <div>
+                        <p className="text-xs text-amber-600 font-medium">🎯 Matching</p>
+                        <p className="text-sm font-bold text-gray-900">{app.match_score}%</p>
+                      </div>
+                    )}
+                    {app.missions?.hourly_rate && (
+                      <div>
+                        <p className="text-xs text-amber-600 font-medium">💰 Tarif proposé</p>
+                        <p className="text-sm font-bold text-primary-600">{app.missions.hourly_rate}€/h</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Afficher l'état des confirmations */}
                 {app.status === 'accepted' && (

@@ -101,7 +101,7 @@ export default function ChatList({ userType }) {
               id,
               position
             ),
-            talents (
+            talents!talent_id (
               first_name,
               last_name
             )

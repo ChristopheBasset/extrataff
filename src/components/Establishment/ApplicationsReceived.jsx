@@ -38,12 +38,9 @@ export default function ApplicationsReceived({ establishmentId }) {
             first_name,
             last_name,
             phone,
-            email,
-            bio,
             experience_years,
-            preferred_departments,
-            skills,
-            availability
+            completed_missions,
+            preferred_positions
           )
         `)
         .in('mission_id', missionIds)
@@ -99,6 +96,9 @@ export default function ApplicationsReceived({ establishmentId }) {
         <p className="text-gray-600 mt-1">{applications.length} candidature(s)</p>
       </div>
 
+      {/* Modal profil talent */}
+      {/* SUPPRIMÉ - On affiche tout directement */}
+
       {applications.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 text-center py-12">
           <p className="text-xl text-gray-600 mb-4">👥 Aucune candidature</p>
@@ -125,74 +125,51 @@ export default function ApplicationsReceived({ establishmentId }) {
                   </span>
                 </div>
 
-                {/* Infos de contact */}
-                <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-2">
-                  {app.talents?.phone && (
-                    <p className="text-gray-600 text-sm">📱 <span className="font-medium">{app.talents.phone}</span></p>
-                  )}
-                  {app.talents?.email && (
-                    <p className="text-gray-600 text-sm">📧 <span className="font-medium">{app.talents.email}</span></p>
-                  )}
-                </div>
+                {/* Contact */}
+                {app.talents?.phone && (
+                  <p className="text-gray-600 text-sm mb-4">📱 {app.talents.phone}</p>
+                )}
 
                 {/* Profil du talent */}
-                <div className="mb-4 grid md:grid-cols-2 gap-4">
-                  {app.talents?.experience_years && (
+                <div className="mb-4 grid md:grid-cols-3 gap-3">
+                  {app.talents?.experience_years !== null && app.talents?.experience_years !== undefined && (
                     <div className="p-3 bg-blue-50 rounded-lg">
                       <p className="text-xs text-blue-600 font-medium">💼 Expérience</p>
-                      <p className="text-sm font-semibold text-gray-900">{app.talents.experience_years} ans</p>
+                      <p className="text-sm font-bold text-gray-900">{app.talents.experience_years} ans</p>
                     </div>
                   )}
                   
-                  {app.talents?.availability && (
+                  {app.talents?.completed_missions !== null && app.talents?.completed_missions !== undefined && (
                     <div className="p-3 bg-green-50 rounded-lg">
-                      <p className="text-xs text-green-600 font-medium">📅 Disponibilité</p>
-                      <p className="text-sm font-semibold text-gray-900">{app.talents.availability}</p>
+                      <p className="text-xs text-green-600 font-medium">🎯 Missions complétées</p>
+                      <p className="text-sm font-bold text-gray-900">{app.talents.completed_missions}</p>
                     </div>
                   )}
                 </div>
 
-                {/* Bio du talent */}
-                {app.talents?.bio && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-600 font-medium mb-1">À propos</p>
-                    <p className="text-sm text-gray-700">{app.talents.bio}</p>
-                  </div>
-                )}
-
-                {/* Compétences */}
-                {app.talents?.skills && app.talents.skills.length > 0 && (
+                {/* Postes recherchés */}
+                {app.talents?.preferred_positions && app.talents.preferred_positions.length > 0 && (
                   <div className="mb-4 p-3 bg-purple-50 rounded-lg">
-                    <p className="text-xs text-purple-600 font-medium mb-2">🎯 Compétences</p>
-                    <div className="flex flex-wrap gap-2">
-                      {app.talents.skills.map((skill, i) => (
-                        <span key={i} className="px-2 py-1 bg-purple-200 text-purple-700 rounded-full text-xs font-medium">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="text-xs text-purple-600 font-medium mb-2">📋 Postes</p>
+                    <p className="text-sm text-gray-800">
+                      {Array.isArray(app.talents.preferred_positions) 
+                        ? app.talents.preferred_positions.join(', ')
+                        : app.talents.preferred_positions
+                      }
+                    </p>
                   </div>
                 )}
 
-                {/* Infos matching et mission */}
-                <div className="mb-4 p-3 bg-amber-50 rounded-lg">
-                  <div className="grid grid-cols-2 gap-2">
-                    {app.match_score && (
-                      <div>
-                        <p className="text-xs text-amber-600 font-medium">🎯 Matching</p>
-                        <p className="text-sm font-bold text-gray-900">{app.match_score}%</p>
-                      </div>
-                    )}
-                    {app.missions?.hourly_rate && (
-                      <div>
-                        <p className="text-xs text-amber-600 font-medium">💰 Tarif proposé</p>
-                        <p className="text-sm font-bold text-primary-600">{app.missions.hourly_rate}€/h</p>
-                      </div>
-                    )}
+                {/* Score matching */}
+                {app.match_score && (
+                  <div className="mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="text-sm font-medium text-gray-700">
+                      🎯 Score de matching: <span className="text-lg text-amber-600 font-bold">{app.match_score}%</span>
+                    </p>
                   </div>
-                </div>
+                )}
 
-                {/* Afficher l'état des confirmations */}
+                {/* État des confirmations */}
                 {app.status === 'accepted' && (
                   <div className="mb-4 p-3 bg-gray-100 rounded-lg">
                     <p className="text-sm font-medium text-gray-700 mb-2">État des confirmations :</p>
@@ -206,6 +183,8 @@ export default function ApplicationsReceived({ establishmentId }) {
                     </div>
                   </div>
                 )}
+
+                {/* Boutons d'action */}
 
                 {app.status === 'interested' && (
                   <div className="flex gap-2">

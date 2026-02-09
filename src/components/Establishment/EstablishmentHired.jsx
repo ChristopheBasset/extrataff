@@ -127,6 +127,7 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
     setRatingSubmitting(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      console.log('Score envoyé:', ratingModal.score, typeof ratingModal.score)
 
       const { error } = await supabase
         .from('ratings')
@@ -137,7 +138,7 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
           rated_id: talentUserId,
           rating_type: 'establishment_to_talent',
           visibility: 'public',
-          overall_score: ratingModal.score,
+          overall_score: Number(ratingModal.score),
           comment: ratingModal.comment.trim() || null,
           created_at: new Date().toISOString()
         })

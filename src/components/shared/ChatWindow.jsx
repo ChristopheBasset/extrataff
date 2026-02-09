@@ -20,6 +20,7 @@ export default function ChatWindow({ userType }) {
   const [cvRequested, setCvRequested] = useState(false)
   const [cvShared, setCvShared] = useState(false)
   const [downloadingCv, setDownloadingCv] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -315,6 +316,59 @@ export default function ChatWindow({ userType }) {
     }
   }
 
+  // Valider l'embauche (établissement seulement)
+  const handleConfirmHire = async () => {
+    if (!confirm('Confirmer l\'embauche de ce candidat ? 🎉')) return
+    setConfirming(true)
+
+    try {
+      // Mettre à jour le status de l'application
+      const { error } = await supabase
+        .from('applications')
+        .update({
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', applicationId)
+
+      if (error) throw error
+
+      // Mettre à jour l'état local
+      setApplication(prev => ({ ...prev, status: 'confirmed' }))
+
+      // Envoyer un message système dans le chat
+      const receiverId = application.talents.user_id
+      await supabase
+        .from('messages')
+        .insert({
+          application_id: applicationId,
+          mission_id: application.missions.id,
+          sender_id: currentUserId,
+          receiver_id: receiverId,
+          content: '🎉 Embauche validée ! L\'établissement a confirmé votre mission.'
+        })
+
+      // Notifier le talent
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: receiverId,
+          type: 'hire_confirmed',
+          title: '🎉 Embauche confirmée !',
+          content: `${application.missions.establishments.name} a validé votre embauche pour "${application.missions.position}"`,
+          link: `/talent/chat/${applicationId}`
+        })
+
+      alert('Embauche confirmée avec succès ! 🎉')
+    } catch (err) {
+      console.error('Erreur confirmation embauche:', err)
+      alert('Erreur lors de la confirmation')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
   // Render d'un message (gère les messages spéciaux)
   const renderMessage = (message) => {
     const isMe = message.sender_id === currentUserId
@@ -431,7 +485,7 @@ export default function ChatWindow({ userType }) {
         <div className="text-center">
           <p className="text-xl text-red-600 mb-4">Conversation introuvable</p>
           <button
-            onClick={() => navigate(userType === 'talent' ? '/talent/chat' : '/establishment/chat')}
+            onClick={() => navigate(userType === 'talent' ? '/talent/dashboard' : '/establishment/dashboard')}
             className="btn-primary"
           >
             Retour aux conversations
@@ -452,7 +506,7 @@ export default function ChatWindow({ userType }) {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <button
-              onClick={() => navigate(userType === 'talent' ? '/talent/chat' : '/establishment/chat')}
+              onClick={() => navigate(userType === 'talent' ? '/talent/dashboard' : '/establishment/dashboard')}
               className="text-gray-600 hover:text-gray-900"
             >
               ← Retour
@@ -466,7 +520,7 @@ export default function ChatWindow({ userType }) {
         </div>
       </nav>
 
-      {/* Badge messagerie sécurisée + bouton CV pour établissement */}
+      {/* Badge messagerie sécurisée + boutons établissement */}
       <div className="bg-green-50 border-b border-green-100">
         <div className="max-w-4xl mx-auto px-4 py-2">
           <div className="flex items-center justify-between">
@@ -475,27 +529,45 @@ export default function ChatWindow({ userType }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
               </svg>
               <span>Messagerie sécurisée</span>
+              {application.status === 'confirmed' && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-200 text-green-800 ml-2">
+                  ✅ Embauche confirmée
+                </span>
+              )}
             </div>
             
-            {/* Bouton Demander CV (visible uniquement pour établissement) */}
-            {userType === 'establishment' && !cvRequested && !cvShared && (
-              <button
-                onClick={handleRequestCv}
-                disabled={sending}
-                className="flex items-center gap-1 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-medium py-1.5 px-3 rounded-full transition-colors disabled:opacity-50"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Demander CV
-              </button>
-            )}
-            {userType === 'establishment' && cvRequested && !cvShared && (
-              <span className="text-xs text-amber-600">CV demandé ⏳</span>
-            )}
-            {cvShared && (
-              <span className="text-xs text-green-600">CV reçu ✓</span>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Bouton Valider l'embauche (établissement seulement, si pas déjà confirmé) */}
+              {userType === 'establishment' && application.status !== 'confirmed' && (
+                <button
+                  onClick={handleConfirmHire}
+                  disabled={confirming}
+                  className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1.5 px-3 rounded-full transition-colors disabled:opacity-50"
+                >
+                  {confirming ? '...' : '🎉 Valider l\'embauche'}
+                </button>
+              )}
+
+              {/* Bouton Demander CV (visible uniquement pour établissement) */}
+              {userType === 'establishment' && !cvRequested && !cvShared && (
+                <button
+                  onClick={handleRequestCv}
+                  disabled={sending}
+                  className="flex items-center gap-1 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-medium py-1.5 px-3 rounded-full transition-colors disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Demander CV
+                </button>
+              )}
+              {userType === 'establishment' && cvRequested && !cvShared && (
+                <span className="text-xs text-amber-600">CV demandé ⏳</span>
+              )}
+              {cvShared && (
+                <span className="text-xs text-green-600">CV reçu ✓</span>
+              )}
+            </div>
           </div>
         </div>
       </div>

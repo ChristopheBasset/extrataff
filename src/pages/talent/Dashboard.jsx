@@ -24,6 +24,7 @@ export default function TalentDashboard() {
   const [profileSuccess, setProfileSuccess] = useState(false)
   const [cvUploading, setCvUploading] = useState(false)
   const [cvDeleting, setCvDeleting] = useState(false)
+  const [talentRating, setTalentRating] = useState({ avg: 0, count: 0 })
 
   useEffect(() => {
     checkProfile()
@@ -48,6 +49,7 @@ export default function TalentDashboard() {
       setProfile(data)
       if (data) {
         loadCounts(data.id)
+        loadTalentRating(user.id)
         setProfileForm({
           first_name: data.first_name || '',
           last_name: data.last_name || '',
@@ -123,6 +125,23 @@ export default function TalentDashboard() {
       })
     } catch (err) {
       console.error('Erreur chargement counts:', err)
+    }
+  }
+
+  const loadTalentRating = async (userId) => {
+    try {
+      const { data: ratings } = await supabase
+        .from('ratings')
+        .select('overall_score')
+        .eq('rated_id', userId)
+        .eq('rating_type', 'establishment_to_talent')
+
+      if (ratings && ratings.length > 0) {
+        const avg = ratings.reduce((sum, r) => sum + Number(r.overall_score), 0) / ratings.length
+        setTalentRating({ avg: Math.round(avg * 10) / 10, count: ratings.length })
+      }
+    } catch (err) {
+      console.error('Erreur chargement notes:', err)
     }
   }
 
@@ -341,6 +360,18 @@ export default function TalentDashboard() {
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   Talent
                 </span>
+                {talentRating.count >= 3 ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <span key={s} className={s <= Math.round(talentRating.avg) ? 'text-yellow-400' : 'text-gray-300'}>★</span>
+                    ))}
+                    {talentRating.avg}/5 ({talentRating.count})
+                  </span>
+                ) : talentRating.count > 0 ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                    ⭐ {talentRating.count}/3 avis requis
+                  </span>
+                ) : null}
               </div>
               {profile.position_types && profile.position_types.length > 0 && (
                 <div className="mt-1 flex flex-wrap gap-1">

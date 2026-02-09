@@ -1,8 +1,7 @@
 // GroupJoinPage.jsx - Rejoindre un groupe via lien d'invitation
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import { ESTABLISHMENT_TYPES } from '../../utils/constants'
+import { supabase, ESTABLISHMENT_TYPES } from '../../lib/supabase'
 import AddressAutocomplete from '../../components/shared/AddressAutocomplete'
 
 const TURNSTILE_SITE_KEY = '0x4AAAAAACU7qpGVX9XhKmW1'
@@ -295,7 +294,7 @@ console.log('token:', token)
           description: restaurantData.description || null,
           subscription_status: 'freemium',
           missions_used: 0,
-          trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+          trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
         })
 
       if (estabError) throw estabError

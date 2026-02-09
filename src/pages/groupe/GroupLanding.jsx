@@ -137,7 +137,7 @@ export default function GroupLanding() {
             <div className="space-y-3 mb-8">
               <div className="flex items-center gap-3 text-gray-700">
                 <span className="text-green-500 text-xl">✓</span>
-                <span>2 mois d'essai gratuit</span>
+                <span>1 mois d'essai gratuit</span>
               </div>
               <div className="flex items-center gap-3 text-gray-700">
                 <span className="text-green-500 text-xl">✓</span>

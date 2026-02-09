@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import { ESTABLISHMENT_TYPES } from '../../utils/constants'
+import { supabase, ESTABLISHMENT_TYPES } from '../../lib/supabase'
 
 export default function GroupInvitePage() {
   const navigate = useNavigate()

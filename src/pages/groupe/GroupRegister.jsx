@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { supabase, ESTABLISHMENT_TYPES, FRENCH_DEPARTMENTS } from '../../lib/supabase'
 import AddressAutocomplete from '../../components/shared/AddressAutocomplete'
-import { ESTABLISHMENT_TYPES, FRENCH_DEPARTMENTS } from '../../utils/constants.js'
 
 export default function GroupRegister() {
   const navigate = useNavigate()
@@ -121,7 +120,7 @@ export default function GroupRegister() {
           // Freemium par défaut
           subscription_status: 'freemium',
           missions_used: 0,
-          trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +60 jours
+          trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // +30 jours
         })
 
       if (estError) throw estError
@@ -497,7 +496,7 @@ export default function GroupRegister() {
 
               <p className="text-center text-xs text-gray-500">
                 En créant votre compte, vous acceptez nos conditions d'utilisation.<br />
-                Vous bénéficiez de 2 mois d'essai gratuit.
+                Vous bénéficiez de 1 mois d'essai gratuit.
               </p>
             </form>
           </div>

@@ -292,11 +292,33 @@ export default function ChatWindow({ userType }) {
   const handleDownloadCv = async (cvPath) => {
     setDownloadingCv(true)
     try {
+      // Nettoyer le path (enlever le préfixe du bucket si présent)
+      let cleanPath = cvPath
+      if (cleanPath.startsWith('http')) {
+        // C'est une URL publique, ouvrir directement
+        window.open(cleanPath, '_blank')
+        return
+      }
+      // Enlever un éventuel slash au début
+      cleanPath = cleanPath.replace(/^\//, '')
+
+      // Essayer le téléchargement via Storage
       const { data, error } = await supabase.storage
         .from('CV')
-        .download(cvPath)
+        .download(cleanPath)
 
-      if (error) throw error
+      if (error) {
+        // Fallback : essayer avec getPublicUrl
+        const { data: urlData } = supabase.storage
+          .from('CV')
+          .getPublicUrl(cleanPath)
+        
+        if (urlData?.publicUrl) {
+          window.open(urlData.publicUrl, '_blank')
+          return
+        }
+        throw error
+      }
 
       // Créer un lien de téléchargement
       const url = URL.createObjectURL(data)
@@ -310,7 +332,7 @@ export default function ChatWindow({ userType }) {
 
     } catch (err) {
       console.error('Erreur téléchargement CV:', err)
-      alert('Erreur lors du téléchargement du CV')
+      alert('Erreur lors du téléchargement du CV. Vérifiez que le talent a bien uploadé son CV.')
     } finally {
       setDownloadingCv(false)
     }

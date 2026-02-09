@@ -48,7 +48,7 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
       const talentIds = [...new Set(apps.map(a => a.talent_id))]
       const { data: talents } = await supabase
         .from('talents')
-        .select('id, first_name, last_name, phone, position_types')
+        .select('id, first_name, last_name, phone, position_types, years_experience')
         .in('id', talentIds)
 
       // Enrichir les candidatures
@@ -191,6 +191,12 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
                       <p className="text-sm text-gray-500">📞 {app.talent.phone}</p>
                     )}
                   </div>
+                  {/* Badge expérience */}
+                  {app.talent?.years_experience > 0 && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      ⭐ {app.talent.years_experience} an{app.talent.years_experience > 1 ? 's' : ''} d'exp.
+                    </span>
+                  )}
                   {/* Badge status */}
                   {app.status === 'accepted' && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">

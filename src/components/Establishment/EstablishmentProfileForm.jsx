@@ -135,7 +135,7 @@ export default function EstablishmentProfileForm() {
           description: formData.description || null,
           subscription_status: 'freemium',
           missions_used: 0,
-          trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString() // +60 jours
+          trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // +30 jours
         })
         .select()
         .single()

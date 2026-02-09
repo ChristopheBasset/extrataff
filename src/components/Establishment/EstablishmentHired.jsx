@@ -17,7 +17,7 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
       // Récupérer toutes les missions de l'établissement
       const { data: missions } = await supabase
         .from('missions')
-        .select('id, position, start_date, end_date, shift_start_time, shift_end_time, hourly_rate, service_continu')
+        .select('id, position, start_date, end_date, shift_start_time, shift_end_time, hourly_rate, salary_text, service_continu')
         .eq('establishment_id', establishmentId)
 
       if (!missions || missions.length === 0) {
@@ -48,7 +48,7 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
       const talentIds = [...new Set(apps.map(a => a.talent_id))]
       const { data: talents } = await supabase
         .from('talents')
-        .select('id, first_name, last_name, phone, email')
+        .select('id, first_name, last_name, phone, email, years_experience')
         .in('id', talentIds)
 
       // Enrichir
@@ -150,6 +150,9 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
                     <div className="flex gap-3 text-sm text-gray-500">
                       {hire.talent?.phone && <span>📞 {hire.talent.phone}</span>}
                       {hire.talent?.email && <span>✉️ {hire.talent.email}</span>}
+                      {hire.talent?.years_experience > 0 && (
+                        <span>⭐ {hire.talent.years_experience} an{hire.talent.years_experience > 1 ? 's' : ''} d'exp.</span>
+                      )}
                     </div>
                   </div>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-auto">
@@ -174,9 +177,11 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
                         {hire.mission.service_continu ? ' (continu)' : ' (avec coupure)'}
                       </p>
                     )}
-                    {hire.mission.hourly_rate && (
+                    {hire.mission.hourly_rate ? (
                       <p className="text-gray-600">💰 {parseFloat(hire.mission.hourly_rate).toFixed(2)} €/h</p>
-                    )}
+                    ) : hire.mission.salary_text ? (
+                      <p className="text-gray-600">💰 {hire.mission.salary_text}</p>
+                    ) : null}
                   </div>
                 )}
 

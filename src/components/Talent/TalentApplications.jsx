@@ -34,7 +34,7 @@ export default function TalentApplications({ talentId, onBack }) {
       const missionIds = [...new Set(apps.map(a => a.mission_id))]
       const { data: missions } = await supabase
         .from('missions')
-        .select('id, position, start_date, end_date, shift_start_time, shift_end_time, hourly_rate, establishment_id, service_continu')
+        .select('id, position, start_date, end_date, shift_start_time, shift_end_time, hourly_rate, salary_text, establishment_id, service_continu')
         .in('id', missionIds)
 
       // Récupérer les établissements
@@ -186,9 +186,11 @@ export default function TalentApplications({ talentId, onBack }) {
                           {app.mission.service_continu ? ' (continu)' : ' (avec coupure)'}
                         </p>
                       )}
-                      {app.mission.hourly_rate && (
+                      {app.mission.hourly_rate ? (
                         <p className="font-semibold text-green-700">💰 {parseFloat(app.mission.hourly_rate).toFixed(2)} €/h</p>
-                      )}
+                      ) : app.mission.salary_text ? (
+                        <p className="font-semibold text-green-700">💰 {app.mission.salary_text}</p>
+                      ) : null}
                     </div>
                   </div>
                 )}

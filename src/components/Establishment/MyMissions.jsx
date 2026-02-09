@@ -301,9 +301,11 @@ export default function MyMissions({ establishmentId, onBack }) {
                   <p>
                     📋 {getContractLabel(mission.contract_type)} • {getDurationLabel(mission.duration_type)}
                   </p>
-                  {mission.hourly_rate && (
+                  {mission.hourly_rate ? (
                     <p>💰 {parseFloat(mission.hourly_rate).toFixed(2)} €/h</p>
-                  )}
+                  ) : mission.salary_text ? (
+                    <p>💰 {mission.salary_text}</p>
+                  ) : null}
                   {mission.comment && (
                     <p className="text-gray-500 italic mt-1">"{mission.comment}"</p>
                   )}

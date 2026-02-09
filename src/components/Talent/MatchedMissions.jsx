@@ -209,9 +209,11 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
                   <p>
                     📋 {getContractLabel(mission.contract_type)} • {getDurationLabel(mission.duration_type)}
                   </p>
-                  {mission.hourly_rate && (
+                  {mission.hourly_rate ? (
                     <p className="text-lg font-semibold text-green-700">💰 {parseFloat(mission.hourly_rate).toFixed(2)} €/h</p>
-                  )}
+                  ) : mission.salary_text ? (
+                    <p className="text-lg font-semibold text-green-700">💰 {mission.salary_text}</p>
+                  ) : null}
                   {mission.comment && (
                     <p className="text-gray-500 italic mt-1">"{mission.comment}"</p>
                   )}

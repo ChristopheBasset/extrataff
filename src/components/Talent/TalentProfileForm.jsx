@@ -396,7 +396,7 @@ export default function TalentProfileForm() {
               Types de postes recherchés * (sélectionnez au moins 1)
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {POSITION_TYPES.slice(0, 12).map(position => (
+              {POSITION_TYPES.map(position => (
                 <button
                   key={position.value}
                   type="button"

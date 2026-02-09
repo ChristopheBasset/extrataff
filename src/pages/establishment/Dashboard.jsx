@@ -186,7 +186,7 @@ export default function EstablishmentDashboard() {
   }
 
   const getMissionsLeft = () => {
-    const max = 3
+    const max = 2
     const used = profile?.missions_used || 0
     return Math.max(0, max - used)
   }

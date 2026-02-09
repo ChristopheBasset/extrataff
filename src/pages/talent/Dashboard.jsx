@@ -1,111 +1,95 @@
-import { supabase } from '../../lib/supabase'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import TalentProfileForm from '../../components/Talent/TalentProfileForm'
-import TalentProfileEdit from '../../components/Talent/TalentProfileEdit'
-import MissionList from '../../components/Talent/MissionList'
-import MyApplications from '../../components/Talent/MyApplications'
-import ChatList from '../../components/shared/ChatList'
-import ChatWindow from '../../components/shared/ChatWindow'
-import NotificationBadge from '../../components/shared/NotificationBadge'
-import NotificationList from '../../components/shared/NotificationList'
-import { formatDate } from '../../lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 export default function TalentDashboard() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
+  const [view, setView] = useState('home')
   const [loading, setLoading] = useState(true)
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [tab, setTab] = useState('overview')
-  const [confirmedMissions, setConfirmedMissions] = useState([])
-  const [stats, setStats] = useState({
-    missionsCount: 0,
-    applicationsCount: 0,
-    conversationsCount: 0,
-    confirmedCount: 0
+  const [counts, setCounts] = useState({
+    matched: 0,
+    interested: 0,
+    confirmed: 0
   })
 
   useEffect(() => {
     checkProfile()
   }, [])
 
-  const checkProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    const { data } = await supabase
-      .from('talents')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-    
-    setProfile(data)
-    
-    if (data) {
-      loadStats(data.id)
-      loadConfirmedMissions(data.id)
+  // Recalcule les compteurs quand on change de view ou de profil
+  useEffect(() => {
+    if (profile && view === 'home') {
+      loadCounts(profile.id)
     }
-    
-    setLoading(false)
+  }, [profile, view])
+
+  const checkProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      const { data } = await supabase
+        .from('talents')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+      
+      setProfile(data)
+      if (data) loadCounts(data.id)
+    } catch (err) {
+      console.error('Erreur chargement profil:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const loadStats = async (talentId) => {
+  const loadCounts = async (talentId) => {
     try {
-      const { count: appCount } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('talent_id', talentId)
+      // Missions matchées (missions proposées au talent - à implémenter via matching)
+      // Pour l'instant, on compte les missions sans candidature du talent
+      const { data: allMissions } = await supabase
+        .from('missions')
+        .select('id')
+        .eq('status', 'open')
 
-      const { count: convCount } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('talent_id', talentId)
-        .eq('status', 'accepted')
+      let matchedCount = 0
+      let interestedCount = 0
+      let confirmedCount = 0
 
-      const { count: confirmedCount } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('talent_id', talentId)
-        .eq('status', 'confirmed')
+      if (allMissions && allMissions.length > 0) {
+        const missionIds = allMissions.map(m => m.id)
 
-      setStats({
-        missionsCount: 0,
-        applicationsCount: appCount || 0,
-        conversationsCount: convCount || 0,
-        confirmedCount: confirmedCount || 0
+        // Charger toutes les applications du talent
+        const { data: allApps } = await supabase
+          .from('applications')
+          .select('status')
+          .eq('talent_id', talentId)
+          .in('mission_id', missionIds)
+
+        console.log('🔍 DEBUG: applications du talent =', allApps)
+
+        // Missions intéressées (status = interested)
+        interestedCount = allApps ? allApps.filter(a => a.status === 'interested').length : 0
+
+        // Missions validées (status = confirmed)
+        confirmedCount = allApps ? allApps.filter(a => a.status === 'confirmed').length : 0
+
+        // Missions matchées = missions ouvertes - candidatures du talent
+        matchedCount = allMissions.length - (allApps ? allApps.length : 0)
+        if (matchedCount < 0) matchedCount = 0
+
+        console.log('🔍 DEBUG: missions matchées =', matchedCount)
+        console.log('🔍 DEBUG: missions intéressées =', interestedCount)
+        console.log('🔍 DEBUG: missions confirmées =', confirmedCount)
+      }
+
+      setCounts({
+        matched: matchedCount,
+        interested: interestedCount,
+        confirmed: confirmedCount
       })
     } catch (err) {
-      console.error('Erreur chargement stats:', err)
-    }
-  }
-
-  const loadConfirmedMissions = async (talentId) => {
-    try {
-      const { data } = await supabase
-        .from('applications')
-        .select(`
-          id,
-          status,
-          missions (
-            id,
-            position,
-            location_fuzzy,
-            start_date,
-            end_date,
-            hourly_rate,
-            shift_start_time,
-            shift_end_time,
-            establishments (
-              name
-            )
-          )
-        `)
-        .eq('talent_id', talentId)
-        .eq('status', 'confirmed')
-        .order('created_at', { ascending: false })
-
-      setConfirmedMissions(data || [])
-    } catch (err) {
-      console.error('Erreur chargement missions confirmées:', err)
+      console.error('Erreur chargement counts:', err)
     }
   }
 
@@ -116,228 +100,232 @@ export default function TalentDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement...</p>
+        </div>
       </div>
     )
   }
 
   if (!profile) {
-    return <TalentProfileForm />
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-xl text-red-600 mb-4">Profil non trouvé</p>
+          <button onClick={() => navigate('/login')} className="btn-primary">
+            Retour à la connexion
+          </button>
+        </div>
+      </div>
+    )
   }
-
-  const tabs = [
-    { id: 'overview', label: '📊 Vue d\'ensemble', icon: '📊' },
-    { id: 'missions', label: '🎯 Missions', icon: '🎯' },
-    { id: 'applications', label: '📝 Candidatures', icon: '📝' },
-    { id: 'chat', label: '💬 Messagerie', icon: '💬' },
-    { id: 'agenda', label: '📅 Agenda', icon: '📅' },
-    { id: 'profile', label: '⚙️ Profil', icon: '⚙️' }
-  ]
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center mb-4">
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Mon Dashboard</h1>
-              <p className="text-sm text-gray-500">Bonjour {profile.first_name} 👋</p>
+              <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
+              <p className="text-xs text-gray-500">Talent</p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
-                <NotificationList 
-                  isOpen={showNotifications}
-                  onClose={() => setShowNotifications(false)}
-                />
-              </div>
-              <button 
+              <span className="text-sm text-gray-600">
+                {profile.first_name} {profile.last_name}
+              </span>
+              <button
                 onClick={handleLogout}
-                className="text-gray-400 hover:text-gray-600 text-sm"
+                className="text-gray-600 hover:text-gray-900 text-sm"
               >
                 Déconnexion
               </button>
             </div>
           </div>
-
-          {/* Onglets */}
-          <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`py-3 px-4 font-medium text-sm whitespace-nowrap transition-colors ${
-                  tab === t.id
-                    ? 'border-b-2 border-primary-600 text-primary-600'
-                    : 'border-b-2 border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
         </div>
       </nav>
 
       {/* Contenu */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        
-        {/* Vue d'ensemble */}
-        {tab === 'overview' && (
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Bienvenue sur ExtraTaff</h2>
-
-            {/* Cartes de stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Candidatures</p>
-                <p className="text-3xl font-bold text-blue-600 mt-2">{stats.applicationsCount}</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {view === 'home' && (
+          <>
+            {/* Grille 4 boutons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Missions Matchées */}
+              <div
+                onClick={() => setView('matched')}
+                className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
+              >
+                <div className="text-4xl mb-4">🎯</div>
+                <h2 className="text-2xl font-bold text-gray-900">Missions Matchées</h2>
+                <p className="text-gray-600 mt-2">Missions proposées</p>
+                <div className="mt-6 text-5xl font-bold text-primary-600">{counts.matched}</div>
               </div>
 
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Conversations</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{stats.conversationsCount}</p>
+              {/* Missions Intéressées */}
+              <div
+                onClick={() => setView('interested')}
+                className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
+              >
+                <div className="text-4xl mb-4">❤️</div>
+                <h2 className="text-2xl font-bold text-gray-900">Missions Intéressées</h2>
+                <p className="text-gray-600 mt-2">Candidatures en cours</p>
+                <div className="mt-6 text-5xl font-bold text-primary-600">{counts.interested}</div>
               </div>
 
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Missions confirmées</p>
-                <p className="text-3xl font-bold text-purple-600 mt-2">{stats.confirmedCount}</p>
+              {/* Mes Missions Validées */}
+              <div
+                onClick={() => setView('confirmed')}
+                className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
+              >
+                <div className="text-4xl mb-4">✅</div>
+                <h2 className="text-2xl font-bold text-gray-900">Mes Missions Validées</h2>
+                <p className="text-gray-600 mt-2">Embauches confirmées</p>
+                <div className="mt-6 text-5xl font-bold text-primary-600">{counts.confirmed}</div>
               </div>
 
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">À explorer</p>
-                <p className="text-3xl font-bold text-orange-600 mt-2">∞</p>
+              {/* Mon Profil */}
+              <div
+                onClick={() => setView('profile')}
+                className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
+              >
+                <div className="text-4xl mb-4">⚙️</div>
+                <h2 className="text-2xl font-bold text-gray-900">Mon Profil</h2>
+                <p className="text-gray-600 mt-2">Gérer mon profil</p>
+                <div className="mt-6">
+                  <span className="text-sm text-gray-500">Paramètres & infos</span>
+                </div>
               </div>
             </div>
+          </>
+        )}
 
-            {/* Actions rapides */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Vue Missions Matchées */}
+        {view === 'matched' && (
+          <div>
+            <div className="mb-6 flex items-center gap-4">
               <button
-                onClick={() => setTab('missions')}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+                onClick={() => setView('home')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
               >
-                <p className="text-lg font-semibold text-gray-900">🎯 Explorer les missions</p>
-                <p className="text-sm text-gray-600 mt-1">Découvrez les offres qui vous correspondent</p>
+                ← Retour
               </button>
-
+              <h2 className="text-3xl font-bold text-gray-900">Missions Matchées</h2>
               <button
-                onClick={() => setTab('chat')}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+                onClick={loadCounts}
+                className="ml-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
               >
-                <p className="text-lg font-semibold text-gray-900">💬 Vos conversations</p>
-                <p className="text-sm text-gray-600 mt-1">Échangez avec les établissements</p>
+                🔄 Rafraîchir
               </button>
-
-              <button
-                onClick={() => setTab('applications')}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
-              >
-                <p className="text-lg font-semibold text-gray-900">📝 Mes candidatures</p>
-                <p className="text-sm text-gray-600 mt-1">Suivez l'état de vos candidatures</p>
-              </button>
-
-              <button
-                onClick={() => setTab('agenda')}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
-              >
-                <p className="text-lg font-semibold text-gray-900">📅 Mon agenda</p>
-                <p className="text-sm text-gray-600 mt-1">Vos missions confirmées</p>
-              </button>
+            </div>
+            <div className="text-gray-600">
+              {/* À implémenter: composant MatchedMissions */}
+              <p>Composant MatchedMissions à intégrer ici</p>
+              <p className="text-sm mt-2">Affiche les missions proposées avec boutons ❤️ Intéressé et ❌ Refuser</p>
             </div>
           </div>
         )}
 
-        {/* Missions */}
-        {tab === 'missions' && (
-          <MissionList />
-        )}
-
-        {/* Candidatures */}
-        {tab === 'applications' && (
-          <MyApplications />
-        )}
-
-        {/* Messagerie */}
-        {tab === 'chat' && (
-          <ChatList userType="talent" />
-        )}
-
-        {/* Agenda */}
-        {tab === 'agenda' && (
+        {/* Vue Missions Intéressées */}
+        {view === 'interested' && (
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-6">📅 Mon Agenda</h2>
-
-            {confirmedMissions.length === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 text-center py-12">
-                <p className="text-xl text-gray-600 mb-4">📅 Aucune mission confirmée</p>
-                <p className="text-gray-500 mb-6">
-                  Vos missions confirmées apparaîtront ici
-                </p>
-                <button
-                  onClick={() => setTab('applications')}
-                  className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
-                >
-                  Voir mes candidatures
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {confirmedMissions.map(app => {
-                  const mission = app.missions
-                  return (
-                    <div key={app.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900">{mission.position}</h3>
-                          <p className="text-primary-600 font-medium">{mission.establishments?.name}</p>
-                        </div>
-                        <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-                          🎉 Confirmée
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div>
-                          <p className="text-sm text-gray-600">📍 Lieu</p>
-                          <p className="font-medium">{mission.location_fuzzy || 'Non précisé'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">📅 Début</p>
-                          <p className="font-medium">{formatDate(mission.start_date)}</p>
-                        </div>
-                        {mission.hourly_rate && (
-                          <div>
-                            <p className="text-sm text-gray-600">💰 Tarif</p>
-                            <p className="font-medium text-primary-600">{mission.hourly_rate}€/h</p>
-                          </div>
-                        )}
-                        {mission.shift_start_time && mission.shift_end_time && (
-                          <div>
-                            <p className="text-sm text-gray-600">🕐 Horaires</p>
-                            <p className="font-medium">{mission.shift_start_time.slice(0,5)} - {mission.shift_end_time.slice(0,5)}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => setTab('chat')}
-                        className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 w-full"
-                      >
-                        💬 Contacter l'établissement
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setView('home')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                ← Retour
+              </button>
+              <h2 className="text-3xl font-bold text-gray-900">Missions Intéressées</h2>
+              <button
+                onClick={loadCounts}
+                className="ml-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
+              >
+                🔄 Rafraîchir
+              </button>
+            </div>
+            <div className="text-gray-600">
+              {/* À implémenter: composant MyApplications */}
+              <p>Composant MyApplications à intégrer ici</p>
+              <p className="text-sm mt-2">Affiche les candidatures (status = interested) avec état et bouton conversation si établissement accepte</p>
+            </div>
           </div>
         )}
 
-        {/* Profil */}
-        {tab === 'profile' && (
-          <TalentProfileEdit />
+        {/* Vue Missions Validées */}
+        {view === 'confirmed' && (
+          <div>
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setView('home')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                ← Retour
+              </button>
+              <h2 className="text-3xl font-bold text-gray-900">Mes Missions Validées</h2>
+              <button
+                onClick={loadCounts}
+                className="ml-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
+              >
+                🔄 Rafraîchir
+              </button>
+            </div>
+            <div className="text-gray-600">
+              {/* À implémenter: composant MyAgenda */}
+              <p>Composant MyAgenda à intégrer ici</p>
+              <p className="text-sm mt-2">Affiche l'agenda avec les embauches confirmées (status = confirmed)</p>
+            </div>
+          </div>
+        )}
+
+        {/* Vue Profil */}
+        {view === 'profile' && (
+          <div>
+            <div className="mb-6">
+              <button
+                onClick={() => setView('home')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                ← Retour
+              </button>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-8 max-w-2xl">
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">Mon Profil</h2>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                  <p className="text-lg text-gray-900">{profile.first_name}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                  <p className="text-lg text-gray-900">{profile.last_name}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                  <p className="text-lg text-gray-900">{profile.phone || 'Non renseigné'}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <p className="text-lg text-gray-900">{profile.email || 'Non renseigné'}</p>
+                </div>
+
+                <div className="pt-6 border-t">
+                  <button
+                    onClick={() => navigate('/talent/edit-profile')}
+                    className="btn-primary"
+                  >
+                    ✏️ Modifier mon profil
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

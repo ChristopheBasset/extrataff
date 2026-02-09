@@ -1,98 +1,92 @@
-import { supabase } from '../../lib/supabase'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import MyMissions from '../../components/Establishment/MyMissions'
-import ApplicationsReceived from '../../components/Establishment/ApplicationsReceived'
-import EstablishmentAgenda from '../../components/Establishment/EstablishmentAgenda'
-import EstablishmentProfileEdit from '../../components/Establishment/EstablishmentProfileEdit'
-import NotificationBadge from '../../components/shared/NotificationBadge'
-import NotificationList from '../../components/shared/NotificationList'
+import { supabase } from '../../lib/supabase'
 
 export default function EstablishmentDashboard() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
+  const [view, setView] = useState('home')
   const [loading, setLoading] = useState(true)
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [tab, setTab] = useState('overview')
-  const [stats, setStats] = useState({
-    missionsCount: 0,
-    applicationsCount: 0,
-    conversationsCount: 0,
-    confirmedCount: 0
+  const [counts, setCounts] = useState({
+    missions: 0,
+    candidates: 0,
+    hired: 0
   })
 
   useEffect(() => {
     checkProfile()
   }, [])
 
-  const checkProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    const { data } = await supabase
-      .from('establishments')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-    
-    setProfile(data)
-    
-    if (data) {
-      loadStats(data.id)
+  // Recalcule les compteurs quand on change de view ou de profil
+  useEffect(() => {
+    if (profile && view === 'home') {
+      loadCounts(profile.id)
     }
-    
-    setLoading(false)
+  }, [profile, view])
+
+  const checkProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      const { data } = await supabase
+        .from('establishments')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+      
+      setProfile(data)
+      if (data) loadCounts(data.id)
+    } catch (err) {
+      console.error('Erreur chargement profil:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const loadStats = async (establishmentId) => {
+  const loadCounts = async (establishmentId) => {
     try {
+      // Missions ouvertes
       const { count: missCount } = await supabase
         .from('missions')
         .select('*', { count: 'exact', head: true })
         .eq('establishment_id', establishmentId)
         .eq('status', 'open')
 
+      // Toutes les missions de l'établissement
       const { data: missions } = await supabase
         .from('missions')
         .select('id')
         .eq('establishment_id', establishmentId)
 
-      let appCount = 0
-      let convCount = 0
-      let confirmedCount = 0
+      let candCount = 0
+      let hiredCount = 0
 
       if (missions && missions.length > 0) {
         const missionIds = missions.map(m => m.id)
 
-        const { count: appC } = await supabase
+        // Charger TOUTES les applications
+        const { data: allApps } = await supabase
           .from('applications')
-          .select('*', { count: 'exact', head: true })
+          .select('status')
           .in('mission_id', missionIds)
 
-        const { count: convC } = await supabase
-          .from('applications')
-          .select('*', { count: 'exact', head: true })
-          .in('mission_id', missionIds)
-          .eq('status', 'accepted')
+        console.log('🔍 DEBUG: allApps =', allApps)
 
-        const { count: confC } = await supabase
-          .from('applications')
-          .select('*', { count: 'exact', head: true })
-          .in('mission_id', missionIds)
-          .eq('status', 'confirmed')
+        // Compter en JavaScript
+        candCount = allApps ? allApps.filter(a => a.status === 'interested').length : 0
+        hiredCount = allApps ? allApps.filter(a => a.status === 'confirmed').length : 0
 
-        appCount = appC || 0
-        convCount = convC || 0
-        confirmedCount = confC || 0
+        console.log('🔍 DEBUG: candidats (interested) =', candCount)
+        console.log('🔍 DEBUG: embauches (confirmed) =', hiredCount)
       }
 
-      setStats({
-        missionsCount: missCount || 0,
-        applicationsCount: appCount,
-        conversationsCount: convCount,
-        confirmedCount: confirmedCount
+      setCounts({
+        missions: missCount || 0,
+        candidates: candCount,
+        hired: hiredCount
       })
     } catch (err) {
-      console.error('Erreur chargement stats:', err)
+      console.error('Erreur chargement counts:', err)
     }
   }
 
@@ -101,10 +95,17 @@ export default function EstablishmentDashboard() {
     navigate('/login')
   }
 
+  const handleCreateMission = () => {
+    navigate('/establishment/create-mission')
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement...</p>
+        </div>
       </div>
     )
   }
@@ -112,151 +113,231 @@ export default function EstablishmentDashboard() {
   if (!profile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Chargement du profil...</p>
+        <div className="text-center">
+          <p className="text-xl text-red-600 mb-4">Profil non trouvé</p>
+          <button onClick={() => navigate('/login')} className="btn-primary">
+            Retour à la connexion
+          </button>
+        </div>
       </div>
     )
   }
 
-  const tabs = [
-    { id: 'overview', label: '📊 Vue d\'ensemble' },
-    { id: 'missions', label: '📋 Missions' },
-    { id: 'candidates', label: '👥 Candidatures' },
-    { id: 'agenda', label: '📅 Confirmées' },
-    { id: 'profile', label: '⚙️ Profil' }
-  ]
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center mb-4">
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Mon Établissement</h1>
-              <p className="text-sm text-gray-500">{profile.name}</p>
+              <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
+              <p className="text-xs text-gray-500">Établissement</p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
-                <NotificationList 
-                  isOpen={showNotifications}
-                  onClose={() => setShowNotifications(false)}
-                />
-              </div>
-              <button 
+              <span className="text-sm text-gray-600">{profile.name}</span>
+              <button
                 onClick={handleLogout}
-                className="text-gray-400 hover:text-gray-600 text-sm"
+                className="text-gray-600 hover:text-gray-900 text-sm"
               >
                 Déconnexion
               </button>
             </div>
           </div>
-
-          {/* Onglets */}
-          <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`py-3 px-4 font-medium text-sm whitespace-nowrap transition-colors ${
-                  tab === t.id
-                    ? 'border-b-2 border-primary-600 text-primary-600'
-                    : 'border-b-2 border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
         </div>
       </nav>
 
       {/* Contenu */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        
-        {/* Vue d'ensemble */}
-        {tab === 'overview' && (
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Tableau de bord</h2>
-
-            {/* Cartes de stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Missions ouvertes</p>
-                <p className="text-3xl font-bold text-blue-600 mt-2">{stats.missionsCount}</p>
-              </div>
-
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Candidatures</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{stats.applicationsCount}</p>
-              </div>
-
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Conversations</p>
-                <p className="text-3xl font-bold text-purple-600 mt-2">{stats.conversationsCount}</p>
-              </div>
-
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Confirmées</p>
-                <p className="text-3xl font-bold text-orange-600 mt-2">{stats.confirmedCount}</p>
-              </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {view === 'home' && (
+          <>
+            {/* Bouton créer mission */}
+            <div className="mb-8">
+              <button
+                onClick={handleCreateMission}
+                className="w-full sm:w-auto px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="text-xl">+</span>
+                Créer une mission
+              </button>
             </div>
 
-            {/* Actions rapides */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button
-                onClick={() => setTab('missions')}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+            {/* Grille 4 boutons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Mes Missions */}
+              <div
+                onClick={() => setView('missions')}
+                className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
-                <p className="text-lg font-semibold text-gray-900">📋 Gérer les missions</p>
-                <p className="text-sm text-gray-600 mt-1">Créer et suivre vos offres</p>
-              </button>
+                <div className="text-4xl mb-4">📝</div>
+                <h2 className="text-2xl font-bold text-gray-900">Mes Missions</h2>
+                <p className="text-gray-600 mt-2">Missions créées et gérées</p>
+                <div className="mt-6 text-5xl font-bold text-primary-600">{counts.missions}</div>
+              </div>
 
-              <button
-                onClick={() => setTab('candidates')}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+              {/* Mes Candidats */}
+              <div
+                onClick={() => setView('candidates')}
+                className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
-                <p className="text-lg font-semibold text-gray-900">👥 Candidatures</p>
-                <p className="text-sm text-gray-600 mt-1">Voir et traiter les candidatures</p>
-              </button>
+                <div className="text-4xl mb-4">👥</div>
+                <h2 className="text-2xl font-bold text-gray-900">Mes Candidats</h2>
+                <p className="text-gray-600 mt-2">Candidatures reçues</p>
+                <div className="mt-6 text-5xl font-bold text-primary-600">{counts.candidates}</div>
+              </div>
 
-              <button
-                onClick={() => setTab('agenda')}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+              {/* Mes Embauches */}
+              <div
+                onClick={() => setView('hired')}
+                className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
-                <p className="text-lg font-semibold text-gray-900">📅 Missions confirmées</p>
-                <p className="text-sm text-gray-600 mt-1">Vos missions validées des deux côtés</p>
-              </button>
+                <div className="text-4xl mb-4">✅</div>
+                <h2 className="text-2xl font-bold text-gray-900">Mes Embauches</h2>
+                <p className="text-gray-600 mt-2">Candidats validés</p>
+                <div className="mt-6 text-5xl font-bold text-primary-600">{counts.hired}</div>
+              </div>
 
-              <button
-                onClick={() => setTab('profile')}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow text-left"
+              {/* Mon Profil */}
+              <div
+                onClick={() => setView('profile')}
+                className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
-                <p className="text-lg font-semibold text-gray-900">⚙️ Paramètres</p>
-                <p className="text-sm text-gray-600 mt-1">Gérez vos informations</p>
+                <div className="text-4xl mb-4">⚙️</div>
+                <h2 className="text-2xl font-bold text-gray-900">Mon Profil</h2>
+                <p className="text-gray-600 mt-2">Gérer mon établissement</p>
+                <div className="mt-6">
+                  <span className="text-sm text-gray-500">Paramètres & infos</span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Vue Missions */}
+        {view === 'missions' && (
+          <div>
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setView('home')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                ← Retour
               </button>
+              <h2 className="text-3xl font-bold text-gray-900">Mes Missions</h2>
+              <button
+                onClick={loadCounts}
+                className="ml-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
+              >
+                🔄 Rafraîchir
+              </button>
+            </div>
+            <div className="text-gray-600">
+              {/* À implémenter: composant MyMissions avec liste et édition */}
+              <p>Composant MyMissions à intégrer ici</p>
             </div>
           </div>
         )}
 
-        {/* Missions */}
-        {tab === 'missions' && (
-          <MyMissions onViewCandidates={() => setTab('candidates')} />
+        {/* Vue Candidats */}
+        {view === 'candidates' && (
+          <div>
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setView('home')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                ← Retour
+              </button>
+              <h2 className="text-3xl font-bold text-gray-900">Mes Candidats</h2>
+              <button
+                onClick={loadCounts}
+                className="ml-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
+              >
+                🔄 Rafraîchir
+              </button>
+            </div>
+            <div className="text-gray-600">
+              {/* À implémenter: composant ApplicationsReceived */}
+              <p>Composant ApplicationsReceived à intégrer ici</p>
+            </div>
+          </div>
         )}
 
-        {/* Candidatures */}
-        {tab === 'candidates' && (
-          <ApplicationsReceived establishmentId={profile.id} />
+        {/* Vue Embauches */}
+        {view === 'hired' && (
+          <div>
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setView('home')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                ← Retour
+              </button>
+              <h2 className="text-3xl font-bold text-gray-900">Mes Embauches</h2>
+              <button
+                onClick={loadCounts}
+                className="ml-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
+              >
+                🔄 Rafraîchir
+              </button>
+            </div>
+            <div className="text-gray-600">
+              {/* À implémenter: composant EstablishmentAgenda */}
+              <p>Composant EstablishmentAgenda à intégrer ici</p>
+            </div>
+          </div>
         )}
 
-        {/* Agenda - Missions confirmées */}
-        {tab === 'agenda' && (
-          <EstablishmentAgenda establishmentId={profile.id} />
-        )}
+        {/* Vue Profil */}
+        {view === 'profile' && (
+          <div>
+            <div className="mb-6">
+              <button
+                onClick={() => setView('home')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                ← Retour
+              </button>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-8 max-w-2xl">
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">Mon Profil</h2>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom établissement</label>
+                  <p className="text-lg text-gray-900">{profile.name}</p>
+                </div>
 
-        {/* Profil */}
-        {tab === 'profile' && (
-          <EstablishmentProfileEdit />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
+                  <p className="text-lg text-gray-900">{profile.address || 'Non renseignée'}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                  <p className="text-lg text-gray-900">{profile.phone || 'Non renseigné'}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Statut abonnement</label>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block w-3 h-3 rounded-full ${profile.subscription_status === 'premium' ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
+                    <span className="text-lg font-medium">
+                      {profile.subscription_status === 'premium' ? '🟢 Premium' : '🟡 Freemium'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t">
+                  <button
+                    onClick={() => navigate('/establishment/edit-profile')}
+                    className="btn-primary"
+                  >
+                    ✏️ Modifier mon profil
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

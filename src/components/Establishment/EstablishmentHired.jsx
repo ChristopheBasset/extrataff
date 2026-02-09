@@ -33,7 +33,7 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
 
       const missionIds = missions.map(m => m.id)
 
-      // Récupérer les candidatures confirmées
+      // Récupérer les candidatures confirmées avec les infos talents
       const { data: apps, error } = await supabase
         .from('applications')
         .select('*')
@@ -49,12 +49,21 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
         return
       }
 
-      // Récupérer les infos des talents
+      // Récupérer les infos des talents un par un (contourne le bug .in())
       const talentIds = [...new Set(apps.map(a => a.talent_id))]
-      const { data: talents } = await supabase
-        .from('talents')
-        .select('id, user_id, first_name, last_name, phone, email, years_experience')
-        .in('id', talentIds)
+      const talentPromises = talentIds.map(id =>
+        supabase
+          .from('talents')
+          .select('id, user_id, first_name, last_name, phone, years_experience')
+          .eq('id', id)
+          .single()
+      )
+      const talentResults = await Promise.all(talentPromises)
+      const talents = talentResults
+        .filter(r => r.data)
+        .map(r => r.data)
+
+      console.log('Talents chargés:', talents)
 
       // Enrichir
       const enriched = apps.map(app => {
@@ -107,6 +116,13 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
   const submitRating = async () => {
     if (!ratingModal || ratingModal.score === 0) return
 
+    // Vérifier qu'on a bien le user_id du talent
+    const talentUserId = ratingModal.hire.talent?.user_id
+    if (!talentUserId) {
+      alert('Erreur : impossible de trouver le profil du talent. Essayez de rafraîchir la page.')
+      return
+    }
+
     setRatingSubmitting(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -117,7 +133,7 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
           mission_id: ratingModal.hire.mission_id,
           application_id: ratingModal.hire.id,
           rater_id: user.id,
-          rated_id: ratingModal.hire.talent?.user_id || ratingModal.hire.talent_id,
+          rated_id: talentUserId,
           rating_type: 'establishment_to_talent',
           visibility: 'public',
           overall_score: ratingModal.score,
@@ -239,7 +255,6 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
                     </h3>
                     <div className="flex gap-3 text-sm text-gray-500">
                       {hire.talent?.phone && <span>📞 {hire.talent.phone}</span>}
-                      {hire.talent?.email && <span>✉️ {hire.talent.email}</span>}
                       {hire.talent?.years_experience > 0 && (
                         <span>⭐ {hire.talent.years_experience} an{hire.talent.years_experience > 1 ? 's' : ''} d'exp.</span>
                       )}
@@ -299,7 +314,7 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
                   <div className="px-4 py-2 bg-yellow-50 rounded-lg text-center">
                     <div className="flex justify-center gap-0.5">
                       {[1, 2, 3, 4, 5].map(s => (
-                        <span key={s} className={`text-lg ${s <= existingRatings[hire.id].overall_score ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
+                        <span key={s} className={`text-lg ${s <= Number(existingRatings[hire.id].overall_score) ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
                       ))}
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Noté</p>

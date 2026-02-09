@@ -22,6 +22,8 @@ export default function TalentDashboard() {
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileError, setProfileError] = useState(null)
   const [profileSuccess, setProfileSuccess] = useState(false)
+  const [cvUploading, setCvUploading] = useState(false)
+  const [cvDeleting, setCvDeleting] = useState(false)
 
   useEffect(() => {
     checkProfile()
@@ -191,6 +193,105 @@ export default function TalentDashboard() {
       setProfileError(err.message)
     } finally {
       setProfileSaving(false)
+    }
+  }
+
+  // ---- Gestion du CV ----
+  const handleCvUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    // Vérifier le type de fichier
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    if (!allowedTypes.includes(file.type)) {
+      setProfileError('Format accepté : PDF ou Word (.doc, .docx)')
+      return
+    }
+
+    // Vérifier la taille (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileError('Le fichier ne doit pas dépasser 5 Mo')
+      return
+    }
+
+    setCvUploading(true)
+    setProfileError(null)
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const fileExt = file.name.split('.').pop()
+      const filePath = `${user.id}/cv_${Date.now()}.${fileExt}`
+
+      // Supprimer l'ancien CV si existant
+      if (profile.cv_url) {
+        await supabase.storage.from('CV').remove([profile.cv_url])
+      }
+
+      // Uploader le nouveau CV
+      const { error: uploadError } = await supabase.storage
+        .from('CV')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      // Mettre à jour le profil
+      const { error: updateError } = await supabase
+        .from('talents')
+        .update({ cv_url: filePath, updated_at: new Date().toISOString() })
+        .eq('id', profile.id)
+
+      if (updateError) throw updateError
+
+      // Recharger le profil
+      const { data: updated } = await supabase
+        .from('talents')
+        .select('*')
+        .eq('id', profile.id)
+        .single()
+
+      setProfile(updated)
+      setProfileSuccess(true)
+      setTimeout(() => setProfileSuccess(false), 3000)
+    } catch (err) {
+      console.error('Erreur upload CV:', err)
+      setProfileError('Erreur lors de l\'envoi du CV : ' + err.message)
+    } finally {
+      setCvUploading(false)
+    }
+  }
+
+  const handleCvDelete = async () => {
+    if (!profile.cv_url) return
+    if (!confirm('Supprimer votre CV ?')) return
+
+    setCvDeleting(true)
+    setProfileError(null)
+
+    try {
+      // Supprimer le fichier du storage
+      await supabase.storage.from('CV').remove([profile.cv_url])
+
+      // Mettre à jour le profil
+      const { error } = await supabase
+        .from('talents')
+        .update({ cv_url: null, updated_at: new Date().toISOString() })
+        .eq('id', profile.id)
+
+      if (error) throw error
+
+      // Recharger le profil
+      const { data: updated } = await supabase
+        .from('talents')
+        .select('*')
+        .eq('id', profile.id)
+        .single()
+
+      setProfile(updated)
+    } catch (err) {
+      console.error('Erreur suppression CV:', err)
+      setProfileError('Erreur lors de la suppression du CV')
+    } finally {
+      setCvDeleting(false)
     }
   }
 
@@ -448,6 +549,40 @@ export default function TalentDashboard() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
                     <p className="text-gray-900">{profile.bio || 'Non renseignée'}</p>
                   </div>
+
+                  {/* CV */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CV</label>
+                    {profile.cv_url ? (
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-sm font-medium">
+                          📄 CV enregistré
+                        </span>
+                        <button
+                          onClick={handleCvDelete}
+                          disabled={cvDeleting}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                        >
+                          {cvDeleting ? '...' : '🗑️ Supprimer'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-gray-500 mb-2">Aucun CV enregistré</p>
+                        <label className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium cursor-pointer transition-colors">
+                          {cvUploading ? '⏳ Envoi...' : '📤 Ajouter mon CV'}
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={handleCvUpload}
+                            disabled={cvUploading}
+                            className="hidden"
+                          />
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1">PDF ou Word, 5 Mo max</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -596,6 +731,47 @@ export default function TalentDashboard() {
                       className="input"
                       placeholder="Présentez-vous en quelques mots..."
                     />
+                  </div>
+
+                  {/* CV Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">CV</label>
+                    {profile.cv_url ? (
+                      <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                        <span className="text-green-700 text-sm font-medium">📄 CV enregistré</span>
+                        <label className="text-primary-600 hover:text-primary-700 text-sm font-medium cursor-pointer">
+                          {cvUploading ? '⏳ Envoi...' : '🔄 Remplacer'}
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={handleCvUpload}
+                            disabled={cvUploading}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          onClick={handleCvDelete}
+                          disabled={cvDeleting}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                        >
+                          {cvDeleting ? '...' : '🗑️ Supprimer'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium cursor-pointer transition-colors">
+                          {cvUploading ? '⏳ Envoi en cours...' : '📤 Ajouter mon CV'}
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={handleCvUpload}
+                            disabled={cvUploading}
+                            className="hidden"
+                          />
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1">PDF ou Word, 5 Mo max</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Boutons */}

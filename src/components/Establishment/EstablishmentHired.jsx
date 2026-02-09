@@ -127,7 +127,14 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
     setRatingSubmitting(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      console.log('Score envoyé:', ratingModal.score, typeof ratingModal.score)
+      const scoreToSend = Number(ratingModal.score)
+      console.log('Score envoyé:', scoreToSend, 'ratingModal:', JSON.stringify(ratingModal))
+
+      if (!scoreToSend || scoreToSend < 1 || scoreToSend > 5) {
+        alert('Score invalide: ' + ratingModal.score)
+        setRatingSubmitting(false)
+        return
+      }
 
       const { error } = await supabase
         .from('ratings')
@@ -138,7 +145,7 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
           rated_id: talentUserId,
           rating_type: 'establishment_to_talent',
           visibility: 'public',
-          overall_score: Number(ratingModal.score),
+          overall_score: scoreToSend,
           comment: ratingModal.comment.trim() || null,
           created_at: new Date().toISOString()
         })
@@ -156,20 +163,17 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
     }
   }
 
-  // Composant étoiles interactif
-  const StarRating = ({ score, onSelect, size = 'text-3xl', interactive = true }) => {
-    const [hovered, setHovered] = useState(0)
+  // Composant étoiles interactif — défini en dehors pour éviter les re-renders
+  const renderStars = (score, onSelect, interactive = true) => {
     return (
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map(star => (
           <span
             key={star}
-            className={`${size} transition-transform ${interactive ? 'cursor-pointer hover:scale-110' : ''} ${
-              star <= (hovered || score) ? 'text-yellow-400' : 'text-gray-300'
+            className={`text-3xl transition-transform ${interactive ? 'cursor-pointer hover:scale-110' : ''} ${
+              star <= score ? 'text-yellow-400' : 'text-gray-300'
             }`}
-            onClick={() => interactive && onSelect?.(star)}
-            onMouseEnter={() => interactive && setHovered(star)}
-            onMouseLeave={() => interactive && setHovered(0)}
+            onClick={() => interactive && onSelect(star)}
           >
             ★
           </span>
@@ -353,10 +357,10 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
 
             {/* Étoiles */}
             <div className="flex justify-center mb-6">
-              <StarRating
-                score={ratingModal.score}
-                onSelect={(score) => setRatingModal({ ...ratingModal, score })}
-              />
+              {renderStars(ratingModal.score, (star) => {
+                console.log('Étoile cliquée:', star)
+                setRatingModal(prev => ({ ...prev, score: star }))
+              })}
             </div>
 
             {/* Labels */}

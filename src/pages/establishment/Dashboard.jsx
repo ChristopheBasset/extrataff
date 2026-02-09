@@ -234,52 +234,46 @@ export default function EstablishmentDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Header enrichi */}
       <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex justify-between items-start">
+            {/* Gauche : tout regroupé */}
+            <div>
+              <div className="flex items-center gap-3">
                 <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
-                <p className="text-xs text-gray-500">Établissement</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Nom établissement */}
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">{profile.name}</p>
-                <div className="flex items-center gap-2 justify-end">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.color}`}>
-                    {badge.label}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="text-gray-600 hover:text-gray-900 text-sm"
-              >
-                Déconnexion
-              </button>
-            </div>
-          </div>
-
-          {/* Barre infos freemium */}
-          {profile.subscription_status !== 'premium' && profile.subscription_status !== 'active' && (
-            <div className="pb-3 flex flex-wrap items-center gap-4 text-sm">
-              {trialDays !== null && (
-                <span className={`font-medium ${trialDays <= 7 ? 'text-red-600' : 'text-amber-700'}`}>
-                  ⏳ {trialDays} jour{trialDays > 1 ? 's' : ''} d'essai restant{trialDays > 1 ? 's' : ''}
+                <span className="text-gray-400">|</span>
+                <span className="text-sm font-medium text-gray-900">{profile.name}</span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.color}`}>
+                  {badge.label}
                 </span>
+              </div>
+              {profile.subscription_status !== 'premium' && profile.subscription_status !== 'active' && (
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
+                  {trialDays !== null && (
+                    <span className={`font-medium ${trialDays <= 7 ? 'text-red-600' : 'text-amber-700'}`}>
+                      ⏳ {trialDays} jour{trialDays > 1 ? 's' : ''} d'essai restant{trialDays > 1 ? 's' : ''}
+                    </span>
+                  )}
+                  <span className="text-gray-600">
+                    📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''} restante{missionsLeft > 1 ? 's' : ''}
+                  </span>
+                  <button
+                    onClick={() => navigate('/establishment/subscribe')}
+                    className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
+                  >
+                    Passer Premium →
+                  </button>
+                </div>
               )}
-              <span className="text-gray-600">
-                📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''} restante{missionsLeft > 1 ? 's' : ''}
-              </span>
-              <button
-                onClick={() => navigate('/establishment/subscribe')}
-                className="ml-auto px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
-              >
-                Passer Premium →
-              </button>
             </div>
-          )}
+
+            {/* Droite : déconnexion */}
+            <button
+              onClick={handleLogout}
+              className="text-gray-600 hover:text-gray-900 text-sm mt-1"
+            >
+              Déconnexion
+            </button>
+          </div>
         </div>
       </nav>
 

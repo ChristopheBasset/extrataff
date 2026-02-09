@@ -84,6 +84,7 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
       if (ratingsData) {
         const ratingsMap = {}
         ratingsData.forEach(r => { ratingsMap[r.application_id] = r })
+        console.log('Ratings chargés:', ratingsData)
         setExistingRatings(ratingsMap)
       }
     } catch (err) {
@@ -314,10 +315,10 @@ export default function EstablishmentHired({ establishmentId, onBack }) {
                   <div className="px-4 py-2 bg-yellow-50 rounded-lg text-center">
                     <div className="flex justify-center gap-0.5">
                       {[1, 2, 3, 4, 5].map(s => (
-                        <span key={s} className={`text-lg ${s <= Number(existingRatings[hire.id].overall_score) ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
+                        <span key={s} className={`text-lg ${s <= Math.round(Number(existingRatings[hire.id].overall_score)) ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
                       ))}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Noté</p>
+                    <p className="text-xs text-gray-500 mt-1">Noté {Math.round(Number(existingRatings[hire.id].overall_score))}/5</p>
                   </div>
                 ) : isMissionEnded(hire.mission) ? (
                   <button

@@ -1,328 +1,362 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import { formatDate, formatDateTime, getLabel, CONTRACT_TYPES } from '../../lib/supabase'
-import { getUrgencyBadge } from '../../lib/matching'
+import { supabase, POSITION_TYPES, CONTRACT_TYPES, DURATION_TYPES, URGENCY_LEVELS } from '../../lib/supabase'
 
-export default function MyMissions() {
+export default function MyMissions({ establishmentId, onBack }) {
   const navigate = useNavigate()
   const [missions, setMissions] = useState([])
-  const [archivedMissions, setArchivedMissions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState('active') // 'active' ou 'archived'
+  const [filter, setFilter] = useState('open') // 'open', 'closed', 'all'
 
   useEffect(() => {
-    loadMissions()
-  }, [])
+    if (establishmentId) loadMissions()
+  }, [establishmentId, filter])
 
   const loadMissions = async () => {
+    setLoading(true)
     try {
-      // Récupérer le profil établissement
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      const { data: establishment } = await supabase
-        .from('establishments')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-
-      // Récupérer les missions actives (non archivées)
-      const { data: activeMissions, error: activeError } = await supabase
+      let query = supabase
         .from('missions')
-        .select(`
-          *,
-          applications(count)
-        `)
-        .eq('establishment_id', establishment.id)
-        .is('archived_at', null)
+        .select('*')
+        .eq('establishment_id', establishmentId)
         .order('created_at', { ascending: false })
 
-      if (activeError) throw activeError
+      if (filter === 'open') {
+        query = query.eq('status', 'open')
+      } else if (filter === 'closed') {
+        query = query.in('status', ['closed', 'archived'])
+      }
 
-      // Récupérer les missions archivées
-      const { data: archived, error: archivedError } = await supabase
-        .from('missions')
-        .select(`
-          *,
-          applications(count)
-        `)
-        .eq('establishment_id', establishment.id)
-        .not('archived_at', 'is', null)
-        .order('archived_at', { ascending: false })
+      const { data, error } = await query
+      if (error) throw error
 
-      if (archivedError) throw archivedError
+      // Charger le nombre de candidatures par mission
+      if (data && data.length > 0) {
+        const missionIds = data.map(m => m.id)
+        const { data: apps } = await supabase
+          .from('applications')
+          .select('mission_id, status')
+          .in('mission_id', missionIds)
 
-      setMissions(activeMissions || [])
-      setArchivedMissions(archived || [])
+        // Enrichir chaque mission avec les compteurs
+        const enriched = data.map(mission => {
+          const missionApps = apps ? apps.filter(a => a.mission_id === mission.id) : []
+          return {
+            ...mission,
+            candidatesCount: missionApps.filter(a => a.status === 'interested').length,
+            hiredCount: missionApps.filter(a => a.status === 'confirmed').length
+          }
+        })
+        setMissions(enriched)
+      } else {
+        setMissions([])
+      }
     } catch (err) {
       console.error('Erreur chargement missions:', err)
-      setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const getStatusBadge = (status, archived_at) => {
-    if (archived_at) {
-      return { label: '📦 Archivée', bgColor: 'bg-gray-100', textColor: 'text-gray-700' }
-    }
-    const badges = {
-      open: { label: '🟢 Ouverte', bgColor: 'bg-green-100', textColor: 'text-green-700' },
-      closed: { label: '🔴 Fermée', bgColor: 'bg-red-100', textColor: 'text-red-700' },
-      filled: { label: '✅ Pourvue', bgColor: 'bg-blue-100', textColor: 'text-blue-700' }
-    }
-    return badges[status] || badges.open
-  }
-
   const handleCloseMission = async (missionId) => {
-    if (!confirm('Êtes-vous sûr de vouloir fermer cette mission ? Elle sera archivée.')) return
+    if (!confirm('Êtes-vous sûr de vouloir clôturer cette mission ?')) return
 
     try {
       const { error } = await supabase
         .from('missions')
         .update({ 
-          status: 'closed',
-          archived_at: new Date().toISOString() // Archiver aussi
+          status: 'closed', 
+          closed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq('id', missionId)
 
       if (error) throw error
-
-      alert('Mission fermée et archivée !')
       loadMissions()
     } catch (err) {
-      console.error('Erreur fermeture mission:', err)
-      alert('Erreur lors de la fermeture de la mission')
+      console.error('Erreur clôture mission:', err)
+      alert('Erreur lors de la clôture de la mission')
     }
   }
 
-  const handleRelaunchMission = (mission) => {
-    navigate(`/establishment/edit-mission/${mission.id}`)
+  const handleReopenMission = async (missionId) => {
+    try {
+      const { error } = await supabase
+        .from('missions')
+        .update({ 
+          status: 'open', 
+          closed_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', missionId)
+
+      if (error) throw error
+      loadMissions()
+    } catch (err) {
+      console.error('Erreur réouverture mission:', err)
+    }
+  }
+
+  const handleDeleteMission = async (missionId) => {
+    if (!confirm('Supprimer définitivement cette mission ? Cette action est irréversible.')) return
+
+    try {
+      // Supprimer d'abord les candidatures liées
+      await supabase
+        .from('applications')
+        .delete()
+        .eq('mission_id', missionId)
+
+      const { error } = await supabase
+        .from('missions')
+        .delete()
+        .eq('id', missionId)
+
+      if (error) throw error
+      loadMissions()
+    } catch (err) {
+      console.error('Erreur suppression mission:', err)
+      alert('Erreur lors de la suppression')
+    }
+  }
+
+  // Helper pour les labels
+  const getPositionLabel = (value) => {
+    const found = POSITION_TYPES?.find(p => p.value === value)
+    return found ? found.label : value || '—'
+  }
+
+  const getContractLabel = (value) => {
+    const found = CONTRACT_TYPES?.find(c => c.value === value)
+    return found ? found.label : value || '—'
+  }
+
+  const getDurationLabel = (value) => {
+    const found = DURATION_TYPES?.find(d => d.value === value)
+    return found ? found.label : value || '—'
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—'
+    return new Date(dateStr).toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    })
+  }
+
+  const formatTime = (timeStr) => {
+    if (!timeStr) return ''
+    return timeStr.substring(0, 5) // "08:00:00" → "08:00"
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement des missions...</p>
-        </div>
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Chargement des missions...</p>
       </div>
     )
   }
 
-  const displayedMissions = activeTab === 'active' ? missions : archivedMissions
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
       {/* Header */}
-      <nav className="bg-white shadow-sm mb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <button
-              onClick={() => navigate('/establishment')}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              ← Retour
-            </button>
-            <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
-            <div className="w-20"></div>
-          </div>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBack}
+            className="text-primary-600 hover:text-primary-700 font-medium"
+          >
+            ← Retour
+          </button>
+          <h2 className="text-3xl font-bold text-gray-900">Mes Missions</h2>
         </div>
-      </nav>
 
-      {/* Contenu */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900">Mes Missions</h2>
-            <p className="text-gray-600 mt-2">
-              {missions.length} active{missions.length > 1 ? 's' : ''} · {archivedMissions.length} archivée{archivedMissions.length > 1 ? 's' : ''}
-            </p>
+        <div className="sm:ml-auto flex items-center gap-3">
+          {/* Filtres */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setFilter('open')}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                filter === 'open' 
+                  ? 'bg-white text-primary-600 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Ouvertes
+            </button>
+            <button
+              onClick={() => setFilter('closed')}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                filter === 'closed' 
+                  ? 'bg-white text-primary-600 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Clôturées
+            </button>
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                filter === 'all' 
+                  ? 'bg-white text-primary-600 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Toutes
+            </button>
           </div>
+
+          <button
+            onClick={loadMissions}
+            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
+          >
+            🔄
+          </button>
+
           <button
             onClick={() => navigate('/establishment/create-mission')}
-            className="btn-primary"
+            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
           >
-            ➕ Nouvelle mission
+            + Nouvelle
           </button>
         </div>
+      </div>
 
-        {/* Onglets */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab('active')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              activeTab === 'active'
-                ? 'bg-primary-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            🟢 Actives ({missions.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('archived')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              activeTab === 'archived'
-                ? 'bg-primary-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            📦 Archivées ({archivedMissions.length})
-          </button>
+      {/* Liste vide */}
+      {missions.length === 0 && (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <div className="text-5xl mb-4">📝</div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            {filter === 'open' ? 'Aucune mission ouverte' : 'Aucune mission'}
+          </h3>
+          <p className="text-gray-600 mb-6">
+            {filter === 'open' 
+              ? 'Créez votre première mission pour recevoir des candidatures !'
+              : 'Aucune mission trouvée avec ce filtre.'
+            }
+          </p>
+          {filter === 'open' && (
+            <button
+              onClick={() => navigate('/establishment/create-mission')}
+              className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+            >
+              + Créer une mission
+            </button>
+          )}
         </div>
+      )}
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
-          </div>
-        )}
-
-        {displayedMissions.length === 0 ? (
-          <div className="card text-center py-12">
-            {activeTab === 'active' ? (
-              <>
-                <p className="text-xl text-gray-600 mb-4">📭 Aucune mission active</p>
-                <p className="text-gray-500 mb-6">
-                  Créez une nouvelle annonce pour recevoir des candidatures !
-                </p>
-                <button
-                  onClick={() => navigate('/establishment/create-mission')}
-                  className="btn-primary"
-                >
-                  Créer une mission
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-xl text-gray-600 mb-4">📦 Aucune mission archivée</p>
-                <p className="text-gray-500">
-                  Les missions terminées depuis plus de 2h apparaîtront ici.
-                </p>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {displayedMissions.map(mission => {
-              const statusBadge = getStatusBadge(mission.status, mission.archived_at)
-              const urgencyBadge = getUrgencyBadge(mission.urgency_level)
-              const applicationsCount = mission.applications?.[0]?.count || 0
-              const isArchived = !!mission.archived_at
-
-              return (
-                <div key={mission.id} className={`card ${isArchived ? 'opacity-75' : ''}`}>
-                  {/* Header */}
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900">
-                        {mission.position}
-                      </h3>
-                      <p className="text-gray-600 text-sm">
-                        {isArchived 
-                          ? `Archivée le ${formatDateTime(mission.archived_at)}`
-                          : `Créée le ${formatDateTime(mission.created_at)}`
-                        }
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge.bgColor} ${statusBadge.textColor}`}>
-                        {statusBadge.label}
-                      </span>
-                      {!isArchived && (
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${urgencyBadge.bgColor} ${urgencyBadge.textColor}`}>
-                          {urgencyBadge.emoji} {urgencyBadge.label}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Détails */}
-                  <div className="grid md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <p className="text-sm text-gray-600">📅 Début</p>
-                      <p className="font-medium">{formatDate(mission.start_date)}</p>
-                    </div>
-
-                    {mission.end_date && (
-                      <div>
-                        <p className="text-sm text-gray-600">📅 Fin</p>
-                        <p className="font-medium">{formatDate(mission.end_date)}</p>
-                      </div>
-                    )}
-
-                    {mission.hourly_rate && (
-                      <div>
-                        <p className="text-sm text-gray-600">💰 Tarif</p>
-                        <p className="font-medium text-primary-600">{mission.hourly_rate}€/h</p>
-                      </div>
-                    )}
-
-                    <div>
-                      <p className="text-sm text-gray-600">📝 Contrat</p>
-                      <p className="font-medium">{getLabel(mission.contract_type, CONTRACT_TYPES)}</p>
-                    </div>
-
-                    {mission.shift_start_time && mission.shift_end_time && (
-                      <div>
-                        <p className="text-sm text-gray-600">🕐 Horaires</p>
-                        <p className="font-medium">
-                          {mission.shift_start_time.slice(0,5)} - {mission.shift_end_time.slice(0,5)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Commentaire */}
-                  {mission.comment && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-700 italic">"{mission.comment}"</p>
-                    </div>
+      {/* Liste des missions */}
+      <div className="space-y-4">
+        {missions.map(mission => (
+          <div
+            key={mission.id}
+            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+          >
+            <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+              {/* Info principale */}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  {/* Badge urgence */}
+                  {mission.urgency_level === 'urgent' ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      🔴 Urgent
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      🟢 Normal
+                    </span>
                   )}
 
-                  {/* Actions */}
-                  <div className="flex gap-3 pt-4 border-t">
-                    {isArchived ? (
-                      <>
-                        <button
-                          onClick={() => handleRelaunchMission(mission)}
-                          className="btn-primary flex-1"
-                        >
-                          🔄 Relancer cette mission
-                        </button>
-                        <button
-                          onClick={() => navigate(`/establishment/applications/${mission.id}`)}
-                          className="btn-secondary"
-                        >
-                          👥 Historique ({applicationsCount})
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => navigate(`/establishment/applications/${mission.id}`)}
-                          className="btn-primary flex-1"
-                        >
-                          👥 Voir les candidatures ({applicationsCount})
-                        </button>
-                        
-                        {mission.status === 'open' && (
-                          <button
-                            onClick={() => handleCloseMission(mission.id)}
-                            className="btn-secondary"
-                          >
-                            🔒 Fermer
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  {/* Badge status */}
+                  {mission.status === 'open' ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Ouverte
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                      Clôturée
+                    </span>
+                  )}
                 </div>
-              )
-            })}
+
+                <h3 className="text-xl font-bold text-gray-900">
+                  {getPositionLabel(mission.position)}
+                </h3>
+
+                <div className="mt-2 space-y-1 text-sm text-gray-600">
+                  <p>
+                    📅 {formatDate(mission.start_date)}
+                    {mission.end_date && ` → ${formatDate(mission.end_date)}`}
+                  </p>
+                  {(mission.shift_start_time || mission.shift_end_time) && (
+                    <p>
+                      🕐 {formatTime(mission.shift_start_time)}
+                      {mission.shift_end_time && ` - ${formatTime(mission.shift_end_time)}`}
+                      {mission.service_continu ? ' (continu)' : ' (avec coupure)'}
+                    </p>
+                  )}
+                  <p>
+                    📋 {getContractLabel(mission.contract_type)} • {getDurationLabel(mission.duration_type)}
+                  </p>
+                  {mission.hourly_rate && (
+                    <p>💰 {parseFloat(mission.hourly_rate).toFixed(2)} €/h</p>
+                  )}
+                  {mission.comment && (
+                    <p className="text-gray-500 italic mt-1">"{mission.comment}"</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Compteurs candidats */}
+              <div className="flex lg:flex-col gap-4 lg:gap-2 lg:text-right">
+                <div className="bg-blue-50 rounded-lg px-4 py-2 text-center">
+                  <div className="text-2xl font-bold text-blue-600">{mission.candidatesCount}</div>
+                  <div className="text-xs text-blue-600">Candidat{mission.candidatesCount > 1 ? 's' : ''}</div>
+                </div>
+                <div className="bg-green-50 rounded-lg px-4 py-2 text-center">
+                  <div className="text-2xl font-bold text-green-600">{mission.hiredCount}</div>
+                  <div className="text-xs text-green-600">Embauché{mission.hiredCount > 1 ? 's' : ''}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="mt-4 pt-4 border-t flex flex-wrap gap-3">
+              <button
+                onClick={() => navigate(`/establishment/edit-mission/${mission.id}`)}
+                className="px-4 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                ✏️ Modifier
+              </button>
+
+              {mission.status === 'open' ? (
+                <button
+                  onClick={() => handleCloseMission(mission.id)}
+                  className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-sm font-medium transition-colors"
+                >
+                  🔒 Clôturer
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleReopenMission(mission.id)}
+                  className="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-medium transition-colors"
+                >
+                  🔓 Réouvrir
+                </button>
+              )}
+
+              <button
+                onClick={() => handleDeleteMission(mission.id)}
+                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-medium transition-colors ml-auto"
+              >
+                🗑️ Supprimer
+              </button>
+            </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   )

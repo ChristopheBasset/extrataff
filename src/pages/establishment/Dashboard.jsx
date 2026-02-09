@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import MyMissions from '../../components/Establishment/MyMissions'
 
 export default function EstablishmentDashboard() {
   const navigate = useNavigate()
@@ -214,27 +215,10 @@ export default function EstablishmentDashboard() {
 
         {/* Vue Missions */}
         {view === 'missions' && (
-          <div>
-            <div className="mb-6 flex items-center gap-4">
-              <button
-                onClick={() => setView('home')}
-                className="text-primary-600 hover:text-primary-700 font-medium"
-              >
-                ← Retour
-              </button>
-              <h2 className="text-3xl font-bold text-gray-900">Mes Missions</h2>
-              <button
-                onClick={loadCounts}
-                className="ml-auto px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
-              >
-                🔄 Rafraîchir
-              </button>
-            </div>
-            <div className="text-gray-600">
-              {/* À implémenter: composant MyMissions avec liste et édition */}
-              <p>Composant MyMissions à intégrer ici</p>
-            </div>
-          </div>
+          <MyMissions 
+            establishmentId={profile.id} 
+            onBack={() => setView('home')} 
+          />
         )}
 
         {/* Vue Candidats */}

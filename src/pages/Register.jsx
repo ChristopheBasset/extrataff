@@ -58,12 +58,17 @@ export default function Register() {
 
       console.log('✅ Compte créé avec succès:', data.user.id)
 
-      // Rediriger vers le formulaire de profil détaillé
-      // Le profil sera créé à l'étape 2 (ProfileForm)
+      // Attendre que la session soit active
+      if (!data.session) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        await supabase.auth.refreshSession()
+      }
+
+      // Rediriger avec rechargement complet pour garantir la session
       if (userType === 'talent') {
-        navigate('/talent/profile-form')
+        window.location.href = '/talent/profile-form'
       } else {
-        navigate('/establishment/profile-form')
+        window.location.href = '/establishment/profile-form'
       }
 
     } catch (err) {

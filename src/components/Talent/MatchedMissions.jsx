@@ -16,7 +16,7 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
       // Récupérer toutes les missions ouvertes
       const { data: allMissions, error: missError } = await supabase
         .from('missions')
-        .select('*, establishments:establishment_id(name, city, type)')
+        .select('*, establishments:establishment_id(name, city, type, department)')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
 
@@ -47,6 +47,20 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         matched = matched.filter(m => 
           talentProfile.position_types.includes(m.position)
         )
+      }
+
+      // Filtrage par départements préférés du talent
+      if (talentProfile?.preferred_departments && talentProfile.preferred_departments.length > 0) {
+        matched = matched.filter(m => {
+          // Vérifier le département de l'établissement
+          const estDept = m.establishments?.department
+          // Vérifier aussi le département dans la mission elle-même (si disponible)
+          const missionDept = m.department
+          
+          return talentProfile.preferred_departments.some(dept => 
+            dept === estDept || dept === missionDept
+          )
+        })
       }
 
       setMissions(matched)

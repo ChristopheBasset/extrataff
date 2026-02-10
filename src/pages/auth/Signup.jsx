@@ -63,56 +63,51 @@ export default function Signup() {
 
       const userId = data.user.id
 
+      // Attendre que la session soit active
+      if (!data.session) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
       await supabase.auth.refreshSession()
 
-      // ✅ CORRECTION: Récupérer le token JWT de la session
       const { data: sessionData } = await supabase.auth.getSession()
       const token = sessionData?.session?.access_token
 
-      if (!token) {
-        setError('Erreur: impossible de récupérer le token')
-        setLoading(false)
-        return
-      }
+      if (token) {
+        try {
+          const response = await fetch(
+            'https://yixuosrfwrxhttbhqelj.supabase.co/functions/v1/create-profile',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                role: initialRole,
+                email: formData.email
+              })
+            }
+          )
 
-      try {
-        // ✅ CORRECTION: Ajouter le JWT dans l'Authorization header
-        const response = await fetch(
-          'https://yixuosrfwrxhttbhqelj.supabase.co/functions/v1/create-profile',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`  // ✅ JWT envoyé ici!
-            },
-            body: JSON.stringify({
-              role: initialRole,  // ✅ Edge Function accepte 'role' maintenant
-              email: formData.email
-            })
+          const profileResult = await response.json()
+
+          if (!response.ok) {
+            console.error('Profile creation failed:', profileResult)
+          } else {
+            console.log('✅ Profile created:', profileResult)
           }
-        )
-
-        const profileResult = await response.json()
-
-        if (!response.ok) {
-          console.error('Profile creation failed:', profileResult)
-          setError('Erreur lors de la création du profil')
-          setLoading(false)
-          return
+        } catch (fetchError) {
+          console.error('Fetch error:', fetchError)
         }
-
-        console.log('✅ Profile created:', profileResult)
-      } catch (fetchError) {
-        console.error('Fetch error:', fetchError)
-        setError('Erreur de connexion')
-        setLoading(false)
-        return
+      } else {
+        console.warn('Pas de token, le profil sera créé au prochain chargement')
       }
 
+      // Rediriger avec rechargement complet
       if (initialRole === 'establishment') {
-        navigate('/establishment')
+        window.location.href = '/establishment'
       } else {
-        navigate('/talent')
+        window.location.href = '/talent'
       }
     } catch (err) {
       console.error('Signup error:', err)

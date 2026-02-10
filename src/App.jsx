@@ -39,6 +39,11 @@ import GroupInvitePage from './pages/groupe/GroupInvitePage'
 import GroupJoinPage from './pages/groupe/GroupJoinPage'
 import GroupAdminDashboard from './pages/group-admin/GroupAdminDashboard'
 
+// Pages légales
+import MentionsLegales from './pages/MentionsLegales'
+import CGV from './pages/CGV'
+import Confidentialite from './pages/Confidentialite'
+
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -81,6 +86,9 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/mentions-legales" element={<MentionsLegales />} />
+        <Route path="/cgv" element={<CGV />} />
+        <Route path="/confidentialite" element={<Confidentialite />} />
 
         {/* Routes Groupe */}
         <Route path="/groupe" element={<GroupLanding />} />

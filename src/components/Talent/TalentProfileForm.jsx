@@ -7,6 +7,7 @@ export default function TalentProfileForm() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [deptSearch, setDeptSearch] = useState('')
   
   // État pour le CV
   const [cvFile, setCvFile] = useState(null)
@@ -348,46 +349,61 @@ export default function TalentProfileForm() {
             <p className="text-xs text-gray-500 mb-2">
               Sélectionnez les départements où vous souhaitez trouver des missions
             </p>
-            <select
-              multiple
-              value={formData.preferred_departments}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions, option => option.value)
-                setFormData(prev => ({ ...prev, preferred_departments: selected }))
-              }}
-              className="input min-h-[150px]"
-            >
-              {FRENCH_DEPARTMENTS.map(dept => (
-                <option key={dept.value} value={dept.value}>
-                  {dept.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Maintenez Ctrl (Windows) ou Cmd (Mac) pour sélectionner plusieurs départements
-            </p>
+
+            {/* Départements sélectionnés */}
             {formData.preferred_departments.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mb-3">
                 {formData.preferred_departments.map(dept => {
                   const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
                   return (
-                    <span
+                    <button
                       key={dept}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
+                      type="button"
+                      onClick={() => handleDepartmentToggle(dept)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-full text-sm font-medium"
                     >
-                      {deptInfo?.label || dept}
-                      <button
-                        type="button"
-                        onClick={() => handleDepartmentToggle(dept)}
-                        className="hover:text-primary-900"
-                      >
-                        ×
-                      </button>
-                    </span>
+                      {deptInfo?.label || dept} ×
+                    </button>
                   )
                 })}
               </div>
             )}
+
+            {/* Recherche */}
+            <input
+              type="text"
+              placeholder="🔍 Rechercher un département (ex: 33, Gironde...)"
+              value={deptSearch}
+              onChange={(e) => setDeptSearch(e.target.value)}
+              className="input mb-2"
+            />
+
+            {/* Liste filtrée */}
+            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
+              <div className="flex flex-wrap gap-1.5">
+                {FRENCH_DEPARTMENTS
+                  .filter(dept => {
+                    if (!deptSearch.trim()) return true
+                    const search = deptSearch.toLowerCase()
+                    return dept.value.includes(search) || dept.label.toLowerCase().includes(search)
+                  })
+                  .map(dept => (
+                    <button
+                      key={dept.value}
+                      type="button"
+                      onClick={() => handleDepartmentToggle(dept.value)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                        formData.preferred_departments.includes(dept.value)
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {dept.label}
+                    </button>
+                  ))
+                }
+              </div>
+            </div>
           </div>
 
           {/* Types de postes */}

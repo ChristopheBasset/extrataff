@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, POSITION_TYPES } from '../../lib/supabase'
+import { supabase, POSITION_TYPES, FRENCH_DEPARTMENTS } from '../../lib/supabase'
 import MatchedMissions from '../../components/Talent/MatchedMissions'
 import TalentApplications from '../../components/Talent/TalentApplications'
 import TalentConfirmed from '../../components/Talent/TalentConfirmed'
@@ -18,6 +18,7 @@ export default function TalentDashboard() {
 
   // État pour l'édition du profil
   const [editProfile, setEditProfile] = useState(false)
+  const [deptSearch, setDeptSearch] = useState('')
   const [profileForm, setProfileForm] = useState({})
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileError, setProfileError] = useState(null)
@@ -62,7 +63,8 @@ export default function TalentDashboard() {
           years_experience: data.years_experience || 0,
           accepts_coupure: data.accepts_coupure ?? true,
           position_types: data.position_types || [],
-          contract_preferences: data.contract_preferences || []
+          contract_preferences: data.contract_preferences || [],
+          preferred_departments: data.preferred_departments || []
         })
       }
     } catch (err) {
@@ -170,6 +172,17 @@ export default function TalentDashboard() {
     })
   }
 
+  const toggleDepartment = (deptValue) => {
+    setProfileForm(prev => {
+      const current = prev.preferred_departments || []
+      if (current.includes(deptValue)) {
+        return { ...prev, preferred_departments: current.filter(d => d !== deptValue) }
+      } else {
+        return { ...prev, preferred_departments: [...current, deptValue] }
+      }
+    })
+  }
+
   const handleProfileSave = async () => {
     setProfileSaving(true)
     setProfileError(null)
@@ -190,6 +203,7 @@ export default function TalentDashboard() {
           years_experience: parseInt(profileForm.years_experience) || 0,
           accepts_coupure: profileForm.accepts_coupure,
           position_types: profileForm.position_types,
+          preferred_departments: profileForm.preferred_departments,
           updated_at: new Date().toISOString()
         })
         .eq('id', profile.id)
@@ -558,6 +572,27 @@ export default function TalentDashboard() {
                     </div>
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Départements de recherche</label>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.preferred_departments && profile.preferred_departments.length > 0 ? (
+                        profile.preferred_departments.map(dept => {
+                          const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
+                          return (
+                            <span
+                              key={dept}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                            >
+                              {deptInfo?.label || dept}
+                            </span>
+                          )
+                        })
+                      ) : (
+                        <p className="text-gray-500">Tous les départements</p>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Expérience</label>
@@ -713,6 +748,67 @@ export default function TalentDashboard() {
                     </div>
                   </div>
 
+                  {/* Départements de recherche */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Départements de recherche</label>
+                    <p className="text-xs text-gray-500 mb-2">Sélectionnez les départements où vous cherchez des missions</p>
+                    
+                    {/* Départements sélectionnés */}
+                    {profileForm.preferred_departments?.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {profileForm.preferred_departments.map(dept => {
+                          const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
+                          return (
+                            <button
+                              key={dept}
+                              type="button"
+                              onClick={() => toggleDepartment(dept)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-full text-sm font-medium"
+                            >
+                              {deptInfo?.label || dept} ×
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Recherche */}
+                    <input
+                      type="text"
+                      placeholder="🔍 Rechercher un département (ex: 33, Gironde...)"
+                      value={deptSearch}
+                      onChange={(e) => setDeptSearch(e.target.value)}
+                      className="input mb-2"
+                    />
+
+                    {/* Liste filtrée */}
+                    <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {FRENCH_DEPARTMENTS
+                          .filter(dept => {
+                            if (!deptSearch.trim()) return true
+                            const search = deptSearch.toLowerCase()
+                            return dept.value.includes(search) || dept.label.toLowerCase().includes(search)
+                          })
+                          .map(dept => (
+                            <button
+                              key={dept.value}
+                              type="button"
+                              onClick={() => toggleDepartment(dept.value)}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                profileForm.preferred_departments?.includes(dept.value)
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              {dept.label}
+                            </button>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
@@ -823,7 +919,8 @@ export default function TalentDashboard() {
                           years_experience: profile.years_experience || 0,
                           accepts_coupure: profile.accepts_coupure ?? true,
                           position_types: profile.position_types || [],
-                          contract_preferences: profile.contract_preferences || []
+                          contract_preferences: profile.contract_preferences || [],
+                          preferred_departments: profile.preferred_departments || []
                         })
                         setProfileError(null)
                       }}

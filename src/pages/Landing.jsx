@@ -1,5 +1,5 @@
 import { ArrowRightIcon } from '@heroicons/react/24/solid';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import lightningSvg from '../assets/lightning.svg';
 import { useState } from 'react';
 
@@ -14,7 +14,7 @@ export default function Landing() {
     },
     {
       question: "C'est gratuit ?",
-      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, nous offrons 2 mois d'essai gratuits, puis l'abonnement est à 59,90€/mois, sans engagement."
+      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, nous offrons 1 mois d'essai gratuit avec 2 missions offertes, puis l'abonnement est à 59,90€/mois, sans engagement."
     },
     {
       question: "Comment créer un compte ?",
@@ -38,7 +38,7 @@ export default function Landing() {
     },
     {
       question: "Mes données sont-elles protégées ?",
-      answer: "Oui ! Vos données personnelles sont sécurisées et ne sont jamais partagées avec des tiers. Les établissements ne voient que les informations nécessaires (prénom, expérience, disponibilités). Votre adresse exacte n'est jamais affichée."
+      answer: "Oui ! Vos données personnelles sont sécurisées et ne sont jamais partagées avec des tiers. Les établissements ne voient que les informations nécessaires (prénom, expérience, disponibilités). Votre adresse exacte n'est jamais affichée. Consultez notre politique de confidentialité pour en savoir plus."
     }
   ];
 
@@ -58,12 +58,12 @@ export default function Landing() {
       
       {/* Tagline */}
       <p className="text-xl mb-4 text-center">
-        Staff & Taff en temps réel!
+        Staff & Taff en temps réel !
       </p>
       
       {/* Description */}
       <p className="text-center mb-12 max-w-md opacity-90">
-        La plateforme qui connecte en instantanée les établissements CHR et les Talents!
+        La plateforme qui connecte en instantané les établissements CHR et les Talents !
       </p>
 
       {/* CTA Buttons */}
@@ -166,6 +166,29 @@ export default function Landing() {
               </svg>
             </a>
           </div>
+        </div>
+      </div>
+
+      {/* Footer légal */}
+      <div className="bg-gray-900 w-full py-8">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mb-4">
+            <Link to="/mentions-legales" className="text-gray-400 hover:text-white text-sm transition-colors">
+              Mentions légales
+            </Link>
+            <Link to="/cgv" className="text-gray-400 hover:text-white text-sm transition-colors">
+              Conditions générales
+            </Link>
+            <Link to="/confidentialite" className="text-gray-400 hover:text-white text-sm transition-colors">
+              Politique de confidentialité
+            </Link>
+            <a href="mailto:contact@extrataff.fr" className="text-gray-400 hover:text-white text-sm transition-colors">
+              Contact
+            </a>
+          </div>
+          <p className="text-gray-500 text-xs">
+            © {new Date().getFullYear()} ExtraTaff SAS — Tous droits réservés
+          </p>
         </div>
       </div>
     </div>

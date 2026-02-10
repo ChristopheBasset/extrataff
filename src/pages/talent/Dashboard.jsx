@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, POSITION_TYPES, FRENCH_DEPARTMENTS } from '../../lib/supabase'
+import NotificationBell from '../../components/shared/NotificationBell'
 import MatchedMissions from '../../components/Talent/MatchedMissions'
 import TalentApplications from '../../components/Talent/TalentApplications'
 import TalentConfirmed from '../../components/Talent/TalentConfirmed'
@@ -400,12 +401,15 @@ export default function TalentDashboard() {
                 </div>
               )}
             </div>
-            <button
-              onClick={handleLogout}
-              className="text-gray-600 hover:text-gray-900 text-sm mt-1"
-            >
-              Déconnexion
-            </button>
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <button
+                onClick={handleLogout}
+                className="text-gray-600 hover:text-gray-900 text-sm mt-1"
+              >
+                Déconnexion
+              </button>
+            </div>
           </div>
         </div>
       </nav>

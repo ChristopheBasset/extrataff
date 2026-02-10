@@ -5,6 +5,7 @@ import MyMissions from '../../components/Establishment/MyMissions'
 import ApplicationsReceived from '../../components/Establishment/ApplicationsReceived'
 import EstablishmentHired from '../../components/Establishment/EstablishmentHired'
 import AddressAutocomplete from '../../components/shared/AddressAutocomplete'
+import NotificationBell from '../../components/shared/NotificationBell'
 
 export default function EstablishmentDashboard() {
   const navigate = useNavigate()
@@ -266,13 +267,16 @@ export default function EstablishmentDashboard() {
               )}
             </div>
 
-            {/* Droite : déconnexion */}
-            <button
-              onClick={handleLogout}
-              className="text-gray-600 hover:text-gray-900 text-sm mt-1"
-            >
-              Déconnexion
-            </button>
+            {/* Droite : notifications + déconnexion */}
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <button
+                onClick={handleLogout}
+                className="text-gray-600 hover:text-gray-900 text-sm mt-1"
+              >
+                Déconnexion
+              </button>
+            </div>
           </div>
         </div>
       </nav>

@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /talent/*
+Disallow: /establishment/*
+Disallow: /group-admin
+
+Sitemap: https://extrataff.fr/sitemap.xml

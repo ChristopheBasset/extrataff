@@ -570,7 +570,8 @@ export default function AdminDashboard() {
               { id: 'missions', label: '📋 Missions', count: stats.totalMissions },
               { id: 'applications', label: '✉️ Candidatures', count: stats.totalApplications },
               { id: 'admins', label: '👑 Admins', count: admins.length },
-              { id: 'subscriptions', label: '💳 Abonnements', count: stats.premiumActive }
+              { id: 'subscriptions', label: '💳 Abonnements', count: stats.premiumActive },
+              { id: 'analytics', label: '📈 Analytics', count: null }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1078,6 +1079,208 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
                 {establishments.length === 0 && <p className="text-center text-gray-500 py-8">Aucun établissement</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== TAB ANALYTICS ==================== */}
+        {activeTab === 'analytics' && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">📈 Analytics</h2>
+
+            {/* KPIs principaux */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {(() => {
+                const inactiveEstabs = establishments.filter(e => (e.missions_used || 0) === 0).length
+                const hotProspects = establishments.filter(e => (e.missions_used || 0) >= 3 && e.subscription_status !== 'active').length
+                const talentsWithApps = new Set(applications.map(a => a.talent?.id)).size
+                const dormantTalents = talents.length - talentsWithApps
+                const conversionRate = establishments.length > 0 ? ((stats.premiumActive / establishments.length) * 100).toFixed(1) : 0
+
+                return [
+                  { value: `${conversionRate}%`, label: 'Taux conversion Premium', color: 'text-purple-600', bg: 'bg-purple-50' },
+                  { value: hotProspects, label: '🔥 Prospects chauds (3/3)', color: 'text-orange-600', bg: 'bg-orange-50' },
+                  { value: inactiveEstabs, label: 'Étab. inactifs (0 mission)', color: 'text-red-600', bg: 'bg-red-50' },
+                  { value: dormantTalents, label: 'Talents dormants', color: 'text-gray-600', bg: 'bg-gray-50' }
+                ].map((stat, i) => (
+                  <div key={i} className={`${stat.bg} rounded-xl p-4 border border-gray-200`}>
+                    <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+                    <p className="text-sm text-gray-500">{stat.label}</p>
+                  </div>
+                ))
+              })()}
+            </div>
+
+            {/* Inscriptions par mois */}
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              <div className="bg-white rounded-xl p-4 border border-gray-200">
+                <h3 className="font-semibold text-gray-900 mb-3">📊 Inscriptions par mois</h3>
+                {(() => {
+                  const months = {}
+                  const allUsers = [
+                    ...talents.map(t => ({ ...t, type: 'talent' })),
+                    ...establishments.map(e => ({ ...e, type: 'establishment' }))
+                  ]
+                  allUsers.forEach(u => {
+                    if (!u.created_at) return
+                    const month = new Date(u.created_at).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+                    if (!months[month]) months[month] = { talents: 0, establishments: 0 }
+                    months[month][u.type === 'talent' ? 'talents' : 'establishments']++
+                  })
+                  const sorted = Object.entries(months).slice(-6)
+                  const maxVal = Math.max(...sorted.map(([, v]) => v.talents + v.establishments), 1)
+
+                  return sorted.length > 0 ? (
+                    <div className="space-y-3">
+                      {sorted.map(([month, counts]) => (
+                        <div key={month}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-600">{month}</span>
+                            <span className="text-gray-900 font-medium">{counts.talents + counts.establishments} inscrits</span>
+                          </div>
+                          <div className="flex gap-1 h-4">
+                            <div
+                              className="bg-primary-500 rounded-l"
+                              style={{ width: `${(counts.talents / maxVal) * 100}%` }}
+                              title={`${counts.talents} talents`}
+                            />
+                            <div
+                              className="bg-amber-500 rounded-r"
+                              style={{ width: `${(counts.establishments / maxVal) * 100}%` }}
+                              title={`${counts.establishments} établissements`}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex gap-4 text-xs text-gray-500 mt-2">
+                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-primary-500"></span> Talents</span>
+                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-500"></span> Établissements</span>
+                      </div>
+                    </div>
+                  ) : <p className="text-gray-500 text-sm">Aucune donnée</p>
+                })()}
+              </div>
+
+              {/* Funnel conversion */}
+              <div className="bg-white rounded-xl p-4 border border-gray-200">
+                <h3 className="font-semibold text-gray-900 mb-3">🔄 Funnel établissements</h3>
+                {(() => {
+                  const total = establishments.length
+                  const withMissions = establishments.filter(e => (e.missions_used || 0) > 0).length
+                  const at3Missions = establishments.filter(e => (e.missions_used || 0) >= 3).length
+                  const premium = stats.premiumActive
+
+                  const steps = [
+                    { label: 'Inscrits', value: total, color: 'bg-gray-400' },
+                    { label: '≥1 mission créée', value: withMissions, color: 'bg-blue-500' },
+                    { label: '≥3 missions (limite free)', value: at3Missions, color: 'bg-orange-500' },
+                    { label: 'Premium', value: premium, color: 'bg-purple-600' }
+                  ]
+
+                  return (
+                    <div className="space-y-3">
+                      {steps.map((step, i) => (
+                        <div key={i}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-600">{step.label}</span>
+                            <span className="text-gray-900 font-medium">
+                              {step.value}
+                              {i > 0 && total > 0 && (
+                                <span className="text-gray-400 ml-1">({((step.value / total) * 100).toFixed(0)}%)</span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="h-4 bg-gray-100 rounded overflow-hidden">
+                            <div
+                              className={`h-full ${step.color} rounded transition-all`}
+                              style={{ width: `${total > 0 ? (step.value / total) * 100 : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+
+            {/* Prospects chauds */}
+            <div className="bg-white rounded-xl p-4 border border-gray-200 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">🔥 Prospects premium chauds</h3>
+              <p className="text-sm text-gray-500 mb-3">Établissements ayant atteint la limite de 3 missions gratuites (non premium)</p>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Établissement</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Ville</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Missions utilisées</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Inscrit le</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Contact</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {establishments
+                      .filter(e => (e.missions_used || 0) >= 3 && e.subscription_status !== 'active')
+                      .map(est => (
+                        <tr key={est.id} className="bg-orange-50/50">
+                          <td className="px-4 py-2 text-sm font-medium text-gray-900">{est.name}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{est.city || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-red-600 font-medium">{est.missions_used}/3</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{formatDate(est.created_at)}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{est.phone || '-'}</td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+                {establishments.filter(e => (e.missions_used || 0) >= 3 && e.subscription_status !== 'active').length === 0 && (
+                  <p className="text-center text-gray-500 py-4 text-sm">Aucun prospect chaud pour le moment</p>
+                )}
+              </div>
+            </div>
+
+            {/* Talents dormants */}
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-3">😴 Talents sans candidature</h3>
+              <p className="text-sm text-gray-500 mb-3">Talents inscrits qui n'ont jamais postulé</p>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Nom</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Ville</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Postes</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Inscrit le</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase">Contact</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {(() => {
+                      const talentIdsWithApps = new Set(applications.map(a => a.talent?.id))
+                      return talents
+                        .filter(t => !talentIdsWithApps.has(t.id))
+                        .slice(0, 20)
+                        .map(t => (
+                          <tr key={t.id}>
+                            <td className="px-4 py-2 text-sm text-gray-900">{t.first_name} {t.last_name}</td>
+                            <td className="px-4 py-2 text-sm text-gray-600">{t.city || '-'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-600">{t.position_types?.slice(0, 2).join(', ') || '-'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-600">{formatDate(t.created_at)}</td>
+                            <td className="px-4 py-2 text-sm text-gray-600">{t.phone || '-'}</td>
+                          </tr>
+                        ))
+                    })()}
+                  </tbody>
+                </table>
+                {(() => {
+                  const talentIdsWithApps = new Set(applications.map(a => a.talent?.id))
+                  const count = talents.filter(t => !talentIdsWithApps.has(t.id)).length
+                  return count === 0
+                    ? <p className="text-center text-gray-500 py-4 text-sm">Tous les talents ont postulé !</p>
+                    : count > 20 && <p className="text-center text-gray-400 py-2 text-xs">... et {count - 20} autres</p>
+                })()}
               </div>
             </div>
           </div>

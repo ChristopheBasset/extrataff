@@ -9,17 +9,62 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
+  const userIdRef = useRef(null)
 
   useEffect(() => {
-    loadNotifications()
-    // Rafraîchir toutes les 30 secondes
-    const interval = setInterval(loadNotifications, 30000)
+    let channel
 
-    // Souscrire aux push notifications (demande permission au premier chargement)
-    if (isPushSupported()) {
-      subscribeToPush().catch(err => console.log('Push subscription:', err))
+    const init = async () => {
+      // Récupérer l'utilisateur
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      userIdRef.current = user.id
+
+      // Charger les notifications initiales
+      await loadNotifications(user.id)
+
+      // ✅ REALTIME : écouter les changements sur la table notifications
+      channel = supabase
+        .channel('notifications-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('🔔 Realtime notification:', payload.eventType)
+            // Recharger à chaque INSERT, UPDATE ou DELETE
+            loadNotifications(user.id)
+          }
+        )
+        .subscribe((status) => {
+          console.log('🔔 Realtime status:', status)
+        })
+
+      // Souscrire aux push notifications
+      if (isPushSupported()) {
+        subscribeToPush().catch(err => console.log('Push subscription:', err))
+      }
     }
-    return () => clearInterval(interval)
+
+    init()
+
+    // Backup : rafraîchir toutes les 60 secondes (au cas où le Realtime déconnecte)
+    const interval = setInterval(() => {
+      if (userIdRef.current) {
+        loadNotifications(userIdRef.current)
+      }
+    }, 60000)
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+      clearInterval(interval)
+    }
   }, [])
 
   // Fermer le dropdown en cliquant à l'extérieur
@@ -33,15 +78,15 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const loadNotifications = async () => {
+  const loadNotifications = async (userId) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const uid = userId || userIdRef.current
+      if (!uid) return
 
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', uid)
         .order('created_at', { ascending: false })
         .limit(20)
 
@@ -78,13 +123,13 @@ export default function NotificationBell() {
 
   const markAllAsRead = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const uid = userIdRef.current
+      if (!uid) return
 
       await supabase
         .from('notifications')
         .update({ read: true })
-        .eq('user_id', user.id)
+        .eq('user_id', uid)
         .eq('read', false)
 
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))

@@ -16,7 +16,7 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
       // Récupérer toutes les missions ouvertes
       const { data: allMissions, error: missError } = await supabase
         .from('missions')
-        .select('*, establishments:establishment_id(name, city, type, department)')
+        .select('*, establishments:establishment_id(id, name, city, type, department, user_id)')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
 
@@ -84,6 +84,21 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         })
 
       if (error) throw error
+
+      // ✅ Envoyer une notification à l'établissement
+      const mission = missions.find(m => m.id === missionId)
+      if (mission?.establishments?.user_id) {
+        const posLabel = getPositionLabel(mission.position)
+        const talentName = talentProfile?.first_name || 'Un talent'
+        await supabase.from('notifications').insert({
+          user_id: mission.establishments.user_id,
+          type: 'new_application',
+          title: '📩 Nouvelle candidature',
+          content: `${talentName} est intéressé(e) par votre mission ${posLabel}`,
+          link: '/establishment/applications',
+          read: false
+        })
+      }
 
       // Retirer la mission de la liste
       setMissions(prev => prev.filter(m => m.id !== missionId))

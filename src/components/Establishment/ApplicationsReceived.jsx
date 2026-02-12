@@ -48,7 +48,7 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
       const talentIds = [...new Set(apps.map(a => a.talent_id))]
       const { data: talents } = await supabase
         .from('talents')
-        .select('id, first_name, last_name, phone, position_types, years_experience')
+        .select('id, user_id, first_name, last_name, phone, position_types, years_experience')
         .in('id', talentIds)
 
       // Enrichir les candidatures
@@ -78,6 +78,21 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
         .eq('id', applicationId)
 
       if (error) throw error
+
+      // ✅ Envoyer une notification au talent
+      const app = applications.find(a => a.id === applicationId)
+      if (app?.talent?.user_id) {
+        const posLabel = app.mission ? getPositionLabel(app.mission.position) : 'votre candidature'
+        const estabName = app.establishment?.name || "L'établissement"
+        await supabase.from('notifications').insert({
+          user_id: app.talent.user_id,
+          type: 'application_accepted',
+          title: '✅ Candidature acceptée !',
+          content: `${estabName} est intéressé par votre profil pour ${posLabel}`,
+          link: '/talent/applications',
+          read: false
+        })
+      }
 
       // Ouvrir le chat automatiquement
       navigate(`/establishment/chat/${applicationId}`)

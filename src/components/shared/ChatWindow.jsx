@@ -382,6 +382,17 @@ export default function ChatWindow({ userType }) {
           link: `/talent/chat/${applicationId}`
         })
 
+      // ✅ Notifier aussi l'établissement (confirmation dans sa cloche)
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: currentUserId,
+          type: 'hire_confirmed',
+          title: '🎉 Embauche confirmée !',
+          content: `Vous avez confirmé ${application.talents.first_name} ${application.talents.last_name} pour "${application.missions.position}"`,
+          link: `/establishment/chat/${applicationId}`
+        })
+
       alert('Embauche confirmée avec succès ! 🎉')
     } catch (err) {
       console.error('Erreur confirmation embauche:', err)

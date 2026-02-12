@@ -9,7 +9,9 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@posthog/react": "^1.7.1",
     "@supabase/supabase-js": "^2.38.0",
+    "posthog-js": "^1.346.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0"

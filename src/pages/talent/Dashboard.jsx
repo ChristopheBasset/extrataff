@@ -364,53 +364,56 @@ export default function TalentDashboard() {
       {/* Header */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
-                <span className="text-gray-400">|</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {profile.first_name} {profile.last_name}
-                </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  Talent
-                </span>
-                {talentRating.count >= 3 ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                    {[1, 2, 3, 4, 5].map(s => (
-                      <span key={s} className={s <= Math.round(talentRating.avg) ? 'text-yellow-400' : 'text-gray-300'}>★</span>
-                    ))}
-                    {talentRating.avg}/5 ({talentRating.count})
-                  </span>
-                ) : talentRating.count > 0 ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                    ⭐ {talentRating.count}/3 avis requis
-                  </span>
-                ) : null}
-              </div>
-              {profile.position_types && profile.position_types.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {profile.position_types.map(pos => (
-                    <span
-                      key={pos}
-                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
-                    >
-                      {getPositionLabel(pos)}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
+          {/* Ligne 1 : Logo + Actions */}
+          <div className="flex justify-between items-center">
+            <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
+            <div className="flex items-center gap-2">
               <NotificationBell />
               <button
                 onClick={handleLogout}
-                className="text-gray-600 hover:text-gray-900 text-sm mt-1"
+                className="text-gray-400 hover:text-gray-600 p-1"
+                title="Déconnexion"
               >
-                Déconnexion
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
               </button>
             </div>
           </div>
+          {/* Ligne 2 : Nom + Badge + Note */}
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <span className="text-sm font-medium text-gray-900">
+              {profile.first_name} {profile.last_name}
+            </span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              Talent
+            </span>
+            {talentRating.count >= 3 ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                {[1, 2, 3, 4, 5].map(s => (
+                  <span key={s} className={s <= Math.round(talentRating.avg) ? 'text-yellow-400' : 'text-gray-300'}>★</span>
+                ))}
+                {talentRating.avg}/5 ({talentRating.count})
+              </span>
+            ) : talentRating.count > 0 ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                ⭐ {talentRating.count}/3 avis requis
+              </span>
+            ) : null}
+          </div>
+          {/* Ligne 3 : Postes */}
+          {profile.position_types && profile.position_types.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {profile.position_types.map(pos => (
+                <span
+                  key={pos}
+                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                >
+                  {getPositionLabel(pos)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </nav>
 

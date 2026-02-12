@@ -1,7 +1,7 @@
 {
   "name": "ExtraTaff",
   "short_name": "ExtraTaff",
-  "description": "Staff & Taff en temps réel",
+  "description": "Staff & Taff en temps r\u00e9el",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

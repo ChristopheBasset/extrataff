@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { subscribeToPush, isPushSupported } from '../../lib/pushNotifications'
 
 export default function NotificationBell() {
   const navigate = useNavigate()
@@ -13,6 +14,11 @@ export default function NotificationBell() {
     loadNotifications()
     // Rafraîchir toutes les 30 secondes
     const interval = setInterval(loadNotifications, 30000)
+
+    // Souscrire aux push notifications (demande permission au premier chargement)
+    if (isPushSupported()) {
+      subscribeToPush().catch(err => console.log('Push subscription:', err))
+    }
     return () => clearInterval(interval)
   }, [])
 

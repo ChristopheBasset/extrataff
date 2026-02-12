@@ -15,7 +15,10 @@ export default function AdminDashboard() {
     totalApplications: 0,
     activeMissions: 0,
     acceptedApplications: 0,
-    blockedUsers: 0
+    blockedUsers: 0,
+    premiumActive: 0,
+    freemium: 0,
+    expiredPremium: 0
   })
   const [talents, setTalents] = useState([])
   const [establishments, setEstablishments] = useState([])
@@ -97,6 +100,8 @@ export default function AdminDashboard() {
       const { count: acceptedApplicationsCount } = await supabase.from('applications').select('*', { count: 'exact', head: true }).eq('status', 'accepted')
       const { count: blockedTalents } = await supabase.from('talents').select('*', { count: 'exact', head: true }).eq('is_blocked', true)
       const { count: blockedEstablishments } = await supabase.from('establishments').select('*', { count: 'exact', head: true }).eq('is_blocked', true)
+      const { count: premiumActive } = await supabase.from('establishments').select('*', { count: 'exact', head: true }).eq('subscription_status', 'active')
+      const { count: expiredPremium } = await supabase.from('establishments').select('*', { count: 'exact', head: true }).eq('subscription_status', 'expired')
 
       setStats({
         totalTalents: talentsCount || 0,
@@ -105,7 +110,10 @@ export default function AdminDashboard() {
         totalApplications: applicationsCount || 0,
         activeMissions: activeMissionsCount || 0,
         acceptedApplications: acceptedApplicationsCount || 0,
-        blockedUsers: (blockedTalents || 0) + (blockedEstablishments || 0)
+        blockedUsers: (blockedTalents || 0) + (blockedEstablishments || 0),
+        premiumActive: premiumActive || 0,
+        freemium: (establishmentsCount || 0) - (premiumActive || 0),
+        expiredPremium: expiredPremium || 0
       })
     } catch (err) {
       console.error('Erreur chargement stats:', err)
@@ -130,7 +138,7 @@ export default function AdminDashboard() {
     try {
       const { data, error } = await supabase
         .from('establishments')
-        .select('id, user_id, name, phone, address, is_blocked, created_at')
+        .select('id, user_id, name, phone, address, city, is_blocked, created_at, subscription_status, subscription_ends_at, stripe_customer_id, stripe_subscription_id, missions_used, trial_ends_at, group_id, is_group_owner')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -392,6 +400,70 @@ export default function AdminDashboard() {
   }
 
   // =====================
+  // FONCTIONS ABONNEMENTS
+  // =====================
+
+  const togglePremium = async (establishmentId, currentStatus) => {
+    const action = currentStatus === 'active' ? 'désactiver' : 'activer'
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} le premium pour cet établissement ?`)) return
+
+    setActionLoading(establishmentId)
+    try {
+      if (currentStatus === 'active') {
+        // Désactiver
+        const { error } = await supabase
+          .from('establishments')
+          .update({ 
+            subscription_status: 'expired',
+            subscription_ends_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', establishmentId)
+        if (error) throw error
+      } else {
+        // Activer manuellement (30 jours)
+        const endDate = new Date()
+        endDate.setDate(endDate.getDate() + 30)
+        const { error } = await supabase
+          .from('establishments')
+          .update({ 
+            subscription_status: 'active',
+            subscription_ends_at: endDate.toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', establishmentId)
+        if (error) throw error
+      }
+      await loadEstablishments()
+      await loadStats()
+    } catch (err) {
+      console.error('Erreur toggle premium:', err)
+      alert('Erreur: ' + err.message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const resetMissionsUsed = async (establishmentId) => {
+    if (!confirm('Remettre le compteur de missions à 0 ?')) return
+
+    setActionLoading(establishmentId)
+    try {
+      const { error } = await supabase
+        .from('establishments')
+        .update({ missions_used: 0, updated_at: new Date().toISOString() })
+        .eq('id', establishmentId)
+      if (error) throw error
+      await loadEstablishments()
+    } catch (err) {
+      console.error('Erreur reset missions:', err)
+      alert('Erreur: ' + err.message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // =====================
   // UTILITAIRES
   // =====================
 
@@ -497,7 +569,8 @@ export default function AdminDashboard() {
               { id: 'establishments', label: '🏢 Étab.', count: stats.totalEstablishments },
               { id: 'missions', label: '📋 Missions', count: stats.totalMissions },
               { id: 'applications', label: '✉️ Candidatures', count: stats.totalApplications },
-              { id: 'admins', label: '👑 Admins', count: admins.length }
+              { id: 'admins', label: '👑 Admins', count: admins.length },
+              { id: 'subscriptions', label: '💳 Abonnements', count: stats.premiumActive }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -519,7 +592,7 @@ export default function AdminDashboard() {
         {activeTab === 'stats' && (
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Vue d'ensemble</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {[
                 { value: stats.totalTalents, label: 'Talents', color: 'text-primary-600' },
                 { value: stats.totalEstablishments, label: 'Établissements', color: 'text-primary-600' },
@@ -527,7 +600,9 @@ export default function AdminDashboard() {
                 { value: stats.activeMissions, label: 'Missions ouvertes', color: 'text-green-600' },
                 { value: stats.totalApplications, label: 'Candidatures', color: 'text-amber-600' },
                 { value: stats.acceptedApplications, label: 'Acceptées', color: 'text-blue-600' },
-                { value: stats.blockedUsers, label: 'Bloqués', color: 'text-red-600' }
+                { value: stats.blockedUsers, label: 'Bloqués', color: 'text-red-600' },
+                { value: stats.premiumActive, label: 'Premium actifs', color: 'text-purple-600' },
+                { value: stats.freemium, label: 'Freemium', color: 'text-gray-600' }
               ].map((stat, i) => (
                 <div key={i} className="bg-white rounded-xl p-4 border border-gray-200">
                   <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
@@ -856,6 +931,153 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
                 {admins.length === 0 && <p className="text-center text-gray-500 py-8">Aucun administrateur</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== TAB SUBSCRIPTIONS ==================== */}
+        {activeTab === 'subscriptions' && (
+          <div>
+            {/* Stats abonnements */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {[
+                { value: stats.premiumActive, label: 'Premium actifs', color: 'text-purple-600', bg: 'bg-purple-50' },
+                { value: stats.freemium, label: 'Freemium', color: 'text-gray-600', bg: 'bg-gray-50' },
+                { value: stats.expiredPremium, label: 'Expirés', color: 'text-red-600', bg: 'bg-red-50' },
+                { value: `${(stats.premiumActive * 59.90).toFixed(0)}€`, label: 'Revenu mensuel est.', color: 'text-green-600', bg: 'bg-green-50' }
+              ].map((stat, i) => (
+                <div key={i} className={`${stat.bg} rounded-xl p-4 border border-gray-200`}>
+                  <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className="text-sm text-gray-500">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Abonnements établissements</h2>
+              <div className="flex gap-2">
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                  <option value="all">Tous</option>
+                  <option value="active">Premium actif</option>
+                  <option value="freemium">Freemium</option>
+                  <option value="expired">Expiré</option>
+                </select>
+                <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Établissement</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ville</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Abonnement</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Missions</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Fin abo.</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Stripe</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Groupe</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {establishments
+                      .filter(est => {
+                        const search = searchTerm.toLowerCase()
+                        const matchesSearch = est.name?.toLowerCase().includes(search) || est.city?.toLowerCase().includes(search)
+                        if (filterStatus === 'all') return matchesSearch
+                        if (filterStatus === 'active') return matchesSearch && est.subscription_status === 'active'
+                        if (filterStatus === 'freemium') return matchesSearch && (!est.subscription_status || est.subscription_status === 'free' || est.subscription_status === 'trialing')
+                        if (filterStatus === 'expired') return matchesSearch && est.subscription_status === 'expired'
+                        return matchesSearch
+                      })
+                      .map(est => {
+                        const isPremium = est.subscription_status === 'active'
+                        const isExpired = est.subscription_status === 'expired'
+                        const endDate = est.subscription_ends_at ? new Date(est.subscription_ends_at) : null
+                        const isExpiringSoon = endDate && isPremium && (endDate - new Date()) < 7 * 24 * 60 * 60 * 1000
+
+                        return (
+                          <tr key={est.id} className={isPremium ? 'bg-purple-50/50' : isExpired ? 'bg-red-50/50' : ''}>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{est.name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{est.city || '-'}</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                isPremium ? 'bg-purple-100 text-purple-700' :
+                                isExpired ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {isPremium ? '⭐ Premium' : isExpired ? 'Expiré' : 'Freemium'}
+                              </span>
+                              {isExpiringSoon && (
+                                <span className="ml-1 text-xs text-orange-600">⚠️ Expire bientôt</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <span className={`font-medium ${(est.missions_used || 0) >= 3 && !isPremium ? 'text-red-600' : 'text-gray-900'}`}>
+                                {est.missions_used || 0}{!isPremium && '/3'}
+                              </span>
+                              {isPremium && <span className="text-xs text-purple-600 ml-1">∞</span>}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {endDate ? formatDate(est.subscription_ends_at) : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {est.stripe_customer_id ? (
+                                <a
+                                  href={`https://dashboard.stripe.com/customers/${est.stripe_customer_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 text-xs underline"
+                                >
+                                  Voir Stripe ↗
+                                </a>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {est.group_id ? (
+                                <span className="inline-flex px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
+                                  {est.is_group_owner ? '👑 Propriétaire' : 'Membre'}
+                                </span>
+                              ) : '-'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-2 items-center">
+                                <button
+                                  onClick={() => togglePremium(est.id, est.subscription_status)}
+                                  disabled={actionLoading === est.id}
+                                  className={`text-xs font-medium disabled:opacity-50 ${
+                                    isPremium ? 'text-red-600 hover:text-red-800' : 'text-purple-600 hover:text-purple-800'
+                                  }`}
+                                >
+                                  {actionLoading === est.id ? '...' : isPremium ? 'Désactiver' : '⭐ Activer'}
+                                </button>
+                                {!isPremium && (est.missions_used || 0) > 0 && (
+                                  <>
+                                    <span className="text-gray-300">|</span>
+                                    <button
+                                      onClick={() => resetMissionsUsed(est.id)}
+                                      disabled={actionLoading === est.id}
+                                      className="text-xs font-medium text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                                    >
+                                      {actionLoading === est.id ? '...' : '🔄 Reset missions'}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+                {establishments.length === 0 && <p className="text-center text-gray-500 py-8">Aucun établissement</p>}
               </div>
             </div>
           </div>

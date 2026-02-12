@@ -39,6 +39,14 @@ export default function Landing() {
     {
       question: "Mes données sont-elles protégées ?",
       answer: "Oui ! Vos données personnelles sont sécurisées et ne sont jamais partagées avec des tiers. Les établissements ne voient que les informations nécessaires (prénom, expérience, disponibilités). Votre adresse exacte n'est jamais affichée. Consultez notre politique de confidentialité pour en savoir plus."
+    },
+    {
+      question: "Comment installer ExtraTaff sur mon téléphone ?",
+      answer: "ExtraTaff fonctionne comme une application ! Sur Android (Chrome) : ouvrez extrataff.fr, appuyez sur le menu (⋮) puis \"Ajouter à l'écran d'accueil\". Sur iPhone (Safari) : appuyez sur le bouton de partage puis \"Sur l'écran d'accueil\". L'icône ExtraTaff apparaîtra sur votre téléphone comme une vraie application !"
+    },
+    {
+      question: "Comment recevoir les notifications ?",
+      answer: "Pour ne manquer aucune mission ou message, activez les notifications ! Lors de votre première connexion, acceptez la demande de notifications. Pensez aussi à vérifier dans les réglages de votre téléphone que les notifications sont bien activées pour votre navigateur (Chrome ou Safari). Astuce : installez ExtraTaff sur votre écran d'accueil pour recevoir les notifications même quand l'application est fermée !"
     }
   ];
 

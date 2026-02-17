@@ -173,7 +173,7 @@ export default function MyMissions({ establishmentId, onBack }) {
           <h2 className="text-3xl font-bold text-gray-900">Mes Missions</h2>
         </div>
 
-        <div className="sm:ml-auto flex items-center gap-3">
+        <div className="sm:ml-auto flex flex-wrap items-center gap-2">
           {/* Filtres */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
@@ -208,19 +208,21 @@ export default function MyMissions({ establishmentId, onBack }) {
             </button>
           </div>
 
-          <button
-            onClick={loadMissions}
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
-          >
-            🔄
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadMissions}
+              className="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors"
+            >
+              🔄
+            </button>
 
-          <button
-            onClick={() => navigate('/establishment/create-mission')}
-            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
-          >
-            + Nouvelle
-          </button>
+            <button
+              onClick={() => navigate('/establishment/create-mission')}
+              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors text-sm whitespace-nowrap"
+            >
+              + Nouvelle mission
+            </button>
+          </div>
         </div>
       </div>
 
@@ -326,7 +328,7 @@ export default function MyMissions({ establishmentId, onBack }) {
             </div>
 
             {/* Actions */}
-            <div className="mt-4 pt-4 border-t flex flex-wrap gap-3">
+            <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
               <button
                 onClick={() => navigate(`/establishment/edit-mission/${mission.id}`)}
                 className="px-4 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg text-sm font-medium transition-colors"
@@ -352,7 +354,7 @@ export default function MyMissions({ establishmentId, onBack }) {
 
               <button
                 onClick={() => handleDeleteMission(mission.id)}
-                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-medium transition-colors ml-auto"
+                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-medium transition-colors"
               >
                 🗑️ Supprimer
               </button>

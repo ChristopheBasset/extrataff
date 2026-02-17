@@ -25,6 +25,13 @@ export default function MissionCard({ mission, matchCategory, onApply, onHide })
         <h3 className="text-xl font-bold text-gray-900 mb-2">
           {mission.position}
         </h3>
+        {mission.nb_postes > 1 && (
+          <div className="mb-2">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-700">
+              👥 {mission.nb_postes - (mission.nb_postes_pourvus || 0)} poste{(mission.nb_postes - (mission.nb_postes_pourvus || 0)) > 1 ? 's' : ''} restant{(mission.nb_postes - (mission.nb_postes_pourvus || 0)) > 1 ? 's' : ''} sur {mission.nb_postes}
+            </span>
+          </div>
+        )}
         <p className="text-gray-600">
           📍 {mission.location_fuzzy || 'Paris'}
         </p>

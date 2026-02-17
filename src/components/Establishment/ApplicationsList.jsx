@@ -137,12 +137,46 @@ export default function ApplicationsList() {
       const application = applications.find(a => a.id === applicationId)
       if (!application) return
 
+      // Récupérer la mission pour vérifier les postes disponibles
+      const missionInfo = mission || application.missions
+      const missionIdToCheck = missionInfo?.id || application.mission_id
+
+      // Vérifier combien de postes sont déjà pourvus
+      const { data: missionData } = await supabase
+        .from('missions')
+        .select('nb_postes, nb_postes_pourvus')
+        .eq('id', missionIdToCheck)
+        .single()
+
+      const nbPostes = missionData?.nb_postes || 1
+      const nbPourvus = missionData?.nb_postes_pourvus || 0
+
+      if (nbPourvus >= nbPostes) {
+        alert('Tous les postes pour cette mission sont déjà pourvus !')
+        loadApplications()
+        return
+      }
+
       const { error } = await supabase
         .from('applications')
         .update({ status: 'accepted' })
         .eq('id', applicationId)
 
       if (error) throw error
+
+      // Incrémenter nb_postes_pourvus
+      const newNbPourvus = nbPourvus + 1
+      const missionUpdate = { nb_postes_pourvus: newNbPourvus }
+
+      // Si tous les postes sont pourvus → passer la mission en "filled"
+      if (newNbPourvus >= nbPostes) {
+        missionUpdate.status = 'filled'
+      }
+
+      await supabase
+        .from('missions')
+        .update(missionUpdate)
+        .eq('id', missionIdToCheck)
 
       // Notification pour le talent
       const missionName = mission ? mission.establishments.name : application.missions?.establishments?.name
@@ -155,7 +189,12 @@ export default function ApplicationsList() {
         applicationId
       )
 
-      alert('Candidature acceptée ! Le talent sera notifié.')
+      if (newNbPourvus >= nbPostes) {
+        alert(`Candidature acceptée ! Tous les postes sont maintenant pourvus (${newNbPourvus}/${nbPostes}). La mission n'apparaîtra plus dans les recherches.`)
+      } else {
+        alert(`Candidature acceptée ! (${newNbPourvus}/${nbPostes} poste${nbPostes > 1 ? 's' : ''} pourvu${newNbPourvus > 1 ? 's' : ''})`)
+      }
+      
       loadApplications()
     } catch (err) {
       console.error('Erreur acceptation:', err)
@@ -344,6 +383,30 @@ export default function ApplicationsList() {
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900">{pageTitle}</h2>
           <p className="text-gray-600 mt-2">{pageSubtitle}</p>
+          
+          {/* Indicateur postes pourvus si mission avec multi-postes */}
+          {mission && mission.nb_postes > 1 && (
+            <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-indigo-700">
+                  👥 Postes pourvus : {mission.nb_postes_pourvus || 0} / {mission.nb_postes}
+                </span>
+                {(mission.nb_postes_pourvus || 0) >= mission.nb_postes ? (
+                  <span className="text-sm font-bold text-green-600">✅ Complet</span>
+                ) : (
+                  <span className="text-sm text-indigo-600">
+                    {mission.nb_postes - (mission.nb_postes_pourvus || 0)} restant{(mission.nb_postes - (mission.nb_postes_pourvus || 0)) > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              <div className="w-full bg-indigo-200 rounded-full h-2">
+                <div 
+                  className="bg-indigo-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${((mission.nb_postes_pourvus || 0) / mission.nb_postes) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -479,18 +542,27 @@ export default function ApplicationsList() {
                   {/* Actions */}
                   {application.status === 'interested' && (
                     <div className="flex gap-3 pt-4 border-t">
-                      <button
-                        onClick={() => handleAccept(application.id)}
-                        className="btn-primary flex-1"
-                      >
-                        ✅ Accepter
-                      </button>
-                      <button
-                        onClick={() => handleReject(application.id)}
-                        className="btn-secondary flex-1"
-                      >
-                        ❌ Refuser
-                      </button>
+                      {(() => {
+                        const mInfo = mission || application.missions
+                        const allFilled = mInfo && mInfo.nb_postes > 1 && (mInfo.nb_postes_pourvus || 0) >= mInfo.nb_postes
+                        return (
+                          <>
+                            <button
+                              onClick={() => handleAccept(application.id)}
+                              disabled={allFilled}
+                              className={`flex-1 ${allFilled ? 'bg-gray-300 text-gray-500 cursor-not-allowed py-2 rounded-lg font-medium' : 'btn-primary'}`}
+                            >
+                              {allFilled ? '🔒 Postes pourvus' : '✅ Accepter'}
+                            </button>
+                            <button
+                              onClick={() => handleReject(application.id)}
+                              className="btn-secondary flex-1"
+                            >
+                              ❌ Refuser
+                            </button>
+                          </>
+                        )
+                      })()}
                     </div>
                   )}
 

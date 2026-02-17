@@ -20,7 +20,8 @@ export default function MissionForm({ onMissionCreated }) {
     salary_text: '',
     urgency_level: 'a_venir',
     comment: '',
-    service_continu: true
+    service_continu: true,
+    nb_postes: 1
   })
 
   const handleChange = (e) => {
@@ -178,6 +179,8 @@ export default function MissionForm({ onMissionCreated }) {
           urgency_level: formData.urgency_level,
           comment: formData.comment || null,
           service_continu: formData.service_continu,
+          nb_postes: parseInt(formData.nb_postes) || 1,
+          nb_postes_pourvus: 0,
           status: 'open'
         })
         .select()
@@ -268,6 +271,32 @@ export default function MissionForm({ onMissionCreated }) {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Nombre de postes */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre de postes à pourvoir *
+              </label>
+              <div className="flex items-center gap-3">
+                <select
+                  name="nb_postes"
+                  value={formData.nb_postes}
+                  onChange={handleChange}
+                  className="input w-32"
+                  required
+                >
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <span className="text-sm text-gray-500">
+                  {formData.nb_postes > 1 
+                    ? `👥 ${formData.nb_postes} personnes recherchées pour ce poste`
+                    : '👤 1 personne recherchée'
+                  }
+                </span>
+              </div>
             </div>
           </div>
 

@@ -144,7 +144,7 @@ export default function MissionForm({ onMissionCreated }) {
       const FREEMIUM_MAX_MISSIONS = 2
 
       if (isFreemium && missionsUsed >= FREEMIUM_MAX_MISSIONS) {
-        navigate('/establishment/pricing')
+        navigate('/establishment/subscribe')
         return
       }
 

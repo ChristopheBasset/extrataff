@@ -1,11 +1,21 @@
 import { ArrowRightIcon } from '@heroicons/react/24/solid';
 import { useNavigate, Link } from 'react-router-dom';
 import lightningSvg from '../assets/lightning.svg';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Landing() {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  // Header change on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 40);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const faqItems = [
     {
@@ -14,7 +24,7 @@ export default function Landing() {
     },
     {
       question: "C'est gratuit ?",
-      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, nous offrons 1 mois d'essai gratuit avec 2 missions offertes, puis l'abonnement est à 59,90€/mois, sans engagement."
+      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, nous offrons 1 mois d'essai gratuit avec 2 missions offertes, puis l'abonnement est à 49,90€/mois ou 9,90€ par mission, sans engagement."
     },
     {
       question: "Comment créer un compte ?",
@@ -55,75 +65,148 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-blue-700 text-white flex flex-col justify-center items-center px-6 py-12">
+    <div className="min-h-screen bg-gradient-to-b from-blue-800 via-blue-700 to-blue-600 text-white flex flex-col">
       
-      {/* Header */}
-      <h1 className="text-4xl font-bold mb-2">ExtraTaff</h1>
-      <img src={lightningSvg} alt="Lightning" className="w-20 h-20 mb-6" />
-      
-      {/* Subtitle */}
-      <h2 className="text-3xl font-semibold mb-6">Bienvenue</h2>
-      
-      {/* Tagline */}
-      <p className="text-xl mb-4 text-center">
-        Staff & Taff en temps réel !
-      </p>
-      
-      {/* Description */}
-      <p className="text-center mb-12 max-w-md opacity-90">
-        La plateforme qui connecte en instantané les établissements CHR et les Talents !
-      </p>
+      {/* ===== HEADER STICKY ===== */}
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled 
+          ? 'bg-white shadow-lg py-2' 
+          : 'bg-transparent py-3'
+      }`}>
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 flex items-center justify-between">
+          {/* Logo */}
+          <div 
+            className="flex items-center gap-1.5 cursor-pointer" 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            <img src={lightningSvg} alt="ExtraTaff" className="w-7 h-7" />
+            <span className={`text-lg font-bold transition-colors duration-300 ${
+              scrolled ? 'text-blue-700' : 'text-white'
+            }`}>
+              ExtraTaff
+            </span>
+          </div>
 
-      {/* CTA Buttons */}
-      <div className="w-full max-w-md space-y-4 mb-8">
+          {/* Bouton Connexion - TOUJOURS VISIBLE */}
+          <button
+            onClick={() => navigate('/login')}
+            className={`font-bold px-4 sm:px-6 py-2 rounded-full text-sm sm:text-base transition-all duration-300 ${
+              scrolled
+                ? 'bg-blue-700 text-white hover:bg-blue-800 shadow-md'
+                : 'bg-white text-blue-700 hover:bg-gray-100 shadow-lg'
+            }`}
+          >
+            Je me connecte
+          </button>
+        </div>
+      </header>
+
+      {/* ===== HERO SECTION ===== */}
+      <section className="flex flex-col items-center justify-center px-6 pt-32 pb-16 text-center">
         
-        {/* Recruter */}
-        <button
-          onClick={() => navigate('/register?type=establishment')}
-          className="w-full bg-white text-blue-700 font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:bg-gray-100 transition"
-        >
-          <span>→ Je recrute</span>
-          <ArrowRightIcon className="w-5 h-5" />
-        </button>
+        {/* Logo principal */}
+        <div className="mb-6">
+          <img src={lightningSvg} alt="Lightning" className="w-20 h-20 mx-auto mb-4 drop-shadow-lg" />
+          <h1 className="text-5xl font-extrabold tracking-tight mb-2">ExtraTaff</h1>
+        </div>
+        
+        {/* Tagline */}
+        <p className="text-2xl font-semibold mb-3 text-blue-100">
+          Staff & Taff en temps réel !
+        </p>
+        
+        {/* Description */}
+        <p className="text-lg mb-10 max-w-lg opacity-90 leading-relaxed">
+          La plateforme qui connecte en instantané les établissements CHR et les Talents !
+        </p>
 
-        {/* Chercher */}
-        <button
-          onClick={() => navigate('/register?type=talent')}
-          className="w-full bg-white text-blue-700 font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:bg-gray-100 transition"
-        >
-          <span>→ Je cherche</span>
-          <ArrowRightIcon className="w-5 h-5" />
-        </button>
+        {/* CTA Buttons */}
+        <div className="w-full max-w-md space-y-4 mb-6">
+          
+          {/* Recruter */}
+          <button
+            onClick={() => navigate('/register?type=establishment')}
+            className="w-full bg-white text-blue-700 font-bold py-4 rounded-full flex items-center justify-center gap-2 hover:bg-gray-100 hover:shadow-xl transition-all shadow-lg text-lg"
+          >
+            <span>🏪 Je recrute</span>
+            <ArrowRightIcon className="w-5 h-5" />
+          </button>
 
-        {/* Login */}
-        <button
-          onClick={() => navigate('/login')}
-          className="w-full bg-white bg-opacity-20 text-white font-bold py-3 rounded-full hover:bg-opacity-30 transition border-2 border-white"
-        >
-          Je me connecte
-        </button>
-      </div>
+          {/* Chercher */}
+          <button
+            onClick={() => navigate('/register?type=talent')}
+            className="w-full bg-white text-blue-700 font-bold py-4 rounded-full flex items-center justify-center gap-2 hover:bg-gray-100 hover:shadow-xl transition-all shadow-lg text-lg"
+          >
+            <span>🎯 Je cherche des missions</span>
+            <ArrowRightIcon className="w-5 h-5" />
+          </button>
+        </div>
 
-      {/* Lien Offre Groupe */}
-      <div className="mb-12">
+        {/* Séparateur + mention "Déjà inscrit ?" */}
+        <p className="text-blue-200 text-sm mb-8">
+          Déjà inscrit ? <button onClick={() => navigate('/login')} className="underline font-semibold text-white hover:text-blue-100 transition">Connectez-vous ici</button>
+        </p>
+
+        {/* Lien Offre Groupe */}
         <button
           onClick={() => navigate('/groupe')}
-          className="text-white/80 hover:text-white underline underline-offset-4 flex items-center gap-2 transition"
+          className="text-blue-200 hover:text-white underline underline-offset-4 flex items-center gap-2 transition text-sm"
         >
           <span>🏢</span>
           <span>Vous gérez plusieurs établissements ? Découvrir l'offre Groupe</span>
         </button>
-      </div>
+      </section>
 
-      {/* Features */}
-      <div className="space-y-3 text-center text-lg mb-12">
-        <p>⚡ Ultra rapide</p>
-        <p>⚡ Matching intelligent</p>
-        <p>⚡ Messagerie en direct</p>
-      </div>
+      {/* ===== FEATURES / AVANTAGES ===== */}
+      <section className="py-14 px-6">
+        <div className="max-w-4xl mx-auto">
+          <h3 className="text-2xl font-bold text-center mb-10">Pourquoi ExtraTaff ?</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center hover:bg-white/15 transition">
+              <div className="text-4xl mb-3">⚡</div>
+              <h4 className="font-bold text-lg mb-2">Ultra rapide</h4>
+              <p className="text-blue-100 text-sm">Publiez une mission, recevez des candidatures en quelques minutes.</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center hover:bg-white/15 transition">
+              <div className="text-4xl mb-3">🎯</div>
+              <h4 className="font-bold text-lg mb-2">Matching intelligent</h4>
+              <p className="text-blue-100 text-sm">Notre algorithme trouve les talents qui correspondent à vos besoins.</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center hover:bg-white/15 transition">
+              <div className="text-4xl mb-3">💬</div>
+              <h4 className="font-bold text-lg mb-2">Messagerie en direct</h4>
+              <p className="text-blue-100 text-sm">Échangez instantanément avec les candidats ou les établissements.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* FAQ Section */}
-      <div className="bg-white py-16 w-full">
+      {/* ===== TARIFS RAPIDE ===== */}
+      <section className="py-10 px-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 text-center border border-white/20">
+            <h3 className="text-xl font-bold mb-4">💰 Tarifs simples et transparents</h3>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <div className="bg-white/10 rounded-xl px-6 py-4 flex-1 max-w-xs">
+                <p className="text-3xl font-extrabold">Gratuit</p>
+                <p className="text-blue-200 text-sm mt-1">Pour les talents, toujours</p>
+              </div>
+              <div className="bg-white/10 rounded-xl px-6 py-4 flex-1 max-w-xs">
+                <p className="text-3xl font-extrabold">9,90€</p>
+                <p className="text-blue-200 text-sm mt-1">Par mission, sans engagement</p>
+              </div>
+              <div className="bg-white/10 rounded-xl px-6 py-4 flex-1 max-w-xs">
+                <p className="text-3xl font-extrabold">49,90€</p>
+                <p className="text-blue-200 text-sm mt-1">/mois — missions illimitées</p>
+              </div>
+            </div>
+            <p className="text-blue-200 text-sm mt-4">🎁 1 mois d'essai gratuit avec 2 missions offertes</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FAQ SECTION ===== */}
+      <section className="bg-white py-16 w-full">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
@@ -144,7 +227,7 @@ export default function Landing() {
                 >
                   <span className="font-medium text-gray-900 pr-4">{item.question}</span>
                   <svg 
-                    className={`w-5 h-5 text-gray-500 flex-shrink-0 transition-transform ${openFaq === index ? 'rotate-180' : ''}`} 
+                    className={`w-5 h-5 text-gray-500 flex-shrink-0 transition-transform duration-200 ${openFaq === index ? 'rotate-180' : ''}`} 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -154,7 +237,7 @@ export default function Landing() {
                 </button>
                 {openFaq === index && (
                   <div className="px-6 pb-4">
-                    <p className="text-gray-600">{item.answer}</p>
+                    <p className="text-gray-600 leading-relaxed">{item.answer}</p>
                   </div>
                 )}
               </div>
@@ -175,10 +258,10 @@ export default function Landing() {
             </a>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Footer légal */}
-      <div className="bg-gray-900 w-full py-8">
+      {/* ===== FOOTER ===== */}
+      <footer className="bg-gray-900 w-full py-8">
         <div className="max-w-3xl mx-auto px-4 text-center">
           <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mb-4">
             <Link to="/mentions-legales" className="text-gray-400 hover:text-white text-sm transition-colors">
@@ -198,7 +281,7 @@ export default function Landing() {
             © {new Date().getFullYear()} ExtraTaff SAS — Tous droits réservés
           </p>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

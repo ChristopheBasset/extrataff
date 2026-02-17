@@ -140,18 +140,12 @@ export default function MissionForm({ onMissionCreated }) {
 
       // Vérifier les limites freemium
       const isFreemium = establishment.subscription_status === 'freemium'
-      const trialEndsAt = establishment.trial_ends_at ? new Date(establishment.trial_ends_at) : null
-      const isTrialExpired = trialEndsAt && trialEndsAt < new Date()
       const missionsUsed = establishment.missions_used || 0
       const FREEMIUM_MAX_MISSIONS = 2
 
-      if (isFreemium) {
-        if (isTrialExpired) {
-          throw new Error('Votre période d\'essai est terminée. Passez à l\'abonnement Premium pour continuer.')
-        }
-        if (missionsUsed >= FREEMIUM_MAX_MISSIONS) {
-          throw new Error(`Vous avez atteint la limite de ${FREEMIUM_MAX_MISSIONS} missions en offre Freemium. Passez à Premium pour publier plus de missions.`)
-        }
+      if (isFreemium && missionsUsed >= FREEMIUM_MAX_MISSIONS) {
+        navigate('/establishment/pricing')
+        return
       }
 
       // Générer la localisation floue à partir de l'adresse

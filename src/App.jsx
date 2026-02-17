@@ -26,6 +26,7 @@ import ChatWindow from './components/shared/ChatWindow'
 // Abonnement
 import Subscribe from './pages/establishment/Subscribe'
 import SubscribeSuccess from './pages/establishment/SubscribeSuccess'
+import PricingChoice from './pages/establishment/PricingChoice'
 
 // Admin
 import AdminLogin from './pages/admin/AdminLogin'
@@ -116,6 +117,10 @@ function App() {
         />
         
         {/* Routes abonnement Stripe */}
+        <Route 
+          path="/establishment/pricing" 
+          element={session ? <PricingChoice /> : <Navigate to="/login" />} 
+        />
         <Route 
           path="/establishment/subscribe" 
           element={session ? <Subscribe /> : <Navigate to="/login" />} 

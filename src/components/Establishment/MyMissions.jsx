@@ -328,10 +328,10 @@ export default function MyMissions({ establishmentId, onBack }) {
             </div>
 
             {/* Actions */}
-            <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
+            <div className="mt-4 pt-4 border-t flex gap-2">
               <button
                 onClick={() => navigate(`/establishment/edit-mission/${mission.id}`)}
-                className="px-4 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg text-sm font-medium transition-colors"
+                className="flex-1 px-3 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg text-xs sm:text-sm font-medium transition-colors text-center"
               >
                 ✏️ Modifier
               </button>
@@ -339,14 +339,14 @@ export default function MyMissions({ establishmentId, onBack }) {
               {mission.status === 'open' ? (
                 <button
                   onClick={() => handleCloseMission(mission.id)}
-                  className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-sm font-medium transition-colors"
+                  className="flex-1 px-3 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-xs sm:text-sm font-medium transition-colors text-center"
                 >
                   🔒 Clôturer
                 </button>
               ) : (
                 <button
                   onClick={() => handleReopenMission(mission.id)}
-                  className="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-medium transition-colors"
+                  className="flex-1 px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-xs sm:text-sm font-medium transition-colors text-center"
                 >
                   🔓 Réouvrir
                 </button>
@@ -354,7 +354,7 @@ export default function MyMissions({ establishmentId, onBack }) {
 
               <button
                 onClick={() => handleDeleteMission(mission.id)}
-                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-medium transition-colors"
+                className="flex-1 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs sm:text-sm font-medium transition-colors text-center"
               >
                 🗑️ Supprimer
               </button>

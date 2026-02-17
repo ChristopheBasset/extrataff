@@ -5,6 +5,7 @@ import NotificationBell from '../../components/shared/NotificationBell'
 import MatchedMissions from '../../components/Talent/MatchedMissions'
 import TalentApplications from '../../components/Talent/TalentApplications'
 import TalentConfirmed from '../../components/Talent/TalentConfirmed'
+import TalentPlanning from '../../components/Talent/TalentPlanning'
 
 export default function TalentDashboard() {
   const navigate = useNavigate()
@@ -468,6 +469,19 @@ export default function TalentDashboard() {
                 <span className="text-sm text-gray-500">Paramètres & infos</span>
               </div>
             </div>
+
+            {/* Planning */}
+            <div
+              onClick={() => setView('planning')}
+              className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
+            >
+              <div className="text-4xl mb-4">📅</div>
+              <h2 className="text-2xl font-bold text-gray-900">Mon Planning</h2>
+              <p className="text-gray-600 mt-2">Mes missions à venir</p>
+              <div className="mt-6">
+                <span className="text-sm text-gray-500">Vue par mois</span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -492,6 +506,14 @@ export default function TalentDashboard() {
         {/* ========== MISSIONS VALIDÉES ========== */}
         {view === 'confirmed' && (
           <TalentConfirmed
+            talentId={profile.id}
+            onBack={() => setView('home')}
+          />
+        )}
+
+        {/* ========== PLANNING ========== */}
+        {view === 'planning' && (
+          <TalentPlanning
             talentId={profile.id}
             onBack={() => setView('home')}
           />

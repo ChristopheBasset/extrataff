@@ -107,8 +107,42 @@ export default function MissionList() {
         mission => !appliedMissionIds.includes(mission.id) && !hiddenMissionIds.includes(mission.id)
       )
 
+      // 5.5 Filtrer les missions qui chevauchent des missions déjà confirmées
+      const { data: confirmedApps } = await supabase
+        .from('applications')
+        .select(`
+          missions!mission_id (
+            start_date,
+            end_date
+          )
+        `)
+        .eq('talent_id', talentData.id)
+        .in('status', ['accepted', 'confirmed'])
+
+      // Construire la liste des plages de dates occupées
+      const busyRanges = (confirmedApps || [])
+        .filter(a => a.missions?.start_date)
+        .map(a => ({
+          start: new Date(a.missions.start_date),
+          end: a.missions.end_date ? new Date(a.missions.end_date) : new Date(a.missions.start_date)
+        }))
+
+      // Fonction de chevauchement
+      const hasOverlap = (mission) => {
+        if (!mission.start_date) return false
+        const mStart = new Date(mission.start_date)
+        const mEnd = mission.end_date ? new Date(mission.end_date) : new Date(mission.start_date)
+        
+        return busyRanges.some(range => 
+          mStart <= range.end && range.start <= mEnd
+        )
+      }
+
+      // Exclure les missions qui chevauchent
+      const nonOverlappingMissions = availableMissions.filter(m => !hasOverlap(m))
+
       // 6. Calculer les scores de matching
-      const matchedMissions = getMatchedMissions(availableMissions, talentData)
+      const matchedMissions = getMatchedMissions(nonOverlappingMissions, talentData)
       
       setMissions(matchedMissions)
 

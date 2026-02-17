@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, POSITION_TYPES, CONTRACT_TYPES, DURATION_TYPES, URGENCY_LEVELS, generateFuzzyLocation } from '../../lib/supabase'
 
@@ -6,6 +6,39 @@ export default function MissionForm({ onMissionCreated }) {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [checkingAccess, setCheckingAccess] = useState(true)
+
+  // Vérifier IMMÉDIATEMENT si le resto peut créer une mission
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { navigate('/login'); return }
+
+        const { data: establishment } = await supabase
+          .from('establishments')
+          .select('subscription_status, missions_used')
+          .eq('user_id', user.id)
+          .single()
+
+        if (!establishment) { navigate('/establishment'); return }
+
+        const isFreemium = establishment.subscription_status === 'freemium'
+        const missionsUsed = establishment.missions_used || 0
+        const FREEMIUM_MAX_MISSIONS = 2
+
+        if (isFreemium && missionsUsed >= FREEMIUM_MAX_MISSIONS) {
+          navigate('/establishment/subscribe')
+          return
+        }
+      } catch (err) {
+        console.error('Erreur vérification accès:', err)
+      } finally {
+        setCheckingAccess(false)
+      }
+    }
+    checkAccess()
+  }, [])
 
   const [formData, setFormData] = useState({
     position: '',
@@ -126,7 +159,7 @@ export default function MissionForm({ onMissionCreated }) {
       
       const { data: establishment } = await supabase
         .from('establishments')
-        .select('id, name, address, subscription_status, trial_ends_at, missions_used')
+        .select('id, name, address, subscription_status, missions_used')
         .eq('user_id', user.id)
         .single()
 
@@ -138,15 +171,8 @@ export default function MissionForm({ onMissionCreated }) {
         throw new Error('Adresse de l\'établissement manquante. Veuillez compléter votre profil.')
       }
 
-      // Vérifier les limites freemium
       const isFreemium = establishment.subscription_status === 'freemium'
       const missionsUsed = establishment.missions_used || 0
-      const FREEMIUM_MAX_MISSIONS = 2
-
-      if (isFreemium && missionsUsed >= FREEMIUM_MAX_MISSIONS) {
-        navigate('/establishment/subscribe')
-        return
-      }
 
       // Générer la localisation floue à partir de l'adresse
       const fuzzyLocation = generateFuzzyLocation(establishment.address)
@@ -210,6 +236,17 @@ export default function MissionForm({ onMissionCreated }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (checkingAccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Vérification en cours...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -4,6 +4,7 @@ import { supabase, ESTABLISHMENT_TYPES } from '../../lib/supabase'
 import MyMissions from '../../components/Establishment/MyMissions'
 import ApplicationsReceived from '../../components/Establishment/ApplicationsReceived'
 import EstablishmentHired from '../../components/Establishment/EstablishmentHired'
+import EstablishmentPlanning from '../../components/Establishment/EstablishmentPlanning'
 import AddressAutocomplete from '../../components/shared/AddressAutocomplete'
 import NotificationBell from '../../components/shared/NotificationBell'
 
@@ -345,6 +346,19 @@ export default function EstablishmentDashboard() {
                   <span className="text-sm text-gray-500">Paramètres & infos</span>
                 </div>
               </div>
+
+              {/* Planning */}
+              <div
+                onClick={() => setView('planning')}
+                className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
+              >
+                <div className="text-4xl mb-4">📅</div>
+                <h2 className="text-2xl font-bold text-gray-900">Planning</h2>
+                <p className="text-gray-600 mt-2">Vue d'ensemble par mois</p>
+                <div className="mt-6">
+                  <span className="text-sm text-gray-500">Missions & talents</span>
+                </div>
+              </div>
             </div>
           </>
         )}
@@ -368,6 +382,14 @@ export default function EstablishmentDashboard() {
         {/* ========== MES EMBAUCHES ========== */}
         {view === 'hired' && (
           <EstablishmentHired
+            establishmentId={profile.id}
+            onBack={() => setView('home')}
+          />
+        )}
+
+        {/* ========== PLANNING ========== */}
+        {view === 'planning' && (
+          <EstablishmentPlanning
             establishmentId={profile.id}
             onBack={() => setView('home')}
           />

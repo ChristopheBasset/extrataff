@@ -60,23 +60,20 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
 
       // Filtrer : missions sans candidature du talent
       let matched = missionsWithEst.filter(m => !appliedMissionIds.has(m.id))
-      console.log(`[MatchedMissions] Missions ouvertes: ${allMissions.length}, après exclusion candidatures: ${matched.length}`)
 
       // Filtrage par position_types du talent si disponible
       if (talentProfile?.position_types && talentProfile.position_types.length > 0) {
         matched = matched.filter(m => 
           talentProfile.position_types.includes(m.position)
         )
-        console.log(`[MatchedMissions] Après filtre position_types (${talentProfile.position_types.join(', ')}): ${matched.length}`)
       }
 
-      // Filtrage par départements préférés du talent (via location_fuzzy)
+      // Filtrage par départements préférés du talent
       if (talentProfile?.preferred_departments && talentProfile.preferred_departments.length > 0) {
         matched = matched.filter(m => {
           const dept = extractDepartment(m.location_fuzzy)
           return dept && talentProfile.preferred_departments.includes(dept)
         })
-        console.log(`[MatchedMissions] Après filtre départements (${talentProfile.preferred_departments.join(', ')}): ${matched.length}`)
       }
 
       // Anti-chevauchement : exclure les missions qui chevauchent des missions confirmées/acceptées
@@ -113,7 +110,6 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
       }
 
       setMissions(matched)
-      console.log(`[MatchedMissions] FINAL → ${matched.length} missions matchées`)
       if (onCountChange) onCountChange(matched.length)
     } catch (err) {
       console.error('Erreur chargement missions matchées:', err)

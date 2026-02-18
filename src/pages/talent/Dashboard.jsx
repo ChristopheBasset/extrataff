@@ -106,21 +106,18 @@ export default function TalentDashboard() {
 
         // Exclure les missions déjà candidatées
         let matched = allMissions.filter(m => !appliedMissionIds.has(m.id))
-        console.log(`[loadCounts] Missions ouvertes: ${allMissions.length}, après exclusion candidatures: ${matched.length}`)
 
         // Filtrage par position_types
         if (talentProfile?.position_types && talentProfile.position_types.length > 0) {
           matched = matched.filter(m => talentProfile.position_types.includes(m.position))
-          console.log(`[loadCounts] Après filtre position_types: ${matched.length}`)
         }
 
-        // Filtrage par départements préférés (via location_fuzzy, comme MissionList.jsx)
+        // Filtrage par départements préférés
         if (talentProfile?.preferred_departments && talentProfile.preferred_departments.length > 0) {
           matched = matched.filter(m => {
             const dept = extractDepartment(m.location_fuzzy)
             return dept && talentProfile.preferred_departments.includes(dept)
           })
-          console.log(`[loadCounts] Après filtre départements: ${matched.length}`)
         }
 
         // Anti-chevauchement
@@ -147,7 +144,6 @@ export default function TalentDashboard() {
                 const mEnd = m.end_date ? new Date(m.end_date) : new Date(m.start_date)
                 return !bookedRanges.some(b => mStart <= b.end && mEnd >= b.start)
               })
-              console.log(`[loadCounts] Après anti-chevauchement: ${matched.length}`)
             }
           }
         }
@@ -155,7 +151,6 @@ export default function TalentDashboard() {
         matchedCount = matched.length
       }
 
-      console.log(`[loadCounts] FINAL → matched: ${matchedCount}, interested: ${interestedCount}, confirmed: ${confirmedCount}`)
       setCounts({
         matched: matchedCount,
         interested: interestedCount,

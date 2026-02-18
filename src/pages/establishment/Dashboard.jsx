@@ -307,7 +307,7 @@ export default function EstablishmentDashboard() {
                 onClick={() => navigate('/establishment/subscribe')}
                 className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
               >
-                Passer Premium →
+                Choisir votre formule →
               </button>
             </div>
           )}
@@ -520,6 +520,31 @@ export default function EstablishmentDashboard() {
                         • 📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''} 
                       </p>
                     )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(profile.subscription_status === 'premium' || profile.subscription_status === 'active') ? (
+                        <>
+                          <button
+                            onClick={handleManageSubscription}
+                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            ⚙️ Gérer mon abonnement
+                          </button>
+                          <button
+                            onClick={() => navigate('/establishment/subscribe')}
+                            className="px-4 py-2 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            🔄 Changer de formule
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => navigate('/establishment/subscribe')}
+                          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                          ⚡ Choisir une formule
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

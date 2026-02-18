@@ -17,20 +17,45 @@ export default function MissionForm({ onMissionCreated }) {
 
         const { data: establishment } = await supabase
           .from('establishments')
-          .select('subscription_status, missions_used')
+          .select('subscription_status, subscription_plan, missions_used, missions_credit, subscription_ends_at')
           .eq('user_id', user.id)
           .single()
 
         if (!establishment) { navigate('/establishment'); return }
 
-        const isFreemium = establishment.subscription_status === 'freemium'
+        const status = establishment.subscription_status
         const missionsUsed = establishment.missions_used || 0
+        const missionsCredit = establishment.missions_credit || 0
         const FREEMIUM_MAX_MISSIONS = 2
 
-        if (isFreemium && missionsUsed >= FREEMIUM_MAX_MISSIONS) {
-          navigate('/establishment/subscribe')
+        // Premium ou abonnement actif → accès libre
+        if (status === 'active' || status === 'premium') {
+          // Vérifier si abonnement saisonnier expiré
+          if (establishment.subscription_plan === 'seasonal' && establishment.subscription_ends_at) {
+            const endsAt = new Date(establishment.subscription_ends_at)
+            if (new Date() > endsAt) {
+              navigate('/establishment/subscribe')
+              return
+            }
+          }
+          setCheckingAccess(false)
           return
         }
+
+        // A des crédits missions achetés → accès autorisé
+        if (missionsCredit > 0) {
+          setCheckingAccess(false)
+          return
+        }
+
+        // Freemium avec missions gratuites restantes → accès autorisé
+        if (status === 'freemium' && missionsUsed < FREEMIUM_MAX_MISSIONS) {
+          setCheckingAccess(false)
+          return
+        }
+
+        // Sinon → page d'abonnement
+        navigate('/establishment/subscribe')
       } catch (err) {
         console.error('Erreur vérification accès:', err)
       } finally {
@@ -159,7 +184,7 @@ export default function MissionForm({ onMissionCreated }) {
       
       const { data: establishment } = await supabase
         .from('establishments')
-        .select('id, name, address, subscription_status, missions_used')
+        .select('id, name, address, subscription_status, subscription_plan, missions_used, missions_credit')
         .eq('user_id', user.id)
         .single()
 
@@ -173,6 +198,8 @@ export default function MissionForm({ onMissionCreated }) {
 
       const isFreemium = establishment.subscription_status === 'freemium'
       const missionsUsed = establishment.missions_used || 0
+      const missionsCredit = establishment.missions_credit || 0
+      const nbPostes = parseInt(formData.nb_postes) || 1
 
       // Générer la localisation floue à partir de l'adresse
       const fuzzyLocation = generateFuzzyLocation(establishment.address)
@@ -209,7 +236,7 @@ export default function MissionForm({ onMissionCreated }) {
       if (error) throw error
 
       // Incrémenter le compteur de missions si freemium
-      if (isFreemium) {
+      if (isFreemium && missionsCredit <= 0) {
         const { error: updateError } = await supabase
           .from('establishments')
           .update({ missions_used: missionsUsed + 1 })
@@ -217,6 +244,18 @@ export default function MissionForm({ onMissionCreated }) {
 
         if (updateError) {
           console.error('Erreur mise à jour compteur missions:', updateError)
+        }
+      }
+
+      // Décrémenter les crédits missions si achat à la mission
+      if (missionsCredit > 0 && establishment.subscription_status !== 'active' && establishment.subscription_status !== 'premium') {
+        const { error: creditError } = await supabase
+          .from('establishments')
+          .update({ missions_credit: Math.max(0, missionsCredit - nbPostes) })
+          .eq('id', establishment.id)
+
+        if (creditError) {
+          console.error('Erreur déduction crédits:', creditError)
         }
       }
 

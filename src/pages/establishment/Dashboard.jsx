@@ -300,9 +300,15 @@ export default function EstablishmentDashboard() {
                   ⏳ {trialDays}j d'essai
                 </span>
               )}
-              <span className="text-gray-600">
-                📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''}
-              </span>
+              {(profile.missions_credit || 0) > 0 ? (
+                <span className="text-primary-600 font-medium">
+                  🎫 {profile.missions_credit} crédit{profile.missions_credit > 1 ? 's' : ''} mission
+                </span>
+              ) : (
+                <span className="text-gray-600">
+                  📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''}
+                </span>
+              )}
               <button
                 onClick={() => navigate('/establishment/subscribe')}
                 className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"

@@ -523,7 +523,11 @@ export default function EstablishmentDashboard() {
                     {trialDays !== null && profile.subscription_status !== 'premium' && profile.subscription_status !== 'active' && (
                       <p className="text-sm text-gray-500 mt-2">
                         ⏳ {trialDays} jour{trialDays > 1 ? 's' : ''} restant{trialDays > 1 ? 's' : ''} 
-                        • 📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''} 
+                        {(profile.missions_credit || 0) > 0 ? (
+                          <> • 🎫 {profile.missions_credit} crédit{profile.missions_credit > 1 ? 's' : ''} mission</>
+                        ) : (
+                          <> • 📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''}</>
+                        )}
                       </p>
                     )}
                     <div className="mt-3 flex flex-wrap gap-2">

@@ -66,26 +66,33 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
       // Anti-chevauchement : exclure les missions qui chevauchent des missions confirmées/acceptées
       const { data: bookedApps } = await supabase
         .from('applications')
-        .select('mission_id, missions:mission_id(start_date, end_date)')
+        .select('mission_id')
         .eq('talent_id', talentId)
         .in('status', ['confirmed', 'accepted'])
 
       if (bookedApps && bookedApps.length > 0) {
-        const bookedRanges = bookedApps
-          .filter(a => a.missions?.start_date)
-          .map(a => ({
-            start: new Date(a.missions.start_date),
-            end: a.missions.end_date ? new Date(a.missions.end_date) : new Date(a.missions.start_date)
-          }))
+        const bookedMissionIds = bookedApps.map(a => a.mission_id)
+        const { data: bookedMissions } = await supabase
+          .from('missions')
+          .select('id, start_date, end_date')
+          .in('id', bookedMissionIds)
 
-        if (bookedRanges.length > 0) {
-          matched = matched.filter(m => {
-            if (!m.start_date) return true
-            const mStart = new Date(m.start_date)
-            const mEnd = m.end_date ? new Date(m.end_date) : new Date(m.start_date)
-            // Vérifier qu'aucune plage confirmée ne chevauche
-            return !bookedRanges.some(b => mStart <= b.end && mEnd >= b.start)
-          })
+        if (bookedMissions && bookedMissions.length > 0) {
+          const bookedRanges = bookedMissions
+            .filter(bm => bm.start_date)
+            .map(bm => ({
+              start: new Date(bm.start_date),
+              end: bm.end_date ? new Date(bm.end_date) : new Date(bm.start_date)
+            }))
+
+          if (bookedRanges.length > 0) {
+            matched = matched.filter(m => {
+              if (!m.start_date) return true
+              const mStart = new Date(m.start_date)
+              const mEnd = m.end_date ? new Date(m.end_date) : new Date(m.start_date)
+              return !bookedRanges.some(b => mStart <= b.end && mEnd >= b.start)
+            })
+          }
         }
       }
 

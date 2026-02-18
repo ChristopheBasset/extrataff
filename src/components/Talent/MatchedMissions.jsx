@@ -13,10 +13,10 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
   const loadMatchedMissions = async () => {
     setLoading(true)
     try {
-      // Récupérer toutes les missions ouvertes
+      // Récupérer toutes les missions ouvertes (sans jointure)
       const { data: allMissions, error: missError } = await supabase
         .from('missions')
-        .select('*, establishments:establishment_id(id, name, city, type, department, user_id)')
+        .select('*')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
 
@@ -29,8 +29,27 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         return
       }
 
+      // Récupérer les établissements liés aux missions
+      const estIds = [...new Set(allMissions.map(m => m.establishment_id).filter(Boolean))]
+      let estMap = {}
+      if (estIds.length > 0) {
+        const { data: establishments } = await supabase
+          .from('establishments')
+          .select('id, name, city, type, department, user_id')
+          .in('id', estIds)
+        if (establishments) {
+          estMap = Object.fromEntries(establishments.map(e => [e.id, e]))
+        }
+      }
+
+      // Attacher les établissements aux missions
+      const missionsWithEst = allMissions.map(m => ({
+        ...m,
+        establishments: estMap[m.establishment_id] || null
+      }))
+
       // Récupérer les candidatures existantes du talent
-      const missionIds = allMissions.map(m => m.id)
+      const missionIds = missionsWithEst.map(m => m.id)
       const { data: existingApps } = await supabase
         .from('applications')
         .select('mission_id')
@@ -40,7 +59,7 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
       const appliedMissionIds = new Set(existingApps?.map(a => a.mission_id) || [])
 
       // Filtrer : missions sans candidature du talent
-      let matched = allMissions.filter(m => !appliedMissionIds.has(m.id))
+      let matched = missionsWithEst.filter(m => !appliedMissionIds.has(m.id))
 
       // Filtrage par position_types du talent si disponible
       if (talentProfile?.position_types && talentProfile.position_types.length > 0) {
@@ -52,9 +71,7 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
       // Filtrage par départements préférés du talent
       if (talentProfile?.preferred_departments && talentProfile.preferred_departments.length > 0) {
         matched = matched.filter(m => {
-          // Vérifier le département de l'établissement
           const estDept = m.establishments?.department
-          // Vérifier aussi le département dans la mission elle-même (si disponible)
           const missionDept = m.department
           
           return talentProfile.preferred_departments.some(dept => 

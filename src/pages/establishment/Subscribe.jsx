@@ -13,6 +13,7 @@ export default function Subscribe() {
 
   const pricePerPost = 9.90
   const monthlyPrice = 49.90
+  const seasonalPrice = 129.90
   const totalMissionPrice = (missionCount * postsPerMission * pricePerPost).toFixed(2)
 
   useEffect(() => {
@@ -36,7 +37,6 @@ export default function Subscribe() {
       if (error) throw error
       setEstablishment(data)
 
-      // Si déjà premium, rediriger
       if (data.subscription_status === 'active') {
         navigate('/establishment')
       }
@@ -46,7 +46,7 @@ export default function Subscribe() {
     }
   }
 
-  const handleSubscribe = async () => {
+  const handleCheckout = async (planType) => {
     setLoading(true)
     setError('')
 
@@ -62,54 +62,15 @@ export default function Subscribe() {
         throw new Error('Configuration manquante. Contactez le support.')
       }
 
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/create-checkout-session`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({
-            establishment_id: establishment.id,
-            plan_type: 'monthly'
-          })
-        }
-      )
-
-      const data = await response.json()
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || 'Erreur lors de la création du paiement')
+      const body = {
+        establishment_id: establishment.id,
+        plan_type: planType
       }
 
-      if (!data.url) {
-        throw new Error('URL de paiement non reçue')
-      }
-
-      window.location.href = data.url
-    } catch (err) {
-      console.error('Erreur:', err)
-      setError(err.message || 'Erreur lors de la création du paiement')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleBuyMissions = async () => {
-    setLoading(true)
-    setError('')
-
-    try {
-      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession()
-      
-      if (sessionError || !session) {
-        throw new Error('Session expirée. Veuillez vous reconnecter.')
-      }
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      if (!supabaseUrl) {
-        throw new Error('Configuration manquante. Contactez le support.')
+      if (planType === 'per_mission') {
+        body.mission_count = missionCount
+        body.posts_per_mission = postsPerMission
+        body.total_amount = parseFloat(totalMissionPrice)
       }
 
       const response = await fetch(
@@ -120,13 +81,7 @@ export default function Subscribe() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`
           },
-          body: JSON.stringify({
-            establishment_id: establishment.id,
-            plan_type: 'per_mission',
-            mission_count: missionCount,
-            posts_per_mission: postsPerMission,
-            total_amount: parseFloat(totalMissionPrice)
-          })
+          body: JSON.stringify(body)
         }
       )
 
@@ -151,9 +106,14 @@ export default function Subscribe() {
 
   const missionsUsed = establishment?.missions_used || 0
 
+  // Afficher le saisonnier d'avril à août
+  const now = new Date()
+  const currentMonth = now.getMonth() + 1
+  const showSeasonal = currentMonth >= 4 && currentMonth <= 8
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         
         {/* Header */}
         <div className="text-center mb-6">
@@ -170,9 +130,7 @@ export default function Subscribe() {
               <span className="text-2xl">🎁</span>
               <div>
                 <p className="font-medium text-gray-900">Période d'essai terminée</p>
-                <p className="text-sm text-gray-600">
-                  {missionsUsed}/2 missions gratuites utilisées
-                </p>
+                <p className="text-sm text-gray-600">{missionsUsed}/2 missions gratuites utilisées</p>
               </div>
             </div>
           </div>
@@ -186,7 +144,7 @@ export default function Subscribe() {
         )}
 
         {/* Cards de choix */}
-        <div className="grid md:grid-cols-2 gap-5 mb-6">
+        <div className={`grid gap-5 mb-6 ${showSeasonal ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
           
           {/* Option 1 : Abonnement mensuel */}
           <div 
@@ -203,13 +161,11 @@ export default function Subscribe() {
                 RECOMMANDÉ
               </span>
             </div>
-
             <h3 className="text-xl font-bold text-gray-900 mb-1">Abonnement mensuel</h3>
             <div className="mb-4">
               <span className="text-4xl font-extrabold text-primary-600">49,90€</span>
               <span className="text-gray-500">/mois</span>
             </div>
-
             <ul className="space-y-3 mb-6">
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
@@ -221,21 +177,14 @@ export default function Subscribe() {
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Matching intelligent & notifications</span>
+                <span>Matching & messagerie</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Messagerie directe avec les talents</span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Sans engagement</strong> — résiliez quand vous voulez</span>
+                <span><strong>Sans engagement</strong></span>
               </li>
             </ul>
-
-            <p className="text-xs text-gray-500 text-center">
-              💡 Rentable dès 6 postes/mois
-            </p>
+            <p className="text-xs text-gray-500 text-center">💡 Rentable dès 6 postes/mois</p>
           </div>
 
           {/* Option 2 : À la mission */}
@@ -250,47 +199,80 @@ export default function Subscribe() {
             <div className="mb-4">
               <span className="text-3xl">⚡</span>
             </div>
-
             <h3 className="text-xl font-bold text-gray-900 mb-1">À la mission</h3>
             <div className="mb-4">
               <span className="text-4xl font-extrabold text-primary-600">9,90€</span>
               <span className="text-gray-500">/poste</span>
             </div>
-
             <ul className="space-y-3 mb-6">
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Payez uniquement</strong> ce que vous utilisez</span>
+                <span><strong>Payez ce que vous utilisez</strong></span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Idéal pour les <strong>besoins occasionnels</strong></span>
+                <span>Idéal <strong>besoins occasionnels</strong></span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Matching intelligent & notifications</span>
+                <span>Matching & messagerie</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Messagerie directe avec les talents</span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Aucun engagement</strong> ni abonnement</span>
+                <span><strong>Aucun engagement</strong></span>
               </li>
             </ul>
-
-            <p className="text-xs text-gray-500 text-center">
-              💡 Parfait pour 1 à 5 extras/mois
-            </p>
+            <p className="text-xs text-gray-500 text-center">💡 Parfait pour 1 à 5 extras/mois</p>
           </div>
+
+          {/* Option 3 : Saisonnier */}
+          {showSeasonal && (
+            <div 
+              onClick={() => setSelectedPlan('seasonal')}
+              className={`bg-white rounded-2xl p-6 cursor-pointer transition-all ${
+                selectedPlan === 'seasonal' 
+                  ? 'ring-2 ring-primary-600 shadow-lg' 
+                  : 'border border-gray-200 hover:shadow-md'
+              }`}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-3xl">☀️</span>
+                <span className="bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1 rounded-full">
+                  SAISON 2026
+                </span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-1">Saisonnier</h3>
+              <div className="mb-1">
+                <span className="text-4xl font-extrabold text-primary-600">129,90€</span>
+              </div>
+              <p className="text-sm text-gray-500 mb-4">Juin → Septembre • 4 mois</p>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-start gap-2 text-sm text-gray-700">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span><strong>4 mois illimités</strong></span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-gray-700">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span>Missions et postes <strong>sans limite</strong></span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-gray-700">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span>Matching & messagerie</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm text-gray-700">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span><strong>Économisez 70€</strong> vs mensuel</span>
+                </li>
+              </ul>
+              <p className="text-xs text-gray-500 text-center">💡 32,48€/mois au lieu de 49,90€</p>
+            </div>
+          )}
         </div>
 
         {/* Zone d'action - Abonnement mensuel */}
         {selectedPlan === 'monthly' && (
           <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
             <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Récapitulatif — Abonnement mensuel</h4>
-            
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
               <div className="flex justify-between items-center">
                 <span className="text-gray-700">Abonnement ExtraTaff Premium</span>
@@ -298,9 +280,8 @@ export default function Subscribe() {
               </div>
               <p className="text-sm text-gray-500 mt-1">Missions et postes illimités • Sans engagement</p>
             </div>
-
             <button
-              onClick={handleSubscribe}
+              onClick={() => handleCheckout('monthly')}
               disabled={loading}
               className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -310,7 +291,7 @@ export default function Subscribe() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Chargement...
+                  Redirection vers Stripe...
                 </span>
               ) : (
                 '🚀 Souscrire à l\'abonnement'
@@ -323,12 +304,9 @@ export default function Subscribe() {
         {selectedPlan === 'per_mission' && (
           <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
             <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Configurez votre achat</h4>
-            
             <div className="grid sm:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre de missions
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de missions</label>
                 <select
                   value={missionCount}
                   onChange={(e) => setMissionCount(parseInt(e.target.value))}
@@ -340,9 +318,7 @@ export default function Subscribe() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Postes par mission
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Postes par mission</label>
                 <select
                   value={postsPerMission}
                   onChange={(e) => setPostsPerMission(parseInt(e.target.value))}
@@ -354,8 +330,6 @@ export default function Subscribe() {
                 </select>
               </div>
             </div>
-
-            {/* Récap prix */}
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm text-gray-600">
@@ -368,24 +342,18 @@ export default function Subscribe() {
                 </div>
               </div>
             </div>
-
-            {/* Astuce si plus cher que l'abonnement */}
             {parseFloat(totalMissionPrice) > monthlyPrice && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
                 <p className="text-sm text-amber-800">
                   💡 <strong>Astuce :</strong> Pour ce volume, l'abonnement à {monthlyPrice}€/mois serait plus avantageux !
-                  <button 
-                    onClick={() => setSelectedPlan('monthly')} 
-                    className="ml-2 text-primary-600 font-semibold underline"
-                  >
+                  <button onClick={() => setSelectedPlan('monthly')} className="ml-2 text-primary-600 font-semibold underline">
                     Voir l'abonnement
                   </button>
                 </p>
               </div>
             )}
-
             <button
-              onClick={handleBuyMissions}
+              onClick={() => handleCheckout('per_mission')}
               disabled={loading}
               className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -395,10 +363,47 @@ export default function Subscribe() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Chargement...
+                  Redirection vers Stripe...
                 </span>
               ) : (
                 `💳 Acheter ${missionCount} mission${missionCount > 1 ? 's' : ''} — ${totalMissionPrice}€`
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Zone d'action - Saisonnier */}
+        {selectedPlan === 'seasonal' && (
+          <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
+            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Récapitulatif — Offre saisonnière</h4>
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <span className="text-gray-700">ExtraTaff Saisonnier</span>
+                  <p className="text-sm text-gray-500 mt-1">Juin → Septembre 2026 • Missions et postes illimités</p>
+                </div>
+                <span className="text-xl font-bold text-gray-900">129,90€</span>
+              </div>
+              <div className="mt-3 pt-3 border-t flex justify-between text-sm">
+                <span className="text-gray-600">Soit par mois</span>
+                <span className="font-bold text-green-600">32,48€/mois au lieu de 49,90€</span>
+              </div>
+            </div>
+            <button
+              onClick={() => handleCheckout('seasonal')}
+              disabled={loading}
+              className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Redirection vers Stripe...
+                </span>
+              ) : (
+                '☀️ Réserver la saison — 129,90€'
               )}
             </button>
           </div>

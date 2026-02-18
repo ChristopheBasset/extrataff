@@ -81,7 +81,7 @@ export default function TalentDashboard() {
       // Récupérer les missions ouvertes avec les infos établissement (pour le filtre département)
       const { data: allMissions } = await supabase
         .from('missions')
-        .select('id, position, department, start_date, end_date, establishments:establishment_id(department)')
+        .select('id, position, department, start_date, end_date, establishment_id, establishments:establishment_id(department)')
         .eq('status', 'open')
 
       // Toutes les applications du talent (toutes missions confondues)

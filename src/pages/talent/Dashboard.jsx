@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, POSITION_TYPES, FRENCH_DEPARTMENTS } from '../../lib/supabase'
+import { supabase, POSITION_TYPES, FRENCH_DEPARTMENTS, extractDepartment } from '../../lib/supabase'
 import NotificationBell from '../../components/shared/NotificationBell'
 import MatchedMissions from '../../components/Talent/MatchedMissions'
 import TalentApplications from '../../components/Talent/TalentApplications'
@@ -35,7 +35,7 @@ export default function TalentDashboard() {
 
   useEffect(() => {
     if (profile && view === 'home') {
-      loadCounts(profile.id)
+      loadCounts(profile.id, profile)
     }
   }, [profile, view])
 
@@ -51,7 +51,6 @@ export default function TalentDashboard() {
       
       setProfile(data)
       if (data) {
-        loadCounts(data.id)
         loadTalentRating(user.id)
         setProfileForm({
           first_name: data.first_name || '',
@@ -76,15 +75,20 @@ export default function TalentDashboard() {
     }
   }
 
-  const loadCounts = async (talentId) => {
+  const loadCounts = async (talentId, talentProfile) => {
     try {
-      // Récupérer les missions ouvertes (sans jointure pour éviter les erreurs 400)
-      const { data: allMissions } = await supabase
+      // Récupérer les missions ouvertes
+      const { data: allMissions, error: missErr } = await supabase
         .from('missions')
         .select('*')
         .eq('status', 'open')
 
-      // Toutes les applications du talent (toutes missions confondues)
+      if (missErr) {
+        console.error('[loadCounts] Erreur requête missions:', missErr)
+        return
+      }
+
+      // Toutes les applications du talent
       const { data: allApps } = await supabase
         .from('applications')
         .select('status, mission_id')
@@ -94,49 +98,32 @@ export default function TalentDashboard() {
       let interestedCount = 0
       let confirmedCount = 0
 
-      // Interested + accepted
       interestedCount = allApps ? allApps.filter(a => a.status === 'interested' || a.status === 'accepted').length : 0
-
-      // Confirmed
       confirmedCount = allApps ? allApps.filter(a => a.status === 'confirmed').length : 0
 
-      // Matched = missions ouvertes sans candidature du talent
       if (allMissions && allMissions.length > 0) {
         const appliedMissionIds = new Set(allApps?.map(a => a.mission_id) || [])
 
-        // Commencer par exclure les missions déjà candidatées
+        // Exclure les missions déjà candidatées
         let matched = allMissions.filter(m => !appliedMissionIds.has(m.id))
+        console.log(`[loadCounts] Missions ouvertes: ${allMissions.length}, après exclusion candidatures: ${matched.length}`)
 
-        // Filtrage par position_types si dispo
-        if (profile?.position_types && profile.position_types.length > 0) {
-          matched = matched.filter(m => profile.position_types.includes(m.position))
+        // Filtrage par position_types
+        if (talentProfile?.position_types && talentProfile.position_types.length > 0) {
+          matched = matched.filter(m => talentProfile.position_types.includes(m.position))
+          console.log(`[loadCounts] Après filtre position_types: ${matched.length}`)
         }
 
-        // Filtrage par départements préférés
-        if (profile?.preferred_departments && profile.preferred_departments.length > 0) {
-          // Récupérer les départements des établissements concernés
-          const estIds = [...new Set(matched.map(m => m.establishment_id).filter(Boolean))]
-          let estDeptMap = {}
-          if (estIds.length > 0) {
-            const { data: establishments } = await supabase
-              .from('establishments')
-              .select('id, department')
-              .in('id', estIds)
-            if (establishments) {
-              estDeptMap = Object.fromEntries(establishments.map(e => [e.id, e.department]))
-            }
-          }
-
+        // Filtrage par départements préférés (via location_fuzzy, comme MissionList.jsx)
+        if (talentProfile?.preferred_departments && talentProfile.preferred_departments.length > 0) {
           matched = matched.filter(m => {
-            const estDept = estDeptMap[m.establishment_id]
-            const missionDept = m.department
-            return profile.preferred_departments.some(dept =>
-              dept === estDept || dept === missionDept
-            )
+            const dept = extractDepartment(m.location_fuzzy)
+            return dept && talentProfile.preferred_departments.includes(dept)
           })
+          console.log(`[loadCounts] Après filtre départements: ${matched.length}`)
         }
 
-        // Anti-chevauchement : exclure les missions qui chevauchent des missions confirmées/acceptées
+        // Anti-chevauchement
         const bookedApps = allApps?.filter(a => a.status === 'confirmed' || a.status === 'accepted') || []
         if (bookedApps.length > 0) {
           const bookedMissionIds = bookedApps.map(a => a.mission_id)
@@ -160,6 +147,7 @@ export default function TalentDashboard() {
                 const mEnd = m.end_date ? new Date(m.end_date) : new Date(m.start_date)
                 return !bookedRanges.some(b => mStart <= b.end && mEnd >= b.start)
               })
+              console.log(`[loadCounts] Après anti-chevauchement: ${matched.length}`)
             }
           }
         }
@@ -167,13 +155,14 @@ export default function TalentDashboard() {
         matchedCount = matched.length
       }
 
+      console.log(`[loadCounts] FINAL → matched: ${matchedCount}, interested: ${interestedCount}, confirmed: ${confirmedCount}`)
       setCounts({
         matched: matchedCount,
         interested: interestedCount,
         confirmed: confirmedCount
       })
     } catch (err) {
-      console.error('Erreur chargement counts:', err)
+      console.error('[loadCounts] Erreur:', err)
     }
   }
 

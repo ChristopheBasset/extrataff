@@ -78,10 +78,10 @@ export default function TalentDashboard() {
 
   const loadCounts = async (talentId) => {
     try {
-      // Récupérer les missions ouvertes avec les infos établissement (pour le filtre département)
+      // Récupérer les missions ouvertes (sans jointure pour éviter les erreurs 400)
       const { data: allMissions } = await supabase
         .from('missions')
-        .select('id, position, department, start_date, end_date, establishment_id, establishments:establishment_id(department)')
+        .select('id, position, department, start_date, end_date, establishment_id')
         .eq('status', 'open')
 
       // Toutes les applications du talent (toutes missions confondues)
@@ -112,10 +112,23 @@ export default function TalentDashboard() {
           matched = matched.filter(m => profile.position_types.includes(m.position))
         }
 
-        // Filtrage par départements préférés (même logique que MatchedMissions)
+        // Filtrage par départements préférés
         if (profile?.preferred_departments && profile.preferred_departments.length > 0) {
+          // Récupérer les départements des établissements concernés
+          const estIds = [...new Set(matched.map(m => m.establishment_id).filter(Boolean))]
+          let estDeptMap = {}
+          if (estIds.length > 0) {
+            const { data: establishments } = await supabase
+              .from('establishments')
+              .select('id, department')
+              .in('id', estIds)
+            if (establishments) {
+              estDeptMap = Object.fromEntries(establishments.map(e => [e.id, e.department]))
+            }
+          }
+
           matched = matched.filter(m => {
-            const estDept = m.establishments?.department
+            const estDept = estDeptMap[m.establishment_id]
             const missionDept = m.department
             return profile.preferred_departments.some(dept =>
               dept === estDept || dept === missionDept

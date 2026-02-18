@@ -109,7 +109,7 @@ export default function Subscribe() {
   // Afficher le saisonnier d'avril à août
   const now = new Date()
   const currentMonth = now.getMonth() + 1
-  const showSeasonal = currentMonth >= 4 && currentMonth <= 8
+  const showSeasonal = true
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">

@@ -120,6 +120,38 @@ export default function EstablishmentDashboard() {
     navigate('/establishment/create-mission')
   }
 
+  const handleManageSubscription = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.refreshSession()
+      if (!session) {
+        navigate('/login')
+        return
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/customer-portal`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        }
+      )
+
+      const data = await response.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert(data.error || 'Impossible d\'accéder au portail de gestion')
+      }
+    } catch (err) {
+      console.error('Erreur portail:', err)
+      alert('Erreur lors de l\'accès au portail de gestion')
+    }
+  }
+
   // ---- Gestion édition profil ----
   const handleProfileChange = (e) => {
     const { name, value } = e.target
@@ -276,6 +308,18 @@ export default function EstablishmentDashboard() {
                 className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
               >
                 Passer Premium →
+              </button>
+            </div>
+          )}
+          {/* Ligne 3 bis : Gérer abonnement pour les premium */}
+          {(profile.subscription_status === 'premium' || profile.subscription_status === 'active') && (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-green-600 font-medium">✅ Abonnement actif</span>
+              <button
+                onClick={handleManageSubscription}
+                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
+              >
+                Gérer mon abonnement →
               </button>
             </div>
           )}

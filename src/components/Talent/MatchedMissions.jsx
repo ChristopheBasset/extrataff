@@ -63,6 +63,32 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         })
       }
 
+      // Anti-chevauchement : exclure les missions qui chevauchent des missions confirmées/acceptées
+      const { data: bookedApps } = await supabase
+        .from('applications')
+        .select('mission_id, missions:mission_id(start_date, end_date)')
+        .eq('talent_id', talentId)
+        .in('status', ['confirmed', 'accepted'])
+
+      if (bookedApps && bookedApps.length > 0) {
+        const bookedRanges = bookedApps
+          .filter(a => a.missions?.start_date)
+          .map(a => ({
+            start: new Date(a.missions.start_date),
+            end: a.missions.end_date ? new Date(a.missions.end_date) : new Date(a.missions.start_date)
+          }))
+
+        if (bookedRanges.length > 0) {
+          matched = matched.filter(m => {
+            if (!m.start_date) return true
+            const mStart = new Date(m.start_date)
+            const mEnd = m.end_date ? new Date(m.end_date) : new Date(m.start_date)
+            // Vérifier qu'aucune plage confirmée ne chevauche
+            return !bookedRanges.some(b => mStart <= b.end && mEnd >= b.start)
+          })
+        }
+      }
+
       setMissions(matched)
       if (onCountChange) onCountChange(matched.length)
     } catch (err) {

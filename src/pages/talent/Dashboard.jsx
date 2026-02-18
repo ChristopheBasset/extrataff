@@ -78,9 +78,10 @@ export default function TalentDashboard() {
 
   const loadCounts = async (talentId) => {
     try {
+      // Récupérer les missions ouvertes avec les infos établissement (pour le filtre département)
       const { data: allMissions } = await supabase
         .from('missions')
-        .select('id')
+        .select('id, position, department, start_date, end_date, establishments:establishment_id(department)')
         .eq('status', 'open')
 
       // Toutes les applications du talent (toutes missions confondues)
@@ -102,24 +103,55 @@ export default function TalentDashboard() {
       // Matched = missions ouvertes sans candidature du talent
       if (allMissions && allMissions.length > 0) {
         const appliedMissionIds = new Set(allApps?.map(a => a.mission_id) || [])
-        
+
+        // Commencer par exclure les missions déjà candidatées
+        let matched = allMissions.filter(m => !appliedMissionIds.has(m.id))
+
         // Filtrage par position_types si dispo
         if (profile?.position_types && profile.position_types.length > 0) {
-          // On a besoin des positions des missions pour filtrer
-          const { data: missionsWithPos } = await supabase
-            .from('missions')
-            .select('id, position')
-            .eq('status', 'open')
-
-          matchedCount = missionsWithPos 
-            ? missionsWithPos.filter(m => 
-                !appliedMissionIds.has(m.id) && 
-                profile.position_types.includes(m.position)
-              ).length
-            : 0
-        } else {
-          matchedCount = allMissions.filter(m => !appliedMissionIds.has(m.id)).length
+          matched = matched.filter(m => profile.position_types.includes(m.position))
         }
+
+        // Filtrage par départements préférés (même logique que MatchedMissions)
+        if (profile?.preferred_departments && profile.preferred_departments.length > 0) {
+          matched = matched.filter(m => {
+            const estDept = m.establishments?.department
+            const missionDept = m.department
+            return profile.preferred_departments.some(dept =>
+              dept === estDept || dept === missionDept
+            )
+          })
+        }
+
+        // Anti-chevauchement : exclure les missions qui chevauchent des missions confirmées/acceptées
+        const bookedApps = allApps?.filter(a => a.status === 'confirmed' || a.status === 'accepted') || []
+        if (bookedApps.length > 0) {
+          const bookedMissionIds = bookedApps.map(a => a.mission_id)
+          const { data: bookedMissions } = await supabase
+            .from('missions')
+            .select('id, start_date, end_date')
+            .in('id', bookedMissionIds)
+
+          if (bookedMissions && bookedMissions.length > 0) {
+            const bookedRanges = bookedMissions
+              .filter(bm => bm.start_date)
+              .map(bm => ({
+                start: new Date(bm.start_date),
+                end: bm.end_date ? new Date(bm.end_date) : new Date(bm.start_date)
+              }))
+
+            if (bookedRanges.length > 0) {
+              matched = matched.filter(m => {
+                if (!m.start_date) return true
+                const mStart = new Date(m.start_date)
+                const mEnd = m.end_date ? new Date(m.end_date) : new Date(m.start_date)
+                return !bookedRanges.some(b => mStart <= b.end && mEnd >= b.start)
+              })
+            }
+          }
+        }
+
+        matchedCount = matched.length
       }
 
       setCounts({

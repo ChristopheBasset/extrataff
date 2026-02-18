@@ -24,7 +24,7 @@ export default function MyMissions({ establishmentId, onBack }) {
       if (filter === 'open') {
         query = query.eq('status', 'open')
       } else if (filter === 'closed') {
-        query = query.in('status', ['closed', 'archived'])
+        query = query.in('status', ['closed', 'filled', 'archived'])
       }
 
       const { data, error } = await query
@@ -44,7 +44,7 @@ export default function MyMissions({ establishmentId, onBack }) {
           return {
             ...mission,
             candidatesCount: missionApps.filter(a => a.status === 'interested').length,
-            hiredCount: missionApps.filter(a => a.status === 'confirmed').length
+            hiredCount: missionApps.filter(a => a.status === 'confirmed' || a.status === 'accepted').length
           }
         })
         setMissions(enriched)
@@ -86,6 +86,7 @@ export default function MyMissions({ establishmentId, onBack }) {
         .update({ 
           status: 'open', 
           closed_at: null,
+          nb_postes_pourvus: 0,
           updated_at: new Date().toISOString()
         })
         .eq('id', missionId)
@@ -277,6 +278,10 @@ export default function MyMissions({ establishmentId, onBack }) {
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       Ouverte
                     </span>
+                  ) : mission.status === 'filled' ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      ✅ Pourvue
+                    </span>
                   ) : (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                       Clôturée
@@ -316,13 +321,15 @@ export default function MyMissions({ establishmentId, onBack }) {
 
               {/* Compteurs candidats */}
               <div className="flex lg:flex-col gap-4 lg:gap-2 lg:text-right">
+                <div className="bg-purple-50 rounded-lg px-4 py-2 text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {mission.hiredCount}/{mission.nb_postes || 1}
+                  </div>
+                  <div className="text-xs text-purple-600">Poste{(mission.nb_postes || 1) > 1 ? 's' : ''} pourvu{mission.hiredCount > 1 ? 's' : ''}</div>
+                </div>
                 <div className="bg-blue-50 rounded-lg px-4 py-2 text-center">
                   <div className="text-2xl font-bold text-blue-600">{mission.candidatesCount}</div>
-                  <div className="text-xs text-blue-600">Candidat{mission.candidatesCount > 1 ? 's' : ''}</div>
-                </div>
-                <div className="bg-green-50 rounded-lg px-4 py-2 text-center">
-                  <div className="text-2xl font-bold text-green-600">{mission.hiredCount}</div>
-                  <div className="text-xs text-green-600">Embauché{mission.hiredCount > 1 ? 's' : ''}</div>
+                  <div className="text-xs text-blue-600">En attente</div>
                 </div>
               </div>
             </div>

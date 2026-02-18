@@ -166,17 +166,25 @@ export default function ApplicationsList() {
 
       // Incrémenter nb_postes_pourvus
       const newNbPourvus = nbPourvus + 1
-      const missionUpdate = { nb_postes_pourvus: newNbPourvus }
+      const missionUpdate = { 
+        nb_postes_pourvus: newNbPourvus,
+        updated_at: new Date().toISOString()
+      }
 
       // Si tous les postes sont pourvus → passer la mission en "filled"
       if (newNbPourvus >= nbPostes) {
         missionUpdate.status = 'filled'
+        missionUpdate.closed_at = new Date().toISOString()
       }
 
-      await supabase
+      const { error: missionUpdateError } = await supabase
         .from('missions')
         .update(missionUpdate)
         .eq('id', missionIdToCheck)
+
+      if (missionUpdateError) {
+        console.error('Erreur mise à jour mission:', missionUpdateError)
+      }
 
       // Notification pour le talent
       const missionName = mission ? mission.establishments.name : application.missions?.establishments?.name

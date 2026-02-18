@@ -81,7 +81,7 @@ export default function TalentDashboard() {
       // Récupérer les missions ouvertes (sans jointure pour éviter les erreurs 400)
       const { data: allMissions } = await supabase
         .from('missions')
-        .select('id, position, department, start_date, end_date, establishment_id')
+        .select('*')
         .eq('status', 'open')
 
       // Toutes les applications du talent (toutes missions confondues)
@@ -142,7 +142,7 @@ export default function TalentDashboard() {
           const bookedMissionIds = bookedApps.map(a => a.mission_id)
           const { data: bookedMissions } = await supabase
             .from('missions')
-            .select('id, start_date, end_date')
+            .select('*')
             .in('id', bookedMissionIds)
 
           if (bookedMissions && bookedMissions.length > 0) {

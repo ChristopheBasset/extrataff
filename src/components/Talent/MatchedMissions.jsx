@@ -91,7 +91,7 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         const bookedMissionIds = bookedApps.map(a => a.mission_id)
         const { data: bookedMissions } = await supabase
           .from('missions')
-          .select('id, start_date, end_date')
+          .select('*')
           .in('id', bookedMissionIds)
 
         if (bookedMissions && bookedMissions.length > 0) {

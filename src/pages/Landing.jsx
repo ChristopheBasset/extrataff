@@ -24,7 +24,7 @@ export default function Landing() {
     },
     {
       question: "C'est gratuit ?",
-      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, nous offrons 1 mois d'essai gratuit avec 2 missions offertes, puis l'abonnement est à 49,90€/mois ou 9,90€ par mission, sans engagement."
+      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, nous offrons 1 mission gratuite pour tester la plateforme. Ensuite, vous pouvez rejoindre le Club ExtraTaff à 24€ TTC/mois (1 mission incluse, supplémentaires à 10,80€) ou publier à la mission sans abonnement (21,60€ la mission normale, 30€ en urgence). Sans engagement."
     },
     {
       question: "Comment créer un compte ?",
@@ -32,7 +32,7 @@ export default function Landing() {
     },
     {
       question: "Comment publier une mission ? (Recruteurs)",
-      answer: "Une fois connecté à votre dashboard, cliquez sur \"Créer une mission\". Renseignez le poste recherché, les dates, les horaires et le niveau d'urgence. Votre annonce sera visible immédiatement par les talents correspondants."
+      answer: "Une fois connecté à votre dashboard, cliquez sur \"Créer une mission\". Renseignez le poste recherché, les dates et horaires. Si la date de début est aujourd'hui ou demain, la mission sera automatiquement marquée comme urgente et les talents seront notifiés en priorité. Votre annonce sera visible immédiatement par les talents correspondants."
     },
     {
       question: "Comment postuler à une mission ? (Talents)",
@@ -41,6 +41,14 @@ export default function Landing() {
     {
       question: "Comment fonctionne le matching ?",
       answer: "Notre algorithme analyse votre profil (postes, expérience, localisation, disponibilités) et le compare aux missions disponibles. Vous ne voyez que les offres qui correspondent vraiment à ce que vous cherchez !"
+    },
+    {
+      question: "Qu'est-ce que le Club ExtraTaff ?",
+      answer: "Le Club ExtraTaff est notre abonnement mensuel à 24€ TTC (20€ HT) pour les établissements. Il inclut 1 mission par mois, des missions supplémentaires à 10,80€ (au lieu de 21,60€), et surtout les missions urgentes au même tarif de 10,80€ (au lieu de 30€ sans abonnement). Sans engagement, résiliable à tout moment."
+    },
+    {
+      question: "Qu'est-ce qu'une mission urgente ?",
+      answer: "Une mission est automatiquement détectée comme urgente lorsque la date de début est aujourd'hui ou demain. Les talents sont notifiés en priorité et la mission apparaît en haut des résultats. Pour les membres du Club, le tarif reste le même qu'une mission classique (10,80€). Sans abonnement, une mission urgente coûte 30€."
     },
     {
       question: "Comment contacter un candidat ou un établissement ?",
@@ -191,16 +199,18 @@ export default function Landing() {
                 <p className="text-3xl font-extrabold">Gratuit</p>
                 <p className="text-blue-200 text-sm mt-1">Pour les talents, toujours</p>
               </div>
+              <div className="bg-white/10 rounded-xl px-6 py-4 flex-1 max-w-xs relative">
+                <div className="absolute -top-2 right-2 bg-yellow-400 text-blue-900 text-xs font-bold px-2 py-0.5 rounded-full">RECOMMANDÉ</div>
+                <p className="text-3xl font-extrabold">24€</p>
+                <p className="text-blue-200 text-sm mt-1">/mois — Club ExtraTaff</p>
+                <p className="text-blue-300 text-xs mt-1">1 mission incluse + supp. 10,80€</p>
+              </div>
               <div className="bg-white/10 rounded-xl px-6 py-4 flex-1 max-w-xs">
-                <p className="text-3xl font-extrabold">9,90€</p>
+                <p className="text-3xl font-extrabold">21,60€</p>
                 <p className="text-blue-200 text-sm mt-1">Par mission, sans engagement</p>
               </div>
-              <div className="bg-white/10 rounded-xl px-6 py-4 flex-1 max-w-xs">
-                <p className="text-3xl font-extrabold">49,90€</p>
-                <p className="text-blue-200 text-sm mt-1">/mois — missions illimitées</p>
-              </div>
             </div>
-            <p className="text-blue-200 text-sm mt-4">🎁 1 mois d'essai gratuit avec 2 missions offertes</p>
+            <p className="text-blue-200 text-sm mt-4">🎁 1ère mission offerte pour tester la plateforme !</p>
           </div>
         </div>
       </section>

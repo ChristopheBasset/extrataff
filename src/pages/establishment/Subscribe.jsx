@@ -8,13 +8,16 @@ export default function Subscribe() {
   const [establishment, setEstablishment] = useState(null)
   const [error, setError] = useState('')
   const [selectedPlan, setSelectedPlan] = useState(null)
-  const [missionCount, setMissionCount] = useState(1)
-  const [postsPerMission, setPostsPerMission] = useState(1)
 
-  const pricePerPost = 9.90
-  const monthlyPrice = 49.90
-  const seasonalPrice = 129.90
-  const totalMissionPrice = (missionCount * postsPerMission * pricePerPost).toFixed(2)
+  // Prix TTC (affichés au client)
+  const clubPriceTTC = 24.00
+  const clubPriceHT = 20.00
+  const missionNormalTTC = 21.60
+  const missionNormalHT = 18.00
+  const missionUrgentTTC = 30.00
+  const missionUrgentHT = 25.00
+  const missionSuppTTC = 10.80
+  const missionSuppHT = 9.00
 
   useEffect(() => {
     loadEstablishment()
@@ -37,7 +40,7 @@ export default function Subscribe() {
       if (error) throw error
       setEstablishment(data)
 
-      if (data.subscription_status === 'active') {
+      if (data.subscription_status === 'active' && data.subscription_plan === 'club') {
         navigate('/establishment')
       }
     } catch (err) {
@@ -65,12 +68,6 @@ export default function Subscribe() {
       const body = {
         establishment_id: establishment.id,
         plan_type: planType
-      }
-
-      if (planType === 'per_mission') {
-        body.mission_count = missionCount
-        body.posts_per_mission = postsPerMission
-        body.total_amount = parseFloat(totalMissionPrice)
       }
 
       const response = await fetch(
@@ -106,10 +103,16 @@ export default function Subscribe() {
 
   const missionsUsed = establishment?.missions_used || 0
 
-  // Afficher le saisonnier d'avril à août
-  const now = new Date()
-  const currentMonth = now.getMonth() + 1
-  const showSeasonal = true
+  // Spinner réutilisable
+  const Spinner = ({ text }) => (
+    <span className="flex items-center justify-center gap-2">
+      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+      </svg>
+      {text || 'Redirection vers Stripe...'}
+    </span>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -117,19 +120,19 @@ export default function Subscribe() {
         
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Choisissez votre formule ⚡</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Rejoignez le Club ExtraTaff 🏆</h1>
           <p className="text-gray-600">
-            Vos {missionsUsed} mission{missionsUsed > 1 ? 's' : ''} d'essai ont été utilisées. Continuez à recruter avec ExtraTaff !
+            Recrutez vos extras en quelques clics. Choisissez la formule qui vous convient.
           </p>
         </div>
 
-        {/* Statut actuel */}
-        {establishment && (
+        {/* Statut freemium épuisé */}
+        {establishment && missionsUsed >= 2 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
             <div className="flex items-center gap-3">
               <span className="text-2xl">🎁</span>
               <div>
-                <p className="font-medium text-gray-900">Période d'essai terminée</p>
+                <p className="font-medium text-gray-900">Vos missions d'essai sont épuisées</p>
                 <p className="text-sm text-gray-600">{missionsUsed}/2 missions gratuites utilisées</p>
               </div>
             </div>
@@ -144,13 +147,13 @@ export default function Subscribe() {
         )}
 
         {/* Cards de choix */}
-        <div className={`grid gap-5 mb-6 ${showSeasonal ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+        <div className="grid gap-5 mb-6 md:grid-cols-2">
           
-          {/* Option 1 : Abonnement mensuel */}
+          {/* Option 1 : Club ExtraTaff */}
           <div 
-            onClick={() => setSelectedPlan('monthly')}
+            onClick={() => setSelectedPlan('club')}
             className={`bg-white rounded-2xl p-6 cursor-pointer transition-all ${
-              selectedPlan === 'monthly' 
+              selectedPlan === 'club' 
                 ? 'ring-2 ring-primary-600 shadow-lg' 
                 : 'border border-gray-200 hover:shadow-md'
             }`}
@@ -161,19 +164,24 @@ export default function Subscribe() {
                 RECOMMANDÉ
               </span>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-1">Abonnement mensuel</h3>
-            <div className="mb-4">
-              <span className="text-4xl font-extrabold text-primary-600">49,90€</span>
+            <h3 className="text-xl font-bold text-gray-900 mb-1">Club ExtraTaff</h3>
+            <div className="mb-1">
+              <span className="text-4xl font-extrabold text-primary-600">{clubPriceTTC}€</span>
               <span className="text-gray-500">/mois</span>
             </div>
+            <p className="text-xs text-gray-500 mb-4">{clubPriceHT}€ HT/mois • Sans engagement</p>
             <ul className="space-y-3 mb-6">
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Missions illimitées</strong></span>
+                <span><strong>1 mission incluse</strong> chaque mois <span className="text-gray-400">(valeur {missionNormalTTC}€)</span></span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Postes illimités</strong> par mission</span>
+                <span>Missions supplémentaires à <strong>{missionSuppTTC}€</strong></span>
+              </li>
+              <li className="flex items-start gap-2 text-sm text-gray-700">
+                <span className="text-green-500 mt-0.5">✓</span>
+                <span>Missions urgentes à <strong>{missionSuppTTC}€</strong> <span className="text-red-500 line-through text-xs">{missionUrgentTTC}€</span></span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
@@ -184,26 +192,31 @@ export default function Subscribe() {
                 <span><strong>Sans engagement</strong></span>
               </li>
             </ul>
-            <p className="text-xs text-gray-500 text-center">💡 Rentable dès 6 postes/mois</p>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-xs text-green-700 text-center font-medium">
+                💡 1 urgence suffit pour rentabiliser l'abonnement
+              </p>
+            </div>
           </div>
 
-          {/* Option 2 : À la mission */}
+          {/* Option 2 : Sans abonnement */}
           <div 
-            onClick={() => setSelectedPlan('per_mission')}
+            onClick={() => setSelectedPlan('no_sub')}
             className={`bg-white rounded-2xl p-6 cursor-pointer transition-all ${
-              selectedPlan === 'per_mission' 
+              selectedPlan === 'no_sub' 
                 ? 'ring-2 ring-primary-600 shadow-lg' 
                 : 'border border-gray-200 hover:shadow-md'
             }`}
           >
             <div className="mb-4">
-              <span className="text-3xl">⚡</span>
+              <span className="text-3xl">📋</span>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-1">À la mission</h3>
-            <div className="mb-4">
-              <span className="text-4xl font-extrabold text-primary-600">9,90€</span>
-              <span className="text-gray-500">/poste</span>
+            <h3 className="text-xl font-bold text-gray-900 mb-1">Sans abonnement</h3>
+            <div className="mb-1">
+              <span className="text-4xl font-extrabold text-primary-600">{missionNormalTTC}€</span>
+              <span className="text-gray-500">/mission</span>
             </div>
+            <p className="text-xs text-gray-500 mb-4">{missionNormalHT}€ HT • Payez à l'usage</p>
             <ul className="space-y-3 mb-6">
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
@@ -211,7 +224,11 @@ export default function Subscribe() {
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Idéal <strong>besoins occasionnels</strong></span>
+                <span>Mission normale : <strong>{missionNormalTTC}€</strong></span>
+              </li>
+              <li className="flex items-start gap-2 text-sm text-gray-700">
+                <span className="text-amber-500 mt-0.5">⚡</span>
+                <span>Mission urgente : <strong>{missionUrgentTTC}€</strong></span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
@@ -222,190 +239,121 @@ export default function Subscribe() {
                 <span><strong>Aucun engagement</strong></span>
               </li>
             </ul>
-            <p className="text-xs text-gray-500 text-center">💡 Parfait pour 1 à 5 extras/mois</p>
+            <p className="text-xs text-gray-500 text-center">Idéal pour les besoins occasionnels</p>
           </div>
-
-          {/* Option 3 : Saisonnier */}
-          {showSeasonal && (
-            <div 
-              onClick={() => setSelectedPlan('seasonal')}
-              className={`bg-white rounded-2xl p-6 cursor-pointer transition-all ${
-                selectedPlan === 'seasonal' 
-                  ? 'ring-2 ring-primary-600 shadow-lg' 
-                  : 'border border-gray-200 hover:shadow-md'
-              }`}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <span className="text-3xl">☀️</span>
-                <span className="bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1 rounded-full">
-                  SAISON 2026
-                </span>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-1">Saisonnier</h3>
-              <div className="mb-1">
-                <span className="text-4xl font-extrabold text-primary-600">129,90€</span>
-              </div>
-              <p className="text-sm text-gray-500 mb-4">Juin → Septembre • 4 mois</p>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span><strong>4 mois illimités</strong></span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span>Missions et postes <strong>sans limite</strong></span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span>Matching & messagerie</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span><strong>Économisez 70€</strong> vs mensuel</span>
-                </li>
-              </ul>
-              <p className="text-xs text-gray-500 text-center">💡 32,48€/mois au lieu de 49,90€</p>
-            </div>
-          )}
         </div>
 
-        {/* Zone d'action - Abonnement mensuel */}
-        {selectedPlan === 'monthly' && (
-          <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
-            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Récapitulatif — Abonnement mensuel</h4>
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-700">Abonnement ExtraTaff Premium</span>
-                <span className="text-xl font-bold text-gray-900">49,90€/mois</span>
-              </div>
-              <p className="text-sm text-gray-500 mt-1">Missions et postes illimités • Sans engagement</p>
-            </div>
-            <button
-              onClick={() => handleCheckout('monthly')}
-              disabled={loading}
-              className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Redirection vers Stripe...
-                </span>
-              ) : (
-                '🚀 Souscrire à l\'abonnement'
-              )}
-            </button>
+        {/* Tableau comparatif */}
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h4 className="font-bold text-gray-900">📊 Comparer les formules</h4>
           </div>
-        )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left px-6 py-3 text-gray-500 font-medium"></th>
+                  <th className="text-center px-4 py-3 text-gray-500 font-medium">Sans abo</th>
+                  <th className="text-center px-4 py-3 font-medium text-primary-700 bg-primary-50">Club ExtraTaff</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-50">
+                  <td className="px-6 py-3 text-gray-700">1ère mission du mois</td>
+                  <td className="text-center px-4 py-3 text-gray-700">{missionNormalTTC}€</td>
+                  <td className="text-center px-4 py-3 font-bold text-green-600 bg-primary-50">Incluse ✓</td>
+                </tr>
+                <tr className="border-b border-gray-50">
+                  <td className="px-6 py-3 text-gray-700">Mission supplémentaire</td>
+                  <td className="text-center px-4 py-3 text-gray-700">{missionNormalTTC}€</td>
+                  <td className="text-center px-4 py-3 font-bold text-primary-600 bg-primary-50">{missionSuppTTC}€</td>
+                </tr>
+                <tr className="border-b border-gray-50">
+                  <td className="px-6 py-3 text-gray-700">Mission urgente ⚡</td>
+                  <td className="text-center px-4 py-3 text-gray-700">{missionUrgentTTC}€</td>
+                  <td className="text-center px-4 py-3 font-bold text-primary-600 bg-primary-50">{missionSuppTTC}€</td>
+                </tr>
+                <tr>
+                  <td className="px-6 py-3 text-gray-700">Économie sur 2 missions</td>
+                  <td className="text-center px-4 py-3 text-gray-400">—</td>
+                  <td className="text-center px-4 py-3 font-bold text-green-600 bg-primary-50">-7,20€</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-        {/* Zone d'action - Achat missions */}
-        {selectedPlan === 'per_mission' && (
+        {/* Zone d'action - Club ExtraTaff */}
+        {selectedPlan === 'club' && (
           <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
-            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Configurez votre achat</h4>
-            <div className="grid sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de missions</label>
-                <select
-                  value={missionCount}
-                  onChange={(e) => setMissionCount(parseInt(e.target.value))}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                    <option key={n} value={n}>{n} mission{n > 1 ? 's' : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Postes par mission</label>
-                <select
-                  value={postsPerMission}
-                  onChange={(e) => setPostsPerMission(parseInt(e.target.value))}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                >
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <option key={n} value={n}>{n} poste{n > 1 ? 's' : ''}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Récapitulatif — Club ExtraTaff</h4>
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="space-y-2">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-700">Abonnement Club ExtraTaff</span>
+                <span className="text-xl font-bold text-gray-900">{clubPriceTTC}€/mois</span>
+              </div>
+              <p className="text-sm text-gray-500">{clubPriceHT}€ HT • 1 mission incluse • Sans engagement</p>
+              <div className="mt-3 pt-3 border-t border-gray-200 space-y-1">
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>{missionCount} mission{missionCount > 1 ? 's' : ''} × {postsPerMission} poste{postsPerMission > 1 ? 's' : ''} × {pricePerPost.toFixed(2)}€</span>
-                  <span>{totalMissionPrice}€</span>
+                  <span>Missions supplémentaires</span>
+                  <span>{missionSuppTTC}€ / mission</span>
                 </div>
-                <div className="border-t pt-2 flex justify-between items-center">
-                  <span className="font-bold text-gray-900">Total</span>
-                  <span className="text-2xl font-extrabold text-primary-600">{totalMissionPrice}€</span>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Missions urgentes</span>
+                  <span>{missionSuppTTC}€ / mission <span className="text-red-400 line-through ml-1">{missionUrgentTTC}€</span></span>
                 </div>
               </div>
             </div>
-            {parseFloat(totalMissionPrice) > monthlyPrice && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-                <p className="text-sm text-amber-800">
-                  💡 <strong>Astuce :</strong> Pour ce volume, l'abonnement à {monthlyPrice}€/mois serait plus avantageux !
-                  <button onClick={() => setSelectedPlan('monthly')} className="ml-2 text-primary-600 font-semibold underline">
-                    Voir l'abonnement
-                  </button>
-                </p>
-              </div>
-            )}
             <button
-              onClick={() => handleCheckout('per_mission')}
+              onClick={() => handleCheckout('club_subscription')}
               disabled={loading}
               className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Redirection vers Stripe...
-                </span>
+                <Spinner />
               ) : (
-                `💳 Acheter ${missionCount} mission${missionCount > 1 ? 's' : ''} — ${totalMissionPrice}€`
+                `🏆 Rejoindre le Club — ${clubPriceTTC}€/mois`
               )}
             </button>
           </div>
         )}
 
-        {/* Zone d'action - Saisonnier */}
-        {selectedPlan === 'seasonal' && (
+        {/* Zone d'action - Sans abonnement */}
+        {selectedPlan === 'no_sub' && (
           <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
-            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Récapitulatif — Offre saisonnière</h4>
+            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Sans abonnement</h4>
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <span className="text-gray-700">ExtraTaff Saisonnier</span>
-                  <p className="text-sm text-gray-500 mt-1">Juin → Septembre 2026 • Missions et postes illimités</p>
+              <p className="text-sm text-gray-600 mb-3">
+                Vous paierez au moment de publier chaque mission :
+              </p>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-700">Mission normale</span>
+                  <span className="font-bold text-gray-900">{missionNormalTTC}€ TTC</span>
                 </div>
-                <span className="text-xl font-bold text-gray-900">129,90€</span>
-              </div>
-              <div className="mt-3 pt-3 border-t flex justify-between text-sm">
-                <span className="text-gray-600">Soit par mois</span>
-                <span className="font-bold text-green-600">32,48€/mois au lieu de 49,90€</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-700">Mission urgente ⚡</span>
+                  <span className="font-bold text-gray-900">{missionUrgentTTC}€ TTC</span>
+                </div>
               </div>
             </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+              <p className="text-sm text-amber-800">
+                💡 <strong>Astuce :</strong> Avec le Club à {clubPriceTTC}€/mois, votre 1ère mission est incluse et les suivantes ne coûtent que {missionSuppTTC}€.
+                <button onClick={() => setSelectedPlan('club')} className="ml-2 text-primary-600 font-semibold underline">
+                  Voir le Club
+                </button>
+              </p>
+            </div>
             <button
-              onClick={() => handleCheckout('seasonal')}
-              disabled={loading}
-              className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => navigate('/establishment')}
+              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-lg transition-colors"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Redirection vers Stripe...
-                </span>
-              ) : (
-                '☀️ Réserver la saison — 129,90€'
-              )}
+              Continuer sans abonnement
             </button>
+            <p className="text-xs text-gray-400 text-center mt-2">
+              Le paiement sera demandé lors de la publication d'une mission.
+            </p>
           </div>
         )}
 

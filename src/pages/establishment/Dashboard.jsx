@@ -220,18 +220,22 @@ export default function EstablishmentDashboard() {
   }
 
   const getMissionsLeft = () => {
-    const max = 2
+    const max = 1
     const used = profile?.missions_used || 0
     return Math.max(0, max - used)
   }
 
   const getSubscriptionBadge = () => {
     const status = profile?.subscription_status
-    if (status === 'premium' || status === 'active') {
-      return { label: '🟢 Premium', color: 'bg-green-100 text-green-800' }
+    const plan = profile?.subscription_plan
+    if (status === 'active' && plan === 'club') {
+      return { label: '🏆 Club ExtraTaff', color: 'bg-green-100 text-green-800' }
     }
-    if (status === 'trial') {
-      return { label: '🟡 Essai', color: 'bg-yellow-100 text-yellow-800' }
+    if (status === 'active' || status === 'premium') {
+      return { label: '🟢 Abonnement actif', color: 'bg-green-100 text-green-800' }
+    }
+    if (status === 'expired') {
+      return { label: '🔴 Expiré', color: 'bg-red-100 text-red-800' }
     }
     return { label: '🟡 Freemium', color: 'bg-yellow-100 text-yellow-800' }
   }
@@ -292,41 +296,48 @@ export default function EstablishmentDashboard() {
               {badge.label}
             </span>
           </div>
-          {/* Ligne 3 : Infos essai/freemium */}
-          {profile.subscription_status !== 'premium' && profile.subscription_status !== 'active' && (
+          {/* Ligne 3 : Infos freemium */}
+          {profile.subscription_status !== 'active' && profile.subscription_status !== 'premium' && (
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              {trialDays !== null && (
-                <span className={`font-medium ${trialDays <= 7 ? 'text-red-600' : 'text-amber-700'}`}>
-                  ⏳ {trialDays}j d'essai
-                </span>
-              )}
-              {(profile.missions_credit || 0) > 0 ? (
-                <span className="text-primary-600 font-medium">
-                  🎫 {profile.missions_credit} crédit{profile.missions_credit > 1 ? 's' : ''} mission
-                </span>
-              ) : (
-                <span className="text-gray-600">
-                  📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''}
-                </span>
-              )}
+              <span className="text-gray-600">
+                📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''}
+              </span>
               <button
                 onClick={() => navigate('/establishment/subscribe')}
                 className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
               >
-                Choisir votre formule →
+                Rejoindre le Club →
               </button>
             </div>
           )}
-          {/* Ligne 3 bis : Gérer abonnement pour les premium */}
-          {(profile.subscription_status === 'premium' || profile.subscription_status === 'active') && (
+          {/* Ligne 3 bis : Info Club pour les abonnés */}
+          {(profile.subscription_status === 'active') && (
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-green-600 font-medium">✅ Abonnement actif</span>
-              <button
-                onClick={handleManageSubscription}
-                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
-              >
-                Gérer mon abonnement →
-              </button>
+              {profile.subscription_plan === 'club' ? (
+                <>
+                  <span className={`font-medium ${profile.missions_included_used ? 'text-gray-500' : 'text-green-600'}`}>
+                    {profile.missions_included_used 
+                      ? '📋 Mission incluse utilisée ce mois' 
+                      : '✅ 1 mission incluse disponible'}
+                  </span>
+                  <button
+                    onClick={handleManageSubscription}
+                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
+                  >
+                    Gérer mon abonnement →
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-green-600 font-medium">✅ Abonnement actif</span>
+                  <button
+                    onClick={handleManageSubscription}
+                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
+                  >
+                    Gérer mon abonnement →
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -520,18 +531,27 @@ export default function EstablishmentDashboard() {
                         {badge.label}
                       </span>
                     </div>
-                    {trialDays !== null && profile.subscription_status !== 'premium' && profile.subscription_status !== 'active' && (
+                    {/* Info Club */}
+                    {profile.subscription_status === 'active' && profile.subscription_plan === 'club' && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm text-gray-600">
+                          {profile.missions_included_used 
+                            ? '📋 Mission incluse du mois : utilisée' 
+                            : '✅ Mission incluse du mois : disponible'}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Missions supplémentaires : 10,80€ TTC • Urgentes : 10,80€ TTC
+                        </p>
+                      </div>
+                    )}
+                    {/* Info Freemium */}
+                    {profile.subscription_status !== 'active' && profile.subscription_status !== 'premium' && (
                       <p className="text-sm text-gray-500 mt-2">
-                        ⏳ {trialDays} jour{trialDays > 1 ? 's' : ''} restant{trialDays > 1 ? 's' : ''} 
-                        {(profile.missions_credit || 0) > 0 ? (
-                          <> • 🎫 {profile.missions_credit} crédit{profile.missions_credit > 1 ? 's' : ''} mission</>
-                        ) : (
-                          <> • 📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''}</>
-                        )}
+                        📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''} restante{missionsLeft > 1 ? 's' : ''}
                       </p>
                     )}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {(profile.subscription_status === 'premium' || profile.subscription_status === 'active') ? (
+                      {profile.subscription_status === 'active' ? (
                         <>
                           <button
                             onClick={handleManageSubscription}
@@ -539,19 +559,13 @@ export default function EstablishmentDashboard() {
                           >
                             ⚙️ Gérer mon abonnement
                           </button>
-                          <button
-                            onClick={() => navigate('/establishment/subscribe')}
-                            className="px-4 py-2 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded-lg text-sm font-medium transition-colors"
-                          >
-                            🔄 Changer de formule
-                          </button>
                         </>
                       ) : (
                         <button
                           onClick={() => navigate('/establishment/subscribe')}
                           className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
                         >
-                          ⚡ Choisir une formule
+                          🏆 Rejoindre le Club ExtraTaff
                         </button>
                       )}
                     </div>

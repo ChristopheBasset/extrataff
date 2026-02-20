@@ -38,6 +38,13 @@ export default function MissionList() {
         return dept && selectedDepartments.includes(dept)
       })
     }
+
+    // Tri : missions urgentes en haut, puis par date de création
+    filtered.sort((a, b) => {
+      if (a.is_urgent && !b.is_urgent) return -1
+      if (!a.is_urgent && b.is_urgent) return 1
+      return 0 // garder l'ordre existant (match score) pour le reste
+    })
     
     setFilteredMissions(filtered)
   }
@@ -311,6 +318,11 @@ export default function MissionList() {
             <h2 className="text-3xl font-bold text-gray-900">Missions Matchées</h2>
             <p className="text-gray-600 mt-2">
               {filteredMissions.length} mission{filteredMissions.length > 1 ? 's' : ''} correspondant à votre profil
+              {filteredMissions.filter(m => m.is_urgent).length > 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                  ⚡ {filteredMissions.filter(m => m.is_urgent).length} urgente{filteredMissions.filter(m => m.is_urgent).length > 1 ? 's' : ''}
+                </span>
+              )}
               {!showAllDepartments && selectedDepartments.length > 0 && (
                 <span> dans {selectedDepartments.length} département(s)</span>
               )}

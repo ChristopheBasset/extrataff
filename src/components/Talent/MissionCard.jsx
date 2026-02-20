@@ -1,22 +1,27 @@
-import { getUrgencyBadge } from '../../lib/matching'
 import { formatDate, getLabel, CONTRACT_TYPES } from '../../lib/supabase'
 
 export default function MissionCard({ mission, matchCategory, onApply, onHide }) {
-  const urgencyBadge = getUrgencyBadge(mission.urgency_level)
 
   return (
-    <div className="card hover:shadow-lg transition-shadow">
-      {/* Header avec score et urgence */}
+    <div className={`card hover:shadow-lg transition-shadow relative ${
+      mission.is_urgent ? 'ring-2 ring-red-400 bg-red-50/30' : ''
+    }`}>
+
+      {/* Badge URGENT flottant */}
+      {mission.is_urgent && (
+        <div className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md animate-pulse">
+          ⚡ URGENT
+        </div>
+      )}
+
+      {/* Header avec score de match */}
       <div className="flex justify-between items-start mb-4">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {matchCategory && (
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${matchCategory.bgColor} ${matchCategory.textColor} border-2 ${matchCategory.borderColor}`}>
               {matchCategory.badge} {matchCategory.label} ({mission.match_score}%)
             </span>
           )}
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${urgencyBadge.bgColor} ${urgencyBadge.textColor}`}>
-            {urgencyBadge.emoji} {urgencyBadge.label}
-          </span>
         </div>
       </div>
 
@@ -41,7 +46,10 @@ export default function MissionCard({ mission, matchCategory, onApply, onHide })
       <div className="space-y-2 mb-4">
         <div className="flex items-center text-sm text-gray-700">
           <span className="font-medium w-32">Début :</span>
-          <span>{formatDate(mission.start_date)}</span>
+          <span className={mission.is_urgent ? 'font-bold text-red-600' : ''}>
+            {formatDate(mission.start_date)}
+            {mission.is_urgent && ' ⚡'}
+          </span>
         </div>
 
         {mission.end_date && (
@@ -82,9 +90,13 @@ export default function MissionCard({ mission, matchCategory, onApply, onHide })
       <div className="flex gap-2">
         <button
           onClick={() => onApply(mission.id)}
-          className="btn-primary flex-1"
+          className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+            mission.is_urgent
+              ? 'bg-red-600 hover:bg-red-700 text-white'
+              : 'btn-primary'
+          }`}
         >
-          ✋ Je suis intéressé(e)
+          {mission.is_urgent ? '⚡ Postuler maintenant' : '✋ Je suis intéressé(e)'}
         </button>
         <button
           onClick={() => onHide(mission.id)}

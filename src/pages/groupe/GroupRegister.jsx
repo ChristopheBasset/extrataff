@@ -194,13 +194,13 @@ export default function GroupRegister() {
       {/* Contenu */}
       <div className="max-w-2xl mx-auto px-4 pb-12">
 
-        {/* Bandeau essai gratuit */}
+        {/* Bandeau offre */}
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 mb-6">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🎁</span>
             <div>
-              <p className="font-semibold text-green-900">30 jours d'essai gratuit</p>
-              <p className="text-sm text-green-700">1 mission offerte par établissement • Aucune carte bancaire requise à l'inscription</p>
+              <p className="font-semibold text-green-900">1ère mission offerte pour chaque établissement</p>
+              <p className="text-sm text-green-700">Puis rejoignez le Club ExtraTaff avec 30 jours d'essai gratuit</p>
             </div>
           </div>
         </div>

@@ -51,7 +51,7 @@ export default function GroupLanding() {
         </p>
         <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 mb-8">
           <span className="text-xl">🎁</span>
-          <span className="text-white font-semibold">30 jours d'essai gratuit — 1 mission offerte par établissement</span>
+          <span className="text-white font-semibold">1ère mission offerte • Puis Club ExtraTaff 30 jours gratuits</span>
         </div>
       </div>
 

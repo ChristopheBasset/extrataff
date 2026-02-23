@@ -222,7 +222,7 @@ export default function MissionForm({ onMissionCreated }) {
         location_fuzzy: fuzzyLocation,
         location_exact: establishment.address,
         search_radius: 10,
-        duration_type: durationDays === 1 ? 'ponctuel' : 'courte_duree',
+        duration_type: durationDays === 1 ? 'ponctuelle' : 'courte',
         start_date: formData.start_date,
         end_date: formData.end_date || null,
         shift_start_time: formData.shift_start_time || null,

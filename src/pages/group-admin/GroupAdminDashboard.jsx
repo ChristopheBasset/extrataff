@@ -201,6 +201,24 @@ export default function GroupAdminDashboard() {
         {/* VUE D'ENSEMBLE */}
         {tab === 'overview' && (
           <div>
+            {/* Bandeau Club ExtraTaff si pas tous abonnés */}
+            {establishments.some(e => e.subscription_status !== 'active') && (
+              <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-6 mb-8 text-white flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold">🏆 Rejoignez le Club ExtraTaff</h3>
+                  <p className="text-white/80 text-sm mt-1">
+                    30 jours d'essai gratuit • 1 mission incluse/mois/établissement • Urgentes à prix réduit
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/establishment/subscribe')}
+                  className="bg-white text-primary-700 px-6 py-2 rounded-lg font-bold text-sm hover:bg-gray-100 transition-colors whitespace-nowrap"
+                >
+                  Essai gratuit →
+                </button>
+              </div>
+            )}
+
             <h2 className="text-xl font-bold text-gray-900 mb-6">Statistiques du groupe</h2>
 
             {/* Cartes de stats */}
@@ -221,7 +239,7 @@ export default function GroupAdminDashboard() {
               </div>
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600">Actifs</p>
+                <p className="text-sm text-gray-600">Club ExtraTaff</p>
                 <p className="text-3xl font-bold text-orange-600 mt-2">
                   {establishments.filter(e => e.subscription_status === 'active').length}
                 </p>
@@ -257,7 +275,11 @@ export default function GroupAdminDashboard() {
                               ? 'bg-green-100 text-green-700'
                               : 'bg-yellow-100 text-yellow-700'
                           }`}>
-                            {estab.subscription_status === 'active' ? '✅ Premium' : '⚡ Freemium'}
+                            {estab.subscription_status === 'active' && estab.subscription_plan === 'club'
+                              ? '🏆 Club ExtraTaff'
+                              : estab.subscription_status === 'active'
+                              ? '✅ Actif'
+                              : '⚡ Freemium'}
                           </span>
                         </td>
                       </tr>
@@ -388,7 +410,11 @@ export default function GroupAdminDashboard() {
                       ? 'bg-green-100 text-green-700'
                       : 'bg-yellow-100 text-yellow-700'
                   }`}>
-                    {estab.subscription_status === 'active' ? '✅ Premium' : '⚡ Freemium'}
+                    {estab.subscription_status === 'active' && estab.subscription_plan === 'club'
+                      ? '🏆 Club ExtraTaff'
+                      : estab.subscription_status === 'active'
+                      ? '✅ Actif'
+                      : '⚡ Freemium'}
                   </span>
                 </div>
               ))}
@@ -401,24 +427,38 @@ export default function GroupAdminDashboard() {
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-6">Gestion de la facturation</h2>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h3 className="font-bold text-gray-900 mb-4">Tarification</h3>
+                <h3 className="font-bold text-gray-900 mb-4">Tarification Club ExtraTaff</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Premier établissement</span>
-                    <span className="font-semibold">59,90 €/mois</span>
+                    <span className="text-gray-600">1er établissement</span>
+                    <span className="font-semibold">24,00 €/mois</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Supplémentaires ({establishments.length - 1})</span>
-                    <span className="font-semibold">{(establishments.length - 1) * 39.90} €/mois</span>
-                  </div>
+                  {establishments.length > 1 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">
+                        {establishments.length - 1} supplémentaire{establishments.length > 2 ? 's' : ''} <span className="text-green-600">(-10%)</span>
+                      </span>
+                      <span className="font-semibold">{((establishments.length - 1) * 21.60).toFixed(2)} €/mois</span>
+                    </div>
+                  )}
                   <div className="border-t pt-3 flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span className="text-primary-600">
-                      {(59.90 + (establishments.length - 1) * 39.90).toFixed(2)} €/mois
-                    </span>
+                    <div className="text-right">
+                      <span className="text-primary-600">
+                        {(24.00 + (establishments.length - 1) * 21.60).toFixed(2)} € TTC/mois
+                      </span>
+                      <span className="block text-xs text-gray-400 font-normal">
+                        {((24.00 + (establishments.length - 1) * 21.60) / 1.2).toFixed(2)} € HT
+                      </span>
+                    </div>
                   </div>
+                </div>
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    🎁 1 mission incluse par établissement et par mois
+                  </p>
                 </div>
               </div>
 
@@ -430,24 +470,43 @@ export default function GroupAdminDashboard() {
                     <span className="font-semibold">{establishments.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Premium</span>
+                    <span className="text-gray-600">🏆 Club ExtraTaff</span>
                     <span className="font-semibold">
-                      {establishments.filter(e => e.subscription_status === 'active').length}
+                      {establishments.filter(e => e.subscription_status === 'active' && e.subscription_plan === 'club').length}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Freemium</span>
+                    <span className="text-gray-600">⚡ Freemium</span>
                     <span className="font-semibold">
                       {establishments.filter(e => e.subscription_status !== 'active').length}
                     </span>
                   </div>
+                </div>
+
+                {/* Bouton Gérer / Souscrire */}
+                <div className="mt-6">
+                  {establishments.some(e => e.subscription_status === 'active') ? (
+                    <button
+                      onClick={() => navigate('/establishment/subscribe')}
+                      className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm transition-colors"
+                    >
+                      ⚙️ Gérer les abonnements
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => navigate('/establishment/subscribe')}
+                      className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-bold text-sm transition-colors"
+                    >
+                      🏆 Rejoindre le Club — 30 jours gratuits
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-6">
               <p className="text-blue-900">
-                <strong>ℹ️ Note:</strong> La facturation des groupes est gérée mensuellement au niveau du groupe. Chaque restaurant peut gérer sa souscription indépendamment dans son dashboard.
+                <strong>ℹ️ Note :</strong> Chaque restaurant du groupe bénéficie de 30 jours d'essai gratuit lors de son adhésion au Club ExtraTaff. La facturation commence après la période d'essai.
               </p>
             </div>
           </div>

@@ -306,7 +306,7 @@ export default function EstablishmentDashboard() {
                 onClick={() => navigate('/establishment/subscribe')}
                 className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
               >
-                Rejoindre le Club →
+                Rejoindre le Club — 30j gratuits →
               </button>
             </div>
           )}
@@ -565,7 +565,7 @@ export default function EstablishmentDashboard() {
                           onClick={() => navigate('/establishment/subscribe')}
                           className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
                         >
-                          🏆 Rejoindre le Club ExtraTaff
+                          🏆 Rejoindre le Club — 30 jours gratuits
                         </button>
                       )}
                     </div>

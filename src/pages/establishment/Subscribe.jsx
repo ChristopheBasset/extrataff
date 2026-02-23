@@ -122,18 +122,18 @@ export default function Subscribe() {
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Rejoignez le Club ExtraTaff 🏆</h1>
           <p className="text-gray-600">
-            Recrutez vos extras en quelques clics. Choisissez la formule qui vous convient.
+            Recrutez vos extras en quelques clics. <strong>30 jours d'essai gratuit</strong>, puis choisissez la formule qui vous convient.
           </p>
         </div>
 
         {/* Statut freemium épuisé */}
-        {establishment && missionsUsed >= 2 && (
+        {establishment && missionsUsed >= 1 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
             <div className="flex items-center gap-3">
               <span className="text-2xl">🎁</span>
               <div>
-                <p className="font-medium text-gray-900">Vos missions d'essai sont épuisées</p>
-                <p className="text-sm text-gray-600">{missionsUsed}/2 missions gratuites utilisées</p>
+                <p className="font-medium text-gray-900">Votre mission d'essai est épuisée</p>
+                <p className="text-sm text-gray-600">{missionsUsed}/1 mission gratuite utilisée</p>
               </div>
             </div>
           </div>
@@ -160,16 +160,21 @@ export default function Subscribe() {
           >
             <div className="flex justify-between items-start mb-4">
               <span className="text-3xl">🏆</span>
-              <span className="bg-primary-100 text-primary-700 text-xs font-bold px-3 py-1 rounded-full">
-                RECOMMANDÉ
-              </span>
+              <div className="flex gap-2">
+                <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
+                  30 JOURS GRATUITS
+                </span>
+                <span className="bg-primary-100 text-primary-700 text-xs font-bold px-3 py-1 rounded-full">
+                  RECOMMANDÉ
+                </span>
+              </div>
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-1">Club ExtraTaff</h3>
             <div className="mb-1">
               <span className="text-4xl font-extrabold text-primary-600">{clubPriceTTC}€</span>
               <span className="text-gray-500">/mois</span>
             </div>
-            <p className="text-xs text-gray-500 mb-4">{clubPriceHT}€ HT/mois • Sans engagement</p>
+            <p className="text-xs text-gray-500 mb-4">{clubPriceHT}€ HT/mois • Sans engagement • 30 jours gratuits</p>
             <ul className="space-y-3 mb-6">
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
@@ -293,6 +298,9 @@ export default function Subscribe() {
                 <span className="text-xl font-bold text-gray-900">{clubPriceTTC}€/mois</span>
               </div>
               <p className="text-sm text-gray-500">{clubPriceHT}€ HT • 1 mission incluse • Sans engagement</p>
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-800 font-medium">🎁 30 jours d'essai gratuit — votre carte ne sera débitée qu'à l'issue de la période d'essai</p>
+              </div>
               <div className="mt-3 pt-3 border-t border-gray-200 space-y-1">
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Missions supplémentaires</span>
@@ -312,7 +320,7 @@ export default function Subscribe() {
               {loading ? (
                 <Spinner />
               ) : (
-                `🏆 Rejoindre le Club — ${clubPriceTTC}€/mois`
+                `🏆 Essai gratuit 30 jours — puis ${clubPriceTTC}€/mois`
               )}
             </button>
           </div>

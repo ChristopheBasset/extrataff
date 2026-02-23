@@ -93,7 +93,7 @@ export default function MissionForm({ onMissionCreated }) {
     const plan = establishment.subscription_plan
     const missionsUsed = establishment.missions_used || 0
     const missionIncluded = establishment.missions_included_used === false
-    const FREEMIUM_MAX = 2
+    const FREEMIUM_MAX = 1
 
     // Abonné Club
     if (status === 'active' && plan === 'club') {

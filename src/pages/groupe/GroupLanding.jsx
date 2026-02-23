@@ -5,13 +5,16 @@ export default function GroupLanding() {
   const navigate = useNavigate()
   const [establishmentCount, setEstablishmentCount] = useState(2)
 
-  // Calcul du prix
+  // Calcul du prix (Club ExtraTaff Groupe)
+  // 1er établissement : 24€ TTC/mois (20€ HT)
+  // Supplémentaires : -10% soit 21,60€ TTC/mois (18€ HT)
   const calculatePrice = (count) => {
-    if (count === 1) return 59.90
-    return 59.90 + (count - 1) * 39.90
+    if (count === 1) return 24.00
+    return 24.00 + (count - 1) * 21.60
   }
 
   const totalPrice = calculatePrice(establishmentCount)
+  const totalPriceHT = (totalPrice / 1.2).toFixed(2).replace('.', ',')
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-700 to-blue-900">
@@ -44,7 +47,7 @@ export default function GroupLanding() {
         </h1>
         <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
           Gérez plusieurs établissements depuis un seul compte.<br />
-          Tarifs dégressifs selon le nombre d'établissements.
+          Tarifs Club ExtraTaff avec -10% sur les établissements supplémentaires.
         </p>
       </div>
 
@@ -93,6 +96,7 @@ export default function GroupLanding() {
                   ? '1 établissement' 
                   : `${establishmentCount} établissements`}
               </p>
+              <p className="text-sm text-gray-400 mt-1">{totalPriceHT}€ HT</p>
             </div>
 
             {/* Price Breakdown */}
@@ -101,15 +105,15 @@ export default function GroupLanding() {
                 <div className="text-sm text-gray-600 space-y-1">
                   <div className="flex justify-between">
                     <span>1er établissement</span>
-                    <span className="font-medium">59,90€</span>
+                    <span className="font-medium">24,00€</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>{establishmentCount - 1} établissement{establishmentCount > 2 ? 's' : ''} supplémentaire{establishmentCount > 2 ? 's' : ''}</span>
-                    <span className="font-medium">{((establishmentCount - 1) * 39.90).toFixed(2).replace('.', ',')}€</span>
+                    <span>{establishmentCount - 1} établissement{establishmentCount > 2 ? 's' : ''} supplémentaire{establishmentCount > 2 ? 's' : ''} <span className="text-green-600">(-10%)</span></span>
+                    <span className="font-medium">{((establishmentCount - 1) * 21.60).toFixed(2).replace('.', ',')}€</span>
                   </div>
                   <div className="border-t border-blue-200 pt-2 mt-2 flex justify-between font-bold text-blue-700">
                     <span>Total</span>
-                    <span>{totalPrice.toFixed(2).replace('.', ',')}€/mois</span>
+                    <span>{totalPrice.toFixed(2).replace('.', ',')}€ TTC/mois</span>
                   </div>
                 </div>
               </div>
@@ -137,7 +141,11 @@ export default function GroupLanding() {
             <div className="space-y-3 mb-8">
               <div className="flex items-center gap-3 text-gray-700">
                 <span className="text-green-500 text-xl">✓</span>
-                <span>1 mois d'essai gratuit</span>
+                <span>1 mois d'essai gratuit — 1 mission offerte</span>
+              </div>
+              <div className="flex items-center gap-3 text-gray-700">
+                <span className="text-green-500 text-xl">✓</span>
+                <span>1 mission incluse par établissement et par mois</span>
               </div>
               <div className="flex items-center gap-3 text-gray-700">
                 <span className="text-green-500 text-xl">✓</span>

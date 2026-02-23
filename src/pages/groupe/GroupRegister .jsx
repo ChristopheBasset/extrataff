@@ -12,6 +12,7 @@ export default function GroupRegister() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
+  const [acceptCGV, setAcceptCGV] = useState(false)
 
   // Données du formulaire
   const [formData, setFormData] = useState({
@@ -35,13 +36,16 @@ export default function GroupRegister() {
     department: ''
   })
 
-  // Calcul du prix
+  // Calcul du prix (Club ExtraTaff Groupe)
+  // 1er établissement : 24€ TTC/mois
+  // Établissements supplémentaires : -10% soit 21,60€ TTC/mois
   const calculatePrice = (count) => {
-    if (count === 1) return 59.90
-    return 59.90 + (count - 1) * 39.90
+    if (count === 1) return 24.00
+    return 24.00 + (count - 1) * 21.60
   }
 
   const totalPrice = calculatePrice(formData.establishmentCount)
+  const priceHT = (totalPrice / 1.2).toFixed(2).replace('.', ',')
 
   // Étape 1 : Choix du mode
   const handleModeSelect = (mode) => {
@@ -72,6 +76,12 @@ export default function GroupRegister() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+
+    if (!acceptCGV) {
+      setError('Vous devez accepter les Conditions Générales de Vente pour vous inscrire')
+      setLoading(false)
+      return
+    }
 
     try {
       // 1. Créer le compte utilisateur
@@ -264,12 +274,17 @@ export default function GroupRegister() {
             {/* Récap prix */}
             <div className="mt-8 p-4 bg-gray-50 rounded-xl text-center">
               <p className="text-gray-600">
-                {formData.establishmentCount} établissements = {' '}
+                {formData.establishmentCount} établissement{formData.establishmentCount > 1 ? 's' : ''} = {' '}
                 <span className="font-bold text-gray-900">
-                  {totalPrice.toFixed(2).replace('.', ',')}€/mois
+                  {totalPrice.toFixed(2).replace('.', ',')}€ TTC/mois
                 </span>
-                <span className="text-sm text-gray-500 ml-2">(après essai gratuit)</span>
+                <span className="text-sm text-gray-500 ml-2">({priceHT}€ HT — après essai gratuit)</span>
               </p>
+              {formData.establishmentCount > 1 && (
+                <p className="text-xs text-green-600 mt-1">
+                  -10% sur les établissements supplémentaires
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -477,25 +492,54 @@ export default function GroupRegister() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-sm mt-2">
-                  <span className="text-gray-600">Établissements :</span>
-                  <span className="font-medium">{formData.establishmentCount}</span>
+                  <span className="text-gray-600">1er établissement :</span>
+                  <span className="font-medium">24,00€</span>
                 </div>
+                {formData.establishmentCount > 1 && (
+                  <div className="flex justify-between items-center text-sm mt-1">
+                    <span className="text-gray-600">{formData.establishmentCount - 1} établissement{formData.establishmentCount > 2 ? 's' : ''} supplémentaire{formData.establishmentCount > 2 ? 's' : ''} (-10%) :</span>
+                    <span className="font-medium">{((formData.establishmentCount - 1) * 21.60).toFixed(2).replace('.', ',')}€</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center mt-2 pt-2 border-t">
                   <span className="text-gray-600">Total après essai :</span>
-                  <span className="font-bold text-blue-600">{totalPrice.toFixed(2).replace('.', ',')}€/mois</span>
+                  <div className="text-right">
+                    <span className="font-bold text-blue-600">{totalPrice.toFixed(2).replace('.', ',')}€ TTC/mois</span>
+                    <span className="block text-xs text-gray-400">{priceHT}€ HT</span>
+                  </div>
                 </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="cgv"
+                  checked={acceptCGV}
+                  onChange={(e) => setAcceptCGV(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <label htmlFor="cgv" className="text-sm text-gray-600 cursor-pointer">
+                  J'accepte les{' '}
+                  <a href="/cgv" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+                    Conditions Générales de Vente
+                  </a>{' '}
+                  et la{' '}
+                  <a href="/politique-confidentialite" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+                    Politique de Confidentialité
+                  </a>
+                  {' '}<span className="text-red-500">*</span>
+                </label>
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+                disabled={loading || !acceptCGV}
+                className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Création en cours...' : 'Créer mon compte Groupe ✓'}
               </button>
 
               <p className="text-center text-xs text-gray-500">
-                En créant votre compte, vous acceptez nos conditions d'utilisation.<br />
                 Vous bénéficiez de 1 mois d'essai gratuit.
               </p>
             </form>

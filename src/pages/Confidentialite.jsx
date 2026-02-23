@@ -46,6 +46,7 @@ export default function Confidentialite() {
               <li>• Adresse email du responsable</li>
               <li>• Numéro SIRET</li>
               <li>• Informations relatives aux missions publiées</li>
+              <li>• Données de paiement (traitées de manière sécurisée par Stripe, ExtraTaff n'a pas accès aux numéros de carte bancaire)</li>
             </ul>
 
             <p className="font-semibold text-gray-900 mt-4">Données techniques :</p>
@@ -64,6 +65,7 @@ export default function Confidentialite() {
               <li>• Gestion des candidatures et des missions</li>
               <li>• Messagerie intégrée entre utilisateurs</li>
               <li>• Envoi de notifications (SMS, email) relatives à l'activité du compte</li>
+              <li>• Gestion des paiements et des abonnements</li>
               <li>• Amélioration de la plateforme et analyse statistique anonymisée</li>
               <li>• Respect des obligations légales</li>
             </ul>
@@ -96,9 +98,11 @@ export default function Confidentialite() {
             <h2 className="text-xl font-bold text-gray-900 mb-3">6. Sous-traitants</h2>
             <p>Nos prestataires techniques sont :</p>
             <ul className="mt-2 space-y-1 text-sm">
-              <li>• <strong>Supabase</strong> (base de données et authentification)</li>
+              <li>• <strong>Supabase</strong> (base de données, authentification et fonctions serveur)</li>
               <li>• <strong>Netlify</strong> (hébergement du site web)</li>
+              <li>• <strong>Stripe</strong> (traitement des paiements et gestion des abonnements)</li>
               <li>• <strong>Brevo</strong> (envoi de SMS et emails transactionnels)</li>
+              <li>• <strong>Resend</strong> (envoi d'emails transactionnels)</li>
             </ul>
             <p className="mt-2">
               Ces prestataires traitent les données uniquement pour le compte d'ExtraTaff SAS et conformément à nos instructions, dans le respect du RGPD.

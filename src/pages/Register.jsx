@@ -11,6 +11,7 @@ export default function Register() {
   const [error, setError] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [acceptCGV, setAcceptCGV] = useState(false)
 
   const [authData, setAuthData] = useState({
     email: '',
@@ -31,6 +32,12 @@ export default function Register() {
     setError(null)
 
     // Validation
+    if (!acceptCGV) {
+      setError('Vous devez accepter les Conditions Générales de Vente pour vous inscrire')
+      setLoading(false)
+      return
+    }
+
     if (authData.password !== authData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas')
       setLoading(false)
@@ -218,10 +225,31 @@ export default function Register() {
               </div>
             </div>
 
+            <div className="flex items-start gap-3 mt-2">
+              <input
+                type="checkbox"
+                id="cgv"
+                checked={acceptCGV}
+                onChange={(e) => setAcceptCGV(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+              />
+              <label htmlFor="cgv" className="text-sm text-gray-600 cursor-pointer">
+                J'accepte les{' '}
+                <a href="/cgv" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline hover:text-primary-800">
+                  Conditions Générales de Vente
+                </a>{' '}
+                et la{' '}
+                <a href="/politique-confidentialite" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline hover:text-primary-800">
+                  Politique de Confidentialité
+                </a>
+                {' '}<span className="text-red-500">*</span>
+              </label>
+            </div>
+
             <button
               type="submit"
-              disabled={loading}
-              className="btn-primary w-full mt-6"
+              disabled={loading || !acceptCGV}
+              className="btn-primary w-full mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Création...' : 'Continuer'}
             </button>

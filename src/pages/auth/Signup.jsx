@@ -12,6 +12,7 @@ export default function Signup() {
     password: '',
     confirmPassword: ''
   })
+  const [acceptCGV, setAcceptCGV] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -25,6 +26,11 @@ export default function Signup() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    if (!acceptCGV) {
+      setError('Vous devez accepter les Conditions Générales de Vente pour vous inscrire')
+      return
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas')
@@ -176,10 +182,31 @@ export default function Signup() {
             />
           </div>
 
+          <div className="flex items-start gap-3 mt-2">
+            <input
+              type="checkbox"
+              id="cgv"
+              checked={acceptCGV}
+              onChange={(e) => setAcceptCGV(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+            />
+            <label htmlFor="cgv" className="text-sm text-gray-600 cursor-pointer">
+              J'accepte les{' '}
+              <a href="/cgv" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+                Conditions Générales de Vente
+              </a>{' '}
+              et la{' '}
+              <a href="/politique-confidentialite" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+                Politique de Confidentialité
+              </a>
+              {' '}<span className="text-red-500">*</span>
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition"
+            disabled={loading || !acceptCGV}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition"
           >
             {loading ? 'Création en cours...' : 'S\'inscrire'}
           </button>

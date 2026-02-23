@@ -144,6 +144,19 @@ export default function Register() {
             </div>
           )}
 
+          {/* Bandeau essai gratuit pour les établissements */}
+          {userType === 'establishment' && (
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🎁</span>
+                <div>
+                  <p className="font-semibold text-green-900">30 jours d'essai gratuit</p>
+                  <p className="text-sm text-green-700">1 mission offerte • Aucune carte bancaire requise à l'inscription</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

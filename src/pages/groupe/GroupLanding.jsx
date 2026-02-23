@@ -45,10 +45,14 @@ export default function GroupLanding() {
         <h1 className="text-4xl md:text-5xl font-bold mb-4">
           Offre Groupe
         </h1>
-        <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
+        <p className="text-xl text-white/80 mb-6 max-w-2xl mx-auto">
           Gérez plusieurs établissements depuis un seul compte.<br />
           Tarifs Club ExtraTaff avec -10% sur les établissements supplémentaires.
         </p>
+        <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 mb-8">
+          <span className="text-xl">🎁</span>
+          <span className="text-white font-semibold">30 jours d'essai gratuit — 1 mission offerte par établissement</span>
+        </div>
       </div>
 
       {/* Pricing Calculator */}

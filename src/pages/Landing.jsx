@@ -258,7 +258,7 @@ export default function Landing() {
           <div className="mt-10 text-center">
             <p className="text-gray-600 mb-2">Vous avez d'autres questions ?</p>
             <a 
-              href="mailto:contact@extrataff.fr" 
+              href="mailto:christophe@comunecom.fr" 
               className="inline-flex items-center text-blue-600 font-semibold hover:text-blue-700"
             >
               Contactez-nous
@@ -271,25 +271,63 @@ export default function Landing() {
       </section>
 
       {/* ===== FOOTER ===== */}
-      <footer className="bg-gray-900 w-full py-8">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mb-4">
-            <Link to="/mentions-legales" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Mentions légales
-            </Link>
-            <Link to="/cgv" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Conditions générales
-            </Link>
-            <Link to="/confidentialite" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Politique de confidentialité
-            </Link>
-            <a href="mailto:contact@extrataff.fr" className="text-gray-400 hover:text-white text-sm transition-colors">
-              Contact
-            </a>
+      <footer className="bg-gray-900 w-full py-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            
+            {/* Colonne 1 — Marque */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-4">
+                <img src={lightningSvg} alt="ExtraTaff" className="h-6 w-6" />
+                <span className="text-white font-bold text-lg">ExtraTaff</span>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                La plateforme de mise en relation entre établissements CHR et extras qualifiés.
+              </p>
+              <p className="text-gray-400 text-sm mt-3">L'extra qu'il te faut ⚡</p>
+            </div>
+
+            {/* Colonne 2 — Liens utiles */}
+            <div>
+              <h4 className="text-white font-semibold mb-4">Liens utiles</h4>
+              <div className="space-y-2 text-sm">
+                <button onClick={() => navigate('/register')} className="block text-gray-400 hover:text-white transition-colors">S'inscrire</button>
+                <button onClick={() => navigate('/login')} className="block text-gray-400 hover:text-white transition-colors">Se connecter</button>
+                <a href="#tarifs" className="block text-gray-400 hover:text-white transition-colors">Tarifs</a>
+                <a href="#faq" className="block text-gray-400 hover:text-white transition-colors">FAQ</a>
+              </div>
+            </div>
+
+            {/* Colonne 3 — Légal */}
+            <div>
+              <h4 className="text-white font-semibold mb-4">Informations légales</h4>
+              <div className="space-y-2 text-sm">
+                <Link to="/mentions-legales" className="block text-gray-400 hover:text-white transition-colors">Mentions légales</Link>
+                <Link to="/cgv" className="block text-gray-400 hover:text-white transition-colors">Conditions générales de vente</Link>
+                <Link to="/confidentialite" className="block text-gray-400 hover:text-white transition-colors">Politique de confidentialité</Link>
+              </div>
+            </div>
+
+            {/* Colonne 4 — Contact */}
+            <div>
+              <h4 className="text-white font-semibold mb-4">Contact</h4>
+              <div className="space-y-2 text-sm text-gray-400">
+                <p>CVBN CONSULTING</p>
+                <p>1, sente aux Pruniers</p>
+                <p>27120 Gadencourt</p>
+                <a href="mailto:christophe@comunecom.fr" className="block hover:text-white transition-colors mt-2">
+                  christophe@comunecom.fr
+                </a>
+              </div>
+            </div>
+
           </div>
-          <p className="text-gray-500 text-xs">
-            © {new Date().getFullYear()} ExtraTaff SAS — Tous droits réservés
-          </p>
+
+          {/* Séparateur + Copyright */}
+          <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-500">
+            <p>© {new Date().getFullYear()} ExtraTaff — CVBN CONSULTING SASU</p>
+            <p className="mt-2 sm:mt-0">SIRET : 984 685 933 00017 — TVA : FR23984685933</p>
+          </div>
         </div>
       </footer>
     </div>

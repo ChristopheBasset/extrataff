@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+
+const ITEMS_PER_PAGE = 20
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
@@ -28,15 +30,44 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [actionLoading, setActionLoading] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
+
+  // Sélection multiple
+  const [selectedTalents, setSelectedTalents] = useState([])
+  const [selectedEstablishments, setSelectedEstablishments] = useState([])
+  const [selectedMissions, setSelectedMissions] = useState([])
+  const [selectedApplications, setSelectedApplications] = useState([])
+
+  // Tri
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' })
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
   
   // Formulaire nouvel admin
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [newAdminName, setNewAdminName] = useState('')
   const [addingAdmin, setAddingAdmin] = useState(false)
 
+  // Reset page et sélection quand on change d'onglet
+  useEffect(() => {
+    setCurrentPage(1)
+    setSearchTerm('')
+    setFilterStatus('all')
+    setSortConfig({ key: 'created_at', direction: 'desc' })
+    setSelectedTalents([])
+    setSelectedEstablishments([])
+    setSelectedMissions([])
+    setSelectedApplications([])
+  }, [activeTab])
+
   useEffect(() => {
     checkAdmin()
   }, [])
+
+  // Reset page quand recherche ou filtre change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filterStatus])
 
   const checkAdmin = async () => {
     try {
@@ -54,6 +85,7 @@ export default function AdminDashboard() {
         .from('admins')
         .select('id')
         .eq('email', user.email)
+        .eq('is_activated', true)
         .single()
 
       if (error || !adminData) {
@@ -138,7 +170,7 @@ export default function AdminDashboard() {
     try {
       const { data, error } = await supabase
         .from('establishments')
-        .select('id, user_id, name, phone, address, city, is_blocked, created_at, subscription_status, subscription_ends_at, stripe_customer_id, stripe_subscription_id, missions_used, trial_ends_at, group_id, is_group_owner')
+        .select('id, user_id, name, phone, address, city, is_blocked, created_at, subscription_status, subscription_plan, subscription_ends_at, stripe_customer_id, stripe_subscription_id, missions_used, missions_included_used, trial_ends_at, group_id, is_group_owner')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -153,7 +185,7 @@ export default function AdminDashboard() {
       const { data, error } = await supabase
         .from('missions')
         .select(`
-          id, position, location_fuzzy, status, start_date, created_at,
+          id, position, location_fuzzy, status, start_date, is_urgent, payment_status, created_at,
           establishment:establishment_id (id, name)
         `)
         .order('created_at', { ascending: false })
@@ -226,10 +258,7 @@ export default function AdminDashboard() {
 
     setActionLoading(missionId)
     try {
-      // Supprimer d'abord les candidatures liées
       await supabase.from('applications').delete().eq('mission_id', missionId)
-      
-      // Puis supprimer la mission
       const { error } = await supabase.from('missions').delete().eq('id', missionId)
       if (error) throw error
       
@@ -246,14 +275,13 @@ export default function AdminDashboard() {
   }
 
   const deleteTalent = async (talentId, userId, talentName) => {
-    if (!confirm(`⚠️ SUPPRIMER DÉFINITIVEMENT le compte de ${talentName} ?\n\nCette action supprimera:\n• Le profil talent\n• Toutes ses candidatures\n• Son compte utilisateur\n\nCette action est IRRÉVERSIBLE.`)) return
+    if (!confirm(`⚠️ SUPPRIMER DÉFINITIVEMENT le compte de ${talentName} ?\n\nCette action est IRRÉVERSIBLE.`)) return
 
     setActionLoading(talentId)
     try {
       const { data, error } = await supabase.functions.invoke('delete-user', {
         body: { userId, userType: 'talent' }
       })
-
       if (error) throw error
       if (data?.error) throw new Error(data.error)
       
@@ -270,14 +298,13 @@ export default function AdminDashboard() {
   }
 
   const deleteEstablishment = async (establishmentId, userId, establishmentName) => {
-    if (!confirm(`⚠️ SUPPRIMER DÉFINITIVEMENT le compte de ${establishmentName} ?\n\nCette action supprimera:\n• Le profil établissement\n• Toutes ses missions\n• Toutes les candidatures associées\n• Son compte utilisateur\n\nCette action est IRRÉVERSIBLE.`)) return
+    if (!confirm(`⚠️ SUPPRIMER DÉFINITIVEMENT le compte de ${establishmentName} ?\n\nCette action est IRRÉVERSIBLE.`)) return
 
     setActionLoading(establishmentId)
     try {
       const { data, error } = await supabase.functions.invoke('delete-user', {
         body: { userId, userType: 'establishment' }
       })
-
       if (error) throw error
       if (data?.error) throw new Error(data.error)
       
@@ -289,6 +316,105 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Erreur suppression établissement:', err)
       alert('Erreur lors de la suppression: ' + err.message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // =====================
+  // SUPPRESSIONS EN MASSE
+  // =====================
+
+  const deleteSelectedTalents = async () => {
+    if (selectedTalents.length === 0) return
+    if (!confirm(`⚠️ SUPPRIMER ${selectedTalents.length} talent(s) et tous leurs comptes ?\n\nCette action est IRRÉVERSIBLE.`)) return
+
+    setActionLoading('bulk')
+    try {
+      for (const talentId of selectedTalents) {
+        const talent = talents.find(t => t.id === talentId)
+        if (talent) {
+          await supabase.functions.invoke('delete-user', { body: { userId: talent.user_id, userType: 'talent' } })
+        }
+      }
+      setSelectedTalents([])
+      await loadTalents()
+      await loadApplications()
+      await loadStats()
+      alert(`✅ ${selectedTalents.length} talent(s) supprimé(s)`)
+    } catch (err) {
+      console.error('Erreur suppression en masse talents:', err)
+      alert('Erreur: ' + err.message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const deleteSelectedEstablishments = async () => {
+    if (selectedEstablishments.length === 0) return
+    if (!confirm(`⚠️ SUPPRIMER ${selectedEstablishments.length} établissement(s) et tous leurs comptes ?\n\nCette action est IRRÉVERSIBLE.`)) return
+
+    setActionLoading('bulk')
+    try {
+      for (const estId of selectedEstablishments) {
+        const est = establishments.find(e => e.id === estId)
+        if (est) {
+          await supabase.functions.invoke('delete-user', { body: { userId: est.user_id, userType: 'establishment' } })
+        }
+      }
+      setSelectedEstablishments([])
+      await loadEstablishments()
+      await loadMissions()
+      await loadApplications()
+      await loadStats()
+      alert(`✅ ${selectedEstablishments.length} établissement(s) supprimé(s)`)
+    } catch (err) {
+      console.error('Erreur suppression en masse:', err)
+      alert('Erreur: ' + err.message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const deleteSelectedMissions = async () => {
+    if (selectedMissions.length === 0) return
+    if (!confirm(`⚠️ SUPPRIMER ${selectedMissions.length} mission(s) et toutes les candidatures associées ?`)) return
+
+    setActionLoading('bulk')
+    try {
+      for (const missionId of selectedMissions) {
+        await supabase.from('applications').delete().eq('mission_id', missionId)
+        await supabase.from('missions').delete().eq('id', missionId)
+      }
+      setSelectedMissions([])
+      await loadMissions()
+      await loadApplications()
+      await loadStats()
+      alert(`✅ ${selectedMissions.length} mission(s) supprimée(s)`)
+    } catch (err) {
+      console.error('Erreur suppression en masse missions:', err)
+      alert('Erreur: ' + err.message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const deleteSelectedApplications = async () => {
+    if (selectedApplications.length === 0) return
+    if (!confirm(`⚠️ SUPPRIMER ${selectedApplications.length} candidature(s) ?`)) return
+
+    setActionLoading('bulk')
+    try {
+      for (const appId of selectedApplications) {
+        await supabase.from('applications').delete().eq('id', appId)
+      }
+      setSelectedApplications([])
+      await loadApplications()
+      await loadStats()
+      alert(`✅ ${selectedApplications.length} candidature(s) supprimée(s)`)
+    } catch (err) {
+      console.error('Erreur suppression en masse candidatures:', err)
+      alert('Erreur: ' + err.message)
     } finally {
       setActionLoading(null)
     }
@@ -394,40 +520,36 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    navigate('/admin')
-  }
-
   // =====================
   // FONCTIONS ABONNEMENTS
   // =====================
 
   const togglePremium = async (establishmentId, currentStatus) => {
     const action = currentStatus === 'active' ? 'désactiver' : 'activer'
-    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} le premium pour cet établissement ?`)) return
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} le Club pour cet établissement ?`)) return
 
     setActionLoading(establishmentId)
     try {
       if (currentStatus === 'active') {
-        // Désactiver
         const { error } = await supabase
           .from('establishments')
           .update({ 
             subscription_status: 'expired',
+            subscription_plan: null,
             subscription_ends_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
           .eq('id', establishmentId)
         if (error) throw error
       } else {
-        // Activer manuellement (30 jours)
         const endDate = new Date()
         endDate.setDate(endDate.getDate() + 30)
         const { error } = await supabase
           .from('establishments')
           .update({ 
             subscription_status: 'active',
+            subscription_plan: 'club',
+            missions_included_used: false,
             subscription_ends_at: endDate.toISOString(),
             updated_at: new Date().toISOString()
           })
@@ -463,6 +585,11 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    navigate('/admin')
+  }
+
   // =====================
   // UTILITAIRES
   // =====================
@@ -489,30 +616,256 @@ export default function AdminDashboard() {
     return <span className={`inline-flex px-2 py-1 text-xs font-medium ${config.bg} ${config.text} rounded-full`}>{config.label}</span>
   }
 
-  // Filtres
-  const filteredTalents = talents.filter(t => {
-    const search = searchTerm.toLowerCase()
-    return t.first_name?.toLowerCase().includes(search) || t.last_name?.toLowerCase().includes(search) || t.city?.toLowerCase().includes(search) || t.phone?.includes(search)
-  })
+  // =====================
+  // TRI
+  // =====================
 
-  const filteredEstablishments = establishments.filter(e => {
-    const search = searchTerm.toLowerCase()
-    return e.name?.toLowerCase().includes(search) || e.address?.toLowerCase().includes(search) || e.phone?.includes(search)
-  })
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
 
-  const filteredMissions = missions.filter(m => {
-    const search = searchTerm.toLowerCase()
-    const matchesSearch = m.position?.toLowerCase().includes(search) || m.establishment?.name?.toLowerCase().includes(search) || m.location_fuzzy?.toLowerCase().includes(search)
-    const matchesStatus = filterStatus === 'all' || m.status === filterStatus
-    return matchesSearch && matchesStatus
-  })
+  const sortData = (data, config) => {
+    return [...data].sort((a, b) => {
+      let aVal = config.key.split('.').reduce((obj, k) => obj?.[k], a)
+      let bVal = config.key.split('.').reduce((obj, k) => obj?.[k], b)
+      
+      if (aVal == null) aVal = ''
+      if (bVal == null) bVal = ''
+      
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase()
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase()
+      
+      if (aVal < bVal) return config.direction === 'asc' ? -1 : 1
+      if (aVal > bVal) return config.direction === 'asc' ? 1 : -1
+      return 0
+    })
+  }
 
-  const filteredApplications = applications.filter(a => {
+  const SortHeader = ({ label, sortKey, className = '' }) => (
+    <th
+      className={`text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-700 select-none ${className}`}
+      onClick={() => handleSort(sortKey)}
+    >
+      <span className="flex items-center gap-1">
+        {label}
+        {sortConfig.key === sortKey ? (
+          <span className="text-primary-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+        ) : (
+          <span className="text-gray-300">↕</span>
+        )}
+      </span>
+    </th>
+  )
+
+  // =====================
+  // PAGINATION
+  // =====================
+
+  const paginate = (data) => {
+    const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE)
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    const paginated = data.slice(start, start + ITEMS_PER_PAGE)
+    return { paginated, totalPages, total: data.length }
+  }
+
+  const Pagination = ({ totalPages, total }) => {
+    if (totalPages <= 1) return null
+    return (
+      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+        <p className="text-sm text-gray-500">
+          {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, total)} sur {total}
+        </p>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            ←
+          </button>
+          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+            let page
+            if (totalPages <= 5) {
+              page = i + 1
+            } else if (currentPage <= 3) {
+              page = i + 1
+            } else if (currentPage >= totalPages - 2) {
+              page = totalPages - 4 + i
+            } else {
+              page = currentPage - 2 + i
+            }
+            return (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1 text-sm border rounded ${currentPage === page ? 'bg-primary-600 text-white border-primary-600' : 'hover:bg-gray-100'}`}
+              >
+                {page}
+              </button>
+            )
+          })}
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 text-sm border rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            →
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // =====================
+  // SÉLECTION
+  // =====================
+
+  const toggleSelect = (id, selected, setSelected) => {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const toggleSelectAll = (items, selected, setSelected) => {
+    if (selected.length === items.length && items.length > 0) {
+      setSelected([])
+    } else {
+      setSelected(items.map(i => i.id))
+    }
+  }
+
+  const BulkActions = ({ count, onDelete, label }) => {
+    if (count === 0) return null
+    return (
+      <div className="flex items-center gap-3 mb-3 p-3 bg-primary-50 border border-primary-200 rounded-xl">
+        <span className="text-sm font-medium text-primary-700">
+          {count} {label} sélectionné{count > 1 ? 's' : ''}
+        </span>
+        <button
+          onClick={onDelete}
+          disabled={actionLoading === 'bulk'}
+          className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-50"
+        >
+          {actionLoading === 'bulk' ? 'Suppression...' : `🗑️ Supprimer (${count})`}
+        </button>
+      </div>
+    )
+  }
+
+  // =====================
+  // EXPORT CSV
+  // =====================
+
+  const exportCSV = (data, filename, headers) => {
+    const BOM = '\uFEFF'
+    const headerRow = headers.map(h => h.label).join(';')
+    const rows = data.map(item => 
+      headers.map(h => {
+        let val = h.getValue(item)
+        if (val === null || val === undefined) val = ''
+        val = String(val).replace(/"/g, '""')
+        if (val.includes(';') || val.includes('"') || val.includes('\n')) val = `"${val}"`
+        return val
+      }).join(';')
+    )
+    const csv = BOM + [headerRow, ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportTalentsCSV = () => {
+    exportCSV(filteredTalents, 'talents', [
+      { label: 'Prénom', getValue: t => t.first_name },
+      { label: 'Nom', getValue: t => t.last_name },
+      { label: 'Téléphone', getValue: t => t.phone },
+      { label: 'Ville', getValue: t => t.city },
+      { label: 'Postes', getValue: t => t.position_types?.join(', ') },
+      { label: 'Statut', getValue: t => t.is_blocked ? 'Bloqué' : 'Actif' },
+      { label: 'Inscrit le', getValue: t => formatDate(t.created_at) }
+    ])
+  }
+
+  const exportEstablishmentsCSV = () => {
+    exportCSV(filteredEstablishments, 'etablissements', [
+      { label: 'Nom', getValue: e => e.name },
+      { label: 'Téléphone', getValue: e => e.phone },
+      { label: 'Adresse', getValue: e => e.address },
+      { label: 'Ville', getValue: e => e.city },
+      { label: 'Abonnement', getValue: e => e.subscription_status === 'active' ? 'Club' : e.subscription_status },
+      { label: 'Missions utilisées', getValue: e => e.missions_used },
+      { label: 'Statut', getValue: e => e.is_blocked ? 'Bloqué' : 'Actif' },
+      { label: 'Inscrit le', getValue: e => formatDate(e.created_at) }
+    ])
+  }
+
+  const exportMissionsCSV = () => {
+    exportCSV(filteredMissions, 'missions', [
+      { label: 'Établissement', getValue: m => m.establishment?.name },
+      { label: 'Poste', getValue: m => m.position },
+      { label: 'Localisation', getValue: m => m.location_fuzzy },
+      { label: 'Date mission', getValue: m => formatDate(m.start_date) },
+      { label: 'Urgente', getValue: m => m.is_urgent ? 'Oui' : 'Non' },
+      { label: 'Statut', getValue: m => m.status },
+      { label: 'Paiement', getValue: m => m.payment_status },
+      { label: 'Créée le', getValue: m => formatDate(m.created_at) }
+    ])
+  }
+
+  const exportApplicationsCSV = () => {
+    exportCSV(filteredApplications, 'candidatures', [
+      { label: 'Talent', getValue: a => `${a.talent?.first_name} ${a.talent?.last_name}` },
+      { label: 'Établissement', getValue: a => a.mission?.establishment?.name },
+      { label: 'Poste', getValue: a => a.mission?.position },
+      { label: 'Statut', getValue: a => a.status },
+      { label: 'Date', getValue: a => formatDate(a.created_at) }
+    ])
+  }
+
+  // =====================
+  // FILTRES + TRI
+  // =====================
+
+  const filteredTalents = useMemo(() => {
     const search = searchTerm.toLowerCase()
-    const matchesSearch = a.talent?.first_name?.toLowerCase().includes(search) || a.talent?.last_name?.toLowerCase().includes(search) || a.mission?.establishment?.name?.toLowerCase().includes(search) || a.mission?.position?.toLowerCase().includes(search)
-    const matchesStatus = filterStatus === 'all' || a.status === filterStatus
-    return matchesSearch && matchesStatus
-  })
+    const filtered = talents.filter(t =>
+      t.first_name?.toLowerCase().includes(search) || t.last_name?.toLowerCase().includes(search) || t.city?.toLowerCase().includes(search) || t.phone?.includes(search)
+    )
+    return sortData(filtered, sortConfig)
+  }, [talents, searchTerm, sortConfig])
+
+  const filteredEstablishments = useMemo(() => {
+    const search = searchTerm.toLowerCase()
+    const filtered = establishments.filter(e =>
+      e.name?.toLowerCase().includes(search) || e.address?.toLowerCase().includes(search) || e.city?.toLowerCase().includes(search) || e.phone?.includes(search)
+    )
+    return sortData(filtered, sortConfig)
+  }, [establishments, searchTerm, sortConfig])
+
+  const filteredMissions = useMemo(() => {
+    const search = searchTerm.toLowerCase()
+    const filtered = missions.filter(m => {
+      const matchesSearch = m.position?.toLowerCase().includes(search) || m.establishment?.name?.toLowerCase().includes(search) || m.location_fuzzy?.toLowerCase().includes(search)
+      const matchesStatus = filterStatus === 'all' || m.status === filterStatus
+      return matchesSearch && matchesStatus
+    })
+    return sortData(filtered, sortConfig)
+  }, [missions, searchTerm, filterStatus, sortConfig])
+
+  const filteredApplications = useMemo(() => {
+    const search = searchTerm.toLowerCase()
+    const filtered = applications.filter(a => {
+      const matchesSearch = a.talent?.first_name?.toLowerCase().includes(search) || a.talent?.last_name?.toLowerCase().includes(search) || a.mission?.establishment?.name?.toLowerCase().includes(search) || a.mission?.position?.toLowerCase().includes(search)
+      const matchesStatus = filterStatus === 'all' || a.status === filterStatus
+      return matchesSearch && matchesStatus
+    })
+    return sortData(filtered, sortConfig)
+  }, [applications, searchTerm, filterStatus, sortConfig])
 
   // =====================
   // RENDER
@@ -575,7 +928,7 @@ export default function AdminDashboard() {
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => { setActiveTab(tab.id); setSearchTerm(''); setFilterStatus('all'); }}
+                onClick={() => setActiveTab(tab.id)}
                 className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                   activeTab === tab.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
@@ -602,7 +955,7 @@ export default function AdminDashboard() {
                 { value: stats.totalApplications, label: 'Candidatures', color: 'text-amber-600' },
                 { value: stats.acceptedApplications, label: 'Acceptées', color: 'text-blue-600' },
                 { value: stats.blockedUsers, label: 'Bloqués', color: 'text-red-600' },
-                { value: stats.premiumActive, label: 'Premium actifs', color: 'text-purple-600' },
+                { value: stats.premiumActive, label: 'Club actifs', color: 'text-purple-600' },
                 { value: stats.freemium, label: 'Freemium', color: 'text-gray-600' }
               ].map((stat, i) => (
                 <div key={i} className="bg-white rounded-xl p-4 border border-gray-200">
@@ -642,224 +995,295 @@ export default function AdminDashboard() {
         )}
 
         {/* ==================== TAB TALENTS ==================== */}
-        {activeTab === 'talents' && (
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Liste des talents</h2>
-              <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 max-w-xs" />
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Nom</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Téléphone</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ville</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Postes</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Inscrit le</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredTalents.map(talent => (
-                      <tr key={talent.id} className={talent.is_blocked ? 'bg-red-50' : ''}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{talent.first_name} {talent.last_name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{talent.phone}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{talent.city || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{talent.position_types?.slice(0, 2).join(', ') || '-'}{talent.position_types?.length > 2 && '...'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(talent.created_at)}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${talent.is_blocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                            {talent.is_blocked ? 'Bloqué' : 'Actif'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2 items-center">
-                            <button onClick={() => toggleBlockTalent(talent.id, talent.is_blocked)} disabled={actionLoading === talent.id}
-                              className={`text-sm font-medium disabled:opacity-50 ${talent.is_blocked ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'}`}>
-                              {actionLoading === talent.id ? '...' : talent.is_blocked ? 'Débloquer' : 'Bloquer'}
-                            </button>
-                            <span className="text-gray-300">|</span>
-                            <button onClick={() => deleteTalent(talent.id, talent.user_id, `${talent.first_name} ${talent.last_name}`)} disabled={actionLoading === talent.id}
-                              className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50">
-                              {actionLoading === talent.id ? '...' : '🗑️'}
-                            </button>
-                          </div>
-                        </td>
+        {activeTab === 'talents' && (() => {
+          const { paginated, totalPages, total } = paginate(filteredTalents)
+          return (
+            <div>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Liste des talents</h2>
+                <div className="flex gap-2">
+                  <button onClick={exportTalentsCSV} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium">📥 Export CSV</button>
+                  <input type="text" placeholder="🔍 Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 max-w-xs" />
+                </div>
+              </div>
+              <BulkActions count={selectedTalents.length} onDelete={deleteSelectedTalents} label="talent" />
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 w-10">
+                          <input type="checkbox" checked={selectedTalents.length === paginated.length && paginated.length > 0}
+                            onChange={() => toggleSelectAll(paginated, selectedTalents, setSelectedTalents)}
+                            className="rounded border-gray-300" />
+                        </th>
+                        <SortHeader label="Nom" sortKey="first_name" />
+                        <SortHeader label="Téléphone" sortKey="phone" />
+                        <SortHeader label="Ville" sortKey="city" />
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Postes</th>
+                        <SortHeader label="Inscrit le" sortKey="created_at" />
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredTalents.length === 0 && <p className="text-center text-gray-500 py-8">Aucun talent trouvé</p>}
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {paginated.map(talent => (
+                        <tr key={talent.id} className={`${talent.is_blocked ? 'bg-red-50' : ''} ${selectedTalents.includes(talent.id) ? 'bg-primary-50' : ''}`}>
+                          <td className="px-4 py-3">
+                            <input type="checkbox" checked={selectedTalents.includes(talent.id)}
+                              onChange={() => toggleSelect(talent.id, selectedTalents, setSelectedTalents)}
+                              className="rounded border-gray-300" />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{talent.first_name} {talent.last_name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{talent.phone}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{talent.city || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{talent.position_types?.slice(0, 2).join(', ') || '-'}{talent.position_types?.length > 2 && '...'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{formatDate(talent.created_at)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${talent.is_blocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                              {talent.is_blocked ? 'Bloqué' : 'Actif'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-2 items-center">
+                              <button onClick={() => toggleBlockTalent(talent.id, talent.is_blocked)} disabled={actionLoading === talent.id}
+                                className={`text-sm font-medium disabled:opacity-50 ${talent.is_blocked ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'}`}>
+                                {actionLoading === talent.id ? '...' : talent.is_blocked ? 'Débloquer' : 'Bloquer'}
+                              </button>
+                              <span className="text-gray-300">|</span>
+                              <button onClick={() => deleteTalent(talent.id, talent.user_id, `${talent.first_name} ${talent.last_name}`)} disabled={actionLoading === talent.id}
+                                className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50">
+                                {actionLoading === talent.id ? '...' : '🗑️'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {paginated.length === 0 && <p className="text-center text-gray-500 py-8">Aucun talent trouvé</p>}
+                </div>
+                <Pagination totalPages={totalPages} total={total} />
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* ==================== TAB ESTABLISHMENTS ==================== */}
-        {activeTab === 'establishments' && (
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Liste des établissements</h2>
-              <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 max-w-xs" />
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Nom</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Téléphone</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Adresse</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Inscrit le</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredEstablishments.map(est => (
-                      <tr key={est.id} className={est.is_blocked ? 'bg-red-50' : ''}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{est.name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{est.phone}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{est.address || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(est.created_at)}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${est.is_blocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                            {est.is_blocked ? 'Bloqué' : 'Actif'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2 items-center">
-                            <button onClick={() => toggleBlockEstablishment(est.id, est.is_blocked)} disabled={actionLoading === est.id}
-                              className={`text-sm font-medium disabled:opacity-50 ${est.is_blocked ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'}`}>
-                              {actionLoading === est.id ? '...' : est.is_blocked ? 'Débloquer' : 'Bloquer'}
-                            </button>
-                            <span className="text-gray-300">|</span>
-                            <button onClick={() => deleteEstablishment(est.id, est.user_id, est.name)} disabled={actionLoading === est.id}
-                              className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50">
-                              {actionLoading === est.id ? '...' : '🗑️'}
-                            </button>
-                          </div>
-                        </td>
+        {activeTab === 'establishments' && (() => {
+          const { paginated, totalPages, total } = paginate(filteredEstablishments)
+          return (
+            <div>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Liste des établissements</h2>
+                <div className="flex gap-2">
+                  <button onClick={exportEstablishmentsCSV} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium">📥 Export CSV</button>
+                  <input type="text" placeholder="🔍 Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 max-w-xs" />
+                </div>
+              </div>
+              <BulkActions count={selectedEstablishments.length} onDelete={deleteSelectedEstablishments} label="établissement" />
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 w-10">
+                          <input type="checkbox" checked={selectedEstablishments.length === paginated.length && paginated.length > 0}
+                            onChange={() => toggleSelectAll(paginated, selectedEstablishments, setSelectedEstablishments)}
+                            className="rounded border-gray-300" />
+                        </th>
+                        <SortHeader label="Nom" sortKey="name" />
+                        <SortHeader label="Téléphone" sortKey="phone" />
+                        <SortHeader label="Adresse" sortKey="address" />
+                        <SortHeader label="Inscrit le" sortKey="created_at" />
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredEstablishments.length === 0 && <p className="text-center text-gray-500 py-8">Aucun établissement trouvé</p>}
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {paginated.map(est => (
+                        <tr key={est.id} className={`${est.is_blocked ? 'bg-red-50' : ''} ${selectedEstablishments.includes(est.id) ? 'bg-primary-50' : ''}`}>
+                          <td className="px-4 py-3">
+                            <input type="checkbox" checked={selectedEstablishments.includes(est.id)}
+                              onChange={() => toggleSelect(est.id, selectedEstablishments, setSelectedEstablishments)}
+                              className="rounded border-gray-300" />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{est.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{est.phone}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{est.address || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{formatDate(est.created_at)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${est.is_blocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                              {est.is_blocked ? 'Bloqué' : 'Actif'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-2 items-center">
+                              <button onClick={() => toggleBlockEstablishment(est.id, est.is_blocked)} disabled={actionLoading === est.id}
+                                className={`text-sm font-medium disabled:opacity-50 ${est.is_blocked ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'}`}>
+                                {actionLoading === est.id ? '...' : est.is_blocked ? 'Débloquer' : 'Bloquer'}
+                              </button>
+                              <span className="text-gray-300">|</span>
+                              <button onClick={() => deleteEstablishment(est.id, est.user_id, est.name)} disabled={actionLoading === est.id}
+                                className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50">
+                                {actionLoading === est.id ? '...' : '🗑️'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {paginated.length === 0 && <p className="text-center text-gray-500 py-8">Aucun établissement trouvé</p>}
+                </div>
+                <Pagination totalPages={totalPages} total={total} />
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* ==================== TAB MISSIONS ==================== */}
-        {activeTab === 'missions' && (
-          <div>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Liste des missions</h2>
-              <div className="flex gap-2">
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
-                  <option value="all">Tous statuts</option>
-                  <option value="open">Ouvertes</option>
-                  <option value="active">Actives</option>
-                  <option value="completed">Terminées</option>
-                  <option value="cancelled">Annulées</option>
-                  <option value="closed">Fermées</option>
-                </select>
-                <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+        {activeTab === 'missions' && (() => {
+          const { paginated, totalPages, total } = paginate(filteredMissions)
+          return (
+            <div>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Liste des missions</h2>
+                <div className="flex gap-2">
+                  <button onClick={exportMissionsCSV} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium">📥 Export CSV</button>
+                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="all">Tous statuts</option>
+                    <option value="open">Ouvertes</option>
+                    <option value="pending">En attente</option>
+                    <option value="closed">Fermées</option>
+                    <option value="cancelled">Annulées</option>
+                  </select>
+                  <input type="text" placeholder="🔍 Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+                </div>
               </div>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Établissement</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Poste</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Localisation</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date mission</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Créée le</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredMissions.map(mission => (
-                      <tr key={mission.id}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{mission.establishment?.name || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{mission.position}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{mission.location_fuzzy || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(mission.start_date)}</td>
-                        <td className="px-4 py-3">{getStatusBadge(mission.status)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{formatDate(mission.created_at)}</td>
-                        <td className="px-4 py-3">
-                          <button onClick={() => deleteMission(mission.id, mission.position)} disabled={actionLoading === mission.id}
-                            className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50">
-                            {actionLoading === mission.id ? '...' : '🗑️ Supprimer'}
-                          </button>
-                        </td>
+              <BulkActions count={selectedMissions.length} onDelete={deleteSelectedMissions} label="mission" />
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 w-10">
+                          <input type="checkbox" checked={selectedMissions.length === paginated.length && paginated.length > 0}
+                            onChange={() => toggleSelectAll(paginated, selectedMissions, setSelectedMissions)}
+                            className="rounded border-gray-300" />
+                        </th>
+                        <SortHeader label="Établissement" sortKey="establishment.name" />
+                        <SortHeader label="Poste" sortKey="position" />
+                        <SortHeader label="Localisation" sortKey="location_fuzzy" />
+                        <SortHeader label="Date mission" sortKey="start_date" />
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Urgente</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
+                        <SortHeader label="Créée le" sortKey="created_at" />
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredMissions.length === 0 && <p className="text-center text-gray-500 py-8">Aucune mission trouvée</p>}
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {paginated.map(mission => (
+                        <tr key={mission.id} className={selectedMissions.includes(mission.id) ? 'bg-primary-50' : ''}>
+                          <td className="px-4 py-3">
+                            <input type="checkbox" checked={selectedMissions.includes(mission.id)}
+                              onChange={() => toggleSelect(mission.id, selectedMissions, setSelectedMissions)}
+                              className="rounded border-gray-300" />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{mission.establishment?.name || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{mission.position}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{mission.location_fuzzy || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{formatDate(mission.start_date)}</td>
+                          <td className="px-4 py-3 text-sm">
+                            {mission.is_urgent ? <span className="text-red-600 font-medium">⚡ Oui</span> : <span className="text-gray-400">Non</span>}
+                          </td>
+                          <td className="px-4 py-3">{getStatusBadge(mission.status)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{formatDate(mission.created_at)}</td>
+                          <td className="px-4 py-3">
+                            <button onClick={() => deleteMission(mission.id, mission.position)} disabled={actionLoading === mission.id}
+                              className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50">
+                              {actionLoading === mission.id ? '...' : '🗑️'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {paginated.length === 0 && <p className="text-center text-gray-500 py-8">Aucune mission trouvée</p>}
+                </div>
+                <Pagination totalPages={totalPages} total={total} />
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* ==================== TAB APPLICATIONS ==================== */}
-        {activeTab === 'applications' && (
-          <div>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Liste des candidatures</h2>
-              <div className="flex gap-2">
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
-                  <option value="all">Tous statuts</option>
-                  <option value="interested">Intéressé</option>
-                  <option value="accepted">Acceptées</option>
-                  <option value="rejected">Refusées</option>
-                  <option value="confirmed">Confirmées</option>
-                </select>
-                <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+        {activeTab === 'applications' && (() => {
+          const { paginated, totalPages, total } = paginate(filteredApplications)
+          return (
+            <div>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Liste des candidatures</h2>
+                <div className="flex gap-2">
+                  <button onClick={exportApplicationsCSV} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium">📥 Export CSV</button>
+                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="all">Tous statuts</option>
+                    <option value="interested">Intéressé</option>
+                    <option value="accepted">Acceptées</option>
+                    <option value="rejected">Refusées</option>
+                    <option value="confirmed">Confirmées</option>
+                  </select>
+                  <input type="text" placeholder="🔍 Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+                </div>
               </div>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Talent</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Établissement</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Poste</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Candidature le</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredApplications.map(app => (
-                      <tr key={app.id}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{app.talent?.first_name} {app.talent?.last_name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{app.mission?.establishment?.name || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{app.mission?.position || '-'}</td>
-                        <td className="px-4 py-3">{getStatusBadge(app.status)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{formatDate(app.created_at)}</td>
+              <BulkActions count={selectedApplications.length} onDelete={deleteSelectedApplications} label="candidature" />
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 w-10">
+                          <input type="checkbox" checked={selectedApplications.length === paginated.length && paginated.length > 0}
+                            onChange={() => toggleSelectAll(paginated, selectedApplications, setSelectedApplications)}
+                            className="rounded border-gray-300" />
+                        </th>
+                        <SortHeader label="Talent" sortKey="talent.first_name" />
+                        <SortHeader label="Établissement" sortKey="mission.establishment.name" />
+                        <SortHeader label="Poste" sortKey="mission.position" />
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Statut</th>
+                        <SortHeader label="Candidature le" sortKey="created_at" />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredApplications.length === 0 && <p className="text-center text-gray-500 py-8">Aucune candidature trouvée</p>}
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {paginated.map(app => (
+                        <tr key={app.id} className={selectedApplications.includes(app.id) ? 'bg-primary-50' : ''}>
+                          <td className="px-4 py-3">
+                            <input type="checkbox" checked={selectedApplications.includes(app.id)}
+                              onChange={() => toggleSelect(app.id, selectedApplications, setSelectedApplications)}
+                              className="rounded border-gray-300" />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{app.talent?.first_name} {app.talent?.last_name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{app.mission?.establishment?.name || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{app.mission?.position || '-'}</td>
+                          <td className="px-4 py-3">{getStatusBadge(app.status)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{formatDate(app.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {paginated.length === 0 && <p className="text-center text-gray-500 py-8">Aucune candidature trouvée</p>}
+                </div>
+                <Pagination totalPages={totalPages} total={total} />
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* ==================== TAB ADMINS ==================== */}
         {activeTab === 'admins' && (
@@ -943,10 +1367,10 @@ export default function AdminDashboard() {
             {/* Stats abonnements */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {[
-                { value: stats.premiumActive, label: 'Premium actifs', color: 'text-purple-600', bg: 'bg-purple-50' },
+                { value: stats.premiumActive, label: 'Club actifs', color: 'text-purple-600', bg: 'bg-purple-50' },
                 { value: stats.freemium, label: 'Freemium', color: 'text-gray-600', bg: 'bg-gray-50' },
                 { value: stats.expiredPremium, label: 'Expirés', color: 'text-red-600', bg: 'bg-red-50' },
-                { value: `${(stats.premiumActive * 59.90).toFixed(0)}€`, label: 'Revenu mensuel est.', color: 'text-green-600', bg: 'bg-green-50' }
+                { value: `${(stats.premiumActive * 24).toFixed(0)}€`, label: 'MRR Club ExtraTaff', color: 'text-green-600', bg: 'bg-green-50' }
               ].map((stat, i) => (
                 <div key={i} className={`${stat.bg} rounded-xl p-4 border border-gray-200`}>
                   <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
@@ -961,11 +1385,11 @@ export default function AdminDashboard() {
                 <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
                   <option value="all">Tous</option>
-                  <option value="active">Premium actif</option>
+                  <option value="active">Club actif</option>
                   <option value="freemium">Freemium</option>
                   <option value="expired">Expiré</option>
                 </select>
-                <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                <input type="text" placeholder="🔍 Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
               </div>
             </div>
@@ -979,6 +1403,7 @@ export default function AdminDashboard() {
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ville</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Abonnement</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Missions</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Mission incluse</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Fin abo.</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Stripe</th>
                       <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Groupe</th>
@@ -992,7 +1417,7 @@ export default function AdminDashboard() {
                         const matchesSearch = est.name?.toLowerCase().includes(search) || est.city?.toLowerCase().includes(search)
                         if (filterStatus === 'all') return matchesSearch
                         if (filterStatus === 'active') return matchesSearch && est.subscription_status === 'active'
-                        if (filterStatus === 'freemium') return matchesSearch && (!est.subscription_status || est.subscription_status === 'free' || est.subscription_status === 'trialing')
+                        if (filterStatus === 'freemium') return matchesSearch && (!est.subscription_status || est.subscription_status === 'freemium')
                         if (filterStatus === 'expired') return matchesSearch && est.subscription_status === 'expired'
                         return matchesSearch
                       })
@@ -1012,17 +1437,23 @@ export default function AdminDashboard() {
                                 isExpired ? 'bg-red-100 text-red-700' :
                                 'bg-gray-100 text-gray-700'
                               }`}>
-                                {isPremium ? '⭐ Premium' : isExpired ? 'Expiré' : 'Freemium'}
+                                {isPremium ? '🏆 Club' : isExpired ? 'Expiré' : 'Freemium'}
                               </span>
                               {isExpiringSoon && (
                                 <span className="ml-1 text-xs text-orange-600">⚠️ Expire bientôt</span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-sm">
-                              <span className={`font-medium ${(est.missions_used || 0) >= 3 && !isPremium ? 'text-red-600' : 'text-gray-900'}`}>
-                                {est.missions_used || 0}{!isPremium && '/3'}
+                              <span className={`font-medium ${(est.missions_used || 0) >= 1 && !isPremium ? 'text-red-600' : 'text-gray-900'}`}>
+                                {est.missions_used || 0}{!isPremium && '/1'}
                               </span>
-                              {isPremium && <span className="text-xs text-purple-600 ml-1">∞</span>}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {isPremium ? (
+                                <span className={`font-medium ${est.missions_included_used ? 'text-gray-500' : 'text-green-600'}`}>
+                                  {est.missions_included_used ? '✗ Utilisée' : '✓ Disponible'}
+                                </span>
+                              ) : '-'}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-600">
                               {endDate ? formatDate(est.subscription_ends_at) : '-'}
@@ -1057,7 +1488,7 @@ export default function AdminDashboard() {
                                     isPremium ? 'text-red-600 hover:text-red-800' : 'text-purple-600 hover:text-purple-800'
                                   }`}
                                 >
-                                  {actionLoading === est.id ? '...' : isPremium ? 'Désactiver' : '⭐ Activer'}
+                                  {actionLoading === est.id ? '...' : isPremium ? 'Désactiver' : '🏆 Activer Club'}
                                 </button>
                                 {!isPremium && (est.missions_used || 0) > 0 && (
                                   <>
@@ -1093,14 +1524,14 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {(() => {
                 const inactiveEstabs = establishments.filter(e => (e.missions_used || 0) === 0).length
-                const hotProspects = establishments.filter(e => (e.missions_used || 0) >= 3 && e.subscription_status !== 'active').length
+                const hotProspects = establishments.filter(e => (e.missions_used || 0) >= 1 && e.subscription_status !== 'active').length
                 const talentsWithApps = new Set(applications.map(a => a.talent?.id)).size
                 const dormantTalents = talents.length - talentsWithApps
                 const conversionRate = establishments.length > 0 ? ((stats.premiumActive / establishments.length) * 100).toFixed(1) : 0
 
                 return [
-                  { value: `${conversionRate}%`, label: 'Taux conversion Premium', color: 'text-purple-600', bg: 'bg-purple-50' },
-                  { value: hotProspects, label: '🔥 Prospects chauds (3/3)', color: 'text-orange-600', bg: 'bg-orange-50' },
+                  { value: `${conversionRate}%`, label: 'Taux conversion Club', color: 'text-purple-600', bg: 'bg-purple-50' },
+                  { value: hotProspects, label: '🔥 Prospects chauds (1/1)', color: 'text-orange-600', bg: 'bg-orange-50' },
                   { value: inactiveEstabs, label: 'Étab. inactifs (0 mission)', color: 'text-red-600', bg: 'bg-red-50' },
                   { value: dormantTalents, label: 'Talents dormants', color: 'text-gray-600', bg: 'bg-gray-50' }
                 ].map((stat, i) => (
@@ -1112,7 +1543,7 @@ export default function AdminDashboard() {
               })()}
             </div>
 
-            {/* Inscriptions par mois */}
+            {/* Inscriptions par mois + Funnel */}
             <div className="grid md:grid-cols-2 gap-6 mb-6">
               <div className="bg-white rounded-xl p-4 border border-gray-200">
                 <h3 className="font-semibold text-gray-900 mb-3">📊 Inscriptions par mois</h3>
@@ -1168,14 +1599,14 @@ export default function AdminDashboard() {
                 {(() => {
                   const total = establishments.length
                   const withMissions = establishments.filter(e => (e.missions_used || 0) > 0).length
-                  const at3Missions = establishments.filter(e => (e.missions_used || 0) >= 3).length
+                  const at3Missions = establishments.filter(e => (e.missions_used || 0) >= 1).length
                   const premium = stats.premiumActive
 
                   const steps = [
                     { label: 'Inscrits', value: total, color: 'bg-gray-400' },
                     { label: '≥1 mission créée', value: withMissions, color: 'bg-blue-500' },
-                    { label: '≥3 missions (limite free)', value: at3Missions, color: 'bg-orange-500' },
-                    { label: 'Premium', value: premium, color: 'bg-purple-600' }
+                    { label: 'Mission gratuite épuisée', value: at3Missions, color: 'bg-orange-500' },
+                    { label: 'Club ExtraTaff', value: premium, color: 'bg-purple-600' }
                   ]
 
                   return (
@@ -1207,8 +1638,8 @@ export default function AdminDashboard() {
 
             {/* Prospects chauds */}
             <div className="bg-white rounded-xl p-4 border border-gray-200 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">🔥 Prospects premium chauds</h3>
-              <p className="text-sm text-gray-500 mb-3">Établissements ayant atteint la limite de 3 missions gratuites (non premium)</p>
+              <h3 className="font-semibold text-gray-900 mb-3">🔥 Prospects Club chauds</h3>
+              <p className="text-sm text-gray-500 mb-3">Établissements ayant utilisé leur mission gratuite (non abonnés Club)</p>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b">
@@ -1222,12 +1653,12 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {establishments
-                      .filter(e => (e.missions_used || 0) >= 3 && e.subscription_status !== 'active')
+                      .filter(e => (e.missions_used || 0) >= 1 && e.subscription_status !== 'active')
                       .map(est => (
                         <tr key={est.id} className="bg-orange-50/50">
                           <td className="px-4 py-2 text-sm font-medium text-gray-900">{est.name}</td>
                           <td className="px-4 py-2 text-sm text-gray-600">{est.city || '-'}</td>
-                          <td className="px-4 py-2 text-sm text-red-600 font-medium">{est.missions_used}/3</td>
+                          <td className="px-4 py-2 text-sm text-red-600 font-medium">{est.missions_used}/1</td>
                           <td className="px-4 py-2 text-sm text-gray-600">{formatDate(est.created_at)}</td>
                           <td className="px-4 py-2 text-sm text-gray-600">{est.phone || '-'}</td>
                         </tr>
@@ -1235,7 +1666,7 @@ export default function AdminDashboard() {
                     }
                   </tbody>
                 </table>
-                {establishments.filter(e => (e.missions_used || 0) >= 3 && e.subscription_status !== 'active').length === 0 && (
+                {establishments.filter(e => (e.missions_used || 0) >= 1 && e.subscription_status !== 'active').length === 0 && (
                   <p className="text-center text-gray-500 py-4 text-sm">Aucun prospect chaud pour le moment</p>
                 )}
               </div>

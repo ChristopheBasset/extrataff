@@ -67,7 +67,7 @@ export default function AdminActivate() {
 
     setSubmitting(true)
     try {
-      // Créer le compte utilisateur dans Supabase Auth
+      // 1. Créer le compte utilisateur dans Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: admin.email,
         password: password,
@@ -80,7 +80,6 @@ export default function AdminActivate() {
       })
 
       if (authError) {
-        // Si l'utilisateur existe déjà, on essaie de se connecter
         if (authError.message.includes('already registered')) {
           setError('Un compte existe déjà avec cet email. Utilisez la page de connexion admin.')
           return
@@ -88,16 +87,31 @@ export default function AdminActivate() {
         throw authError
       }
 
-      // Marquer l'admin comme activé
-      const { error: updateError } = await supabase
-        .from('admins')
-        .update({ 
-          is_activated: true, 
-          activated_at: new Date().toISOString() 
-        })
-        .eq('id', admin.id)
+      // 2. Activer l'admin via la fonction SQL SECURITY DEFINER (bypass RLS)
+      // Fonctionne même sans session active (ex: confirmation email requise)
+      const { data: activated, error: rpcError } = await supabase.rpc('activate_admin', {
+        token_param: token
+      })
 
-      if (updateError) throw updateError
+      if (rpcError) {
+        console.error('Erreur RPC activate_admin:', rpcError)
+        throw new Error('Erreur lors de l\'activation du compte admin')
+      }
+
+      if (!activated) {
+        throw new Error('Le token d\'activation est invalide ou déjà utilisé')
+      }
+
+      // 3. Essayer de se connecter automatiquement
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: admin.email,
+        password: password
+      })
+
+      if (signInError) {
+        console.warn('Connexion auto échouée (confirmation email requise?):', signInError.message)
+        // Pas grave — l'activation est faite, l'admin se connectera manuellement
+      }
 
       setSuccess(true)
     } catch (err) {

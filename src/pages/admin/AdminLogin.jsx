@@ -2,11 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
-// Liste des emails admin autorisés
-const ADMIN_EMAILS = [
-  'christophe@comunecom.fr'
-]
-
 export default function AdminLogin() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -19,14 +14,8 @@ export default function AdminLogin() {
     setError('')
     setLoading(true)
 
-    // Vérifier si l'email est admin
-    if (!ADMIN_EMAILS.includes(email.toLowerCase().trim())) {
-      setError('Accès non autorisé')
-      setLoading(false)
-      return
-    }
-
     try {
+      // 1. Se connecter via Supabase Auth
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password
@@ -34,7 +23,30 @@ export default function AdminLogin() {
 
       if (authError) throw authError
 
-      // Connexion réussie → rediriger vers dashboard admin
+      // 2. Vérifier que cet email est bien un admin activé dans la table admins
+      const { data: adminData, error: adminError } = await supabase
+        .from('admins')
+        .select('id, is_activated')
+        .eq('email', email.toLowerCase().trim())
+        .single()
+
+      if (adminError || !adminData) {
+        // Pas dans la table admins → déconnecter et refuser
+        await supabase.auth.signOut()
+        setError('Accès non autorisé')
+        setLoading(false)
+        return
+      }
+
+      if (!adminData.is_activated) {
+        // Admin pas encore activé
+        await supabase.auth.signOut()
+        setError('Votre compte admin n\'est pas encore activé. Vérifiez votre email d\'invitation.')
+        setLoading(false)
+        return
+      }
+
+      // 3. Connexion réussie → rediriger vers dashboard admin
       navigate('/admin/dashboard')
     } catch (err) {
       console.error('Erreur connexion:', err)

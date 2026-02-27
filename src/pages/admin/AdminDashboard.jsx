@@ -7,13 +7,14 @@ import { supabase } from '../../lib/supabase';
 // Adapté au schéma réel de la BDD ExtraTaff
 // ============================================================
 
-const TABS = [
+const TABS_BASE = [
   { id: 'overview', label: '📊 Vue d\'ensemble' },
   { id: 'talents', label: '👤 Talents' },
   { id: 'establishments', label: '🏪 Établissements' },
   { id: 'missions', label: '📋 Missions' },
   { id: 'applications', label: '📩 Candidatures' },
   { id: 'subscriptions', label: '💳 Abonnements' },
+  { id: 'admins', label: '🛡️ Admins' },
 ];
 
 const PAGE_SIZE = 20;
@@ -375,6 +376,26 @@ export default function AdminDashboard() {
   const [detailItem, setDetailItem] = useState(null);
   const [detailType, setDetailType] = useState(null);
 
+  // Admins
+  const [admins, setAdmins] = useState([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviting, setInviting] = useState(false);
+
+  // Tabs avec compteurs dynamiques
+  const TABS = TABS_BASE.map(tab => {
+    const counts = {
+      talents: talents.length,
+      establishments: establishments.length,
+      missions: missions.length,
+      applications: applications.length,
+      admins: admins.length,
+    };
+    return counts[tab.id] !== undefined
+      ? { ...tab, label: `${tab.label} (${counts[tab.id]})` }
+      : tab;
+  });
+
   // Reset on tab change
   useEffect(() => {
     setSearch('');
@@ -432,6 +453,13 @@ export default function AdminDashboard() {
       if (!statsErr && statsData) {
         setStats(statsData);
       }
+
+      // Charger admins
+      const { data: adminsData } = await supabase
+        .from('admins')
+        .select('*')
+        .order('created_at', { ascending: false });
+      setAdmins(adminsData || []);
     } catch (err) {
       console.error('Erreur chargement admin:', err);
       setError('Erreur de chargement des données');
@@ -1172,6 +1200,118 @@ export default function AdminDashboard() {
   };
 
   // ============================================================
+  // ONGLET : Admins
+  // ============================================================
+  const handleInviteAdmin = async () => {
+    if (!inviteEmail || !inviteName) {
+      alert('Email et nom requis');
+      return;
+    }
+    setInviting(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-admin-invite', {
+        body: { email: inviteEmail, name: inviteName }
+      });
+      if (error) throw error;
+      alert(`Invitation envoyée à ${inviteEmail}`);
+      setInviteEmail('');
+      setInviteName('');
+      loadData();
+    } catch (err) {
+      console.error('Erreur invitation:', err);
+      alert('Erreur: ' + (err.message || 'Échec de l\'envoi'));
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const renderAdmins = () => {
+    return (
+      <div className="space-y-6">
+        {/* Formulaire d'invitation */}
+        <div className="bg-white rounded-xl border p-6 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">📨 Inviter un nouvel admin</h3>
+          <div className="flex flex-wrap gap-3">
+            <input
+              type="text"
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+              placeholder="Nom de l'admin"
+              className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="Email de l'admin"
+              className="flex-1 min-w-[250px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={handleInviteAdmin}
+              disabled={inviting || !inviteEmail || !inviteName}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+            >
+              {inviting ? 'Envoi...' : '📨 Envoyer l\'invitation'}
+            </button>
+          </div>
+        </div>
+
+        {/* Liste des admins */}
+        <div className="overflow-x-auto rounded-xl border shadow-sm">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invité par</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date invitation</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Activé le</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {admins.map((a) => (
+                <tr key={a.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium">{a.name || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-blue-700">{a.email}</td>
+                  <td className="px-4 py-3">
+                    {a.is_activated ? (
+                      <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">✅ Actif</span>
+                    ) : (
+                      <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">⏳ En attente</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{a.created_by || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500">{formatDate(a.created_at)}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500">{formatDate(a.activated_at)}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Supprimer l'admin ${a.email} ?`)) return;
+                        const { error } = await supabase.from('admins').delete().eq('id', a.id);
+                        if (error) {
+                          alert('Erreur: ' + error.message);
+                        } else {
+                          loadData();
+                        }
+                      }}
+                      className="text-red-600 hover:text-red-800 text-sm"
+                    >🗑️ Supprimer</button>
+                  </td>
+                </tr>
+              ))}
+              {admins.length === 0 && (
+                <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-400">Aucun admin</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
   // RENDU PRINCIPAL
   // ============================================================
   if (loading) {
@@ -1242,6 +1382,7 @@ export default function AdminDashboard() {
         {activeTab === 'missions' && renderMissions()}
         {activeTab === 'applications' && renderApplications()}
         {activeTab === 'subscriptions' && renderSubscriptions()}
+        {activeTab === 'admins' && renderAdmins()}
       </div>
 
       {/* Modal détail */}

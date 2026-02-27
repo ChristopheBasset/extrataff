@@ -246,6 +246,12 @@ export default function Register() {
             Continuer avec Google
           </button>
 
+          {!acceptCGV && (
+            <p className="text-xs text-amber-600 text-center -mt-2 mb-2">
+              ⚠️ Veuillez accepter les CGV ci-dessous pour continuer
+            </p>
+          )}
+
           {/* Séparateur */}
           <div className="relative mb-4">
             <div className="absolute inset-0 flex items-center">

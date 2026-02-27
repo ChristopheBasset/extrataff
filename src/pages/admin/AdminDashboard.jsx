@@ -1209,11 +1209,46 @@ export default function AdminDashboard() {
     }
     setInviting(true);
     try {
+      // 1. Récupérer l'email de l'admin connecté
+      const { data: { user } } = await supabase.auth.getUser();
+      const createdBy = user?.email || 'unknown';
+
+      // 2. Créer l'entrée admin en BDD avec un token
+      const { data: newAdmin, error: insertError } = await supabase
+        .from('admins')
+        .insert({
+          email: inviteEmail,
+          name: inviteName,
+          created_by: createdBy,
+          is_activated: false,
+        })
+        .select('activation_token')
+        .single();
+
+      if (insertError) {
+        if (insertError.message.includes('duplicate') || insertError.message.includes('unique')) {
+          alert('Cet email est déjà enregistré comme admin');
+        } else {
+          throw insertError;
+        }
+        return;
+      }
+
+      // 3. Envoyer l'email d'invitation via Edge Function
       const { error } = await supabase.functions.invoke('send-admin-invite', {
-        body: { email: inviteEmail, name: inviteName }
+        body: { 
+          email: inviteEmail, 
+          name: inviteName,
+          activationToken: newAdmin.activation_token
+        }
       });
-      if (error) throw error;
-      alert(`Invitation envoyée à ${inviteEmail}`);
+      if (error) {
+        console.warn('Email non envoyé mais admin créé:', error);
+        alert(`Admin créé mais l'email n'a pas pu être envoyé. Lien d'activation :\nhttps://extrataff.fr/admin/activate?token=${newAdmin.activation_token}`);
+      } else {
+        alert(`Invitation envoyée à ${inviteEmail}`);
+      }
+
       setInviteEmail('');
       setInviteName('');
       loadData();

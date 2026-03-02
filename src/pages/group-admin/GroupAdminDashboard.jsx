@@ -207,14 +207,14 @@ export default function GroupAdminDashboard() {
                 <div>
                   <h3 className="text-lg font-bold">🏆 Rejoignez le Club ExtraTaff</h3>
                   <p className="text-white/80 text-sm mt-1">
-                    30 jours d'essai gratuit • 1 mission incluse/mois/établissement • Urgentes à prix réduit
+                    30 jours d'essai gratuit • Missions illimitées par établissement • Sans engagement
                   </p>
                 </div>
                 <button
                   onClick={() => navigate('/establishment/subscribe')}
                   className="bg-white text-primary-700 px-6 py-2 rounded-lg font-bold text-sm hover:bg-gray-100 transition-colors whitespace-nowrap"
                 >
-                  Essai gratuit →
+                  Rejoindre le Club →
                 </button>
               </div>
             )}
@@ -433,31 +433,31 @@ export default function GroupAdminDashboard() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-600">1er établissement</span>
-                    <span className="font-semibold">24,00 €/mois</span>
+                    <span className="font-semibold">39,00 €/mois</span>
                   </div>
                   {establishments.length > 1 && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">
                         {establishments.length - 1} supplémentaire{establishments.length > 2 ? 's' : ''} <span className="text-green-600">(-10%)</span>
                       </span>
-                      <span className="font-semibold">{((establishments.length - 1) * 21.60).toFixed(2)} €/mois</span>
+                      <span className="font-semibold">{((establishments.length - 1) * 35.10).toFixed(2)} €/mois</span>
                     </div>
                   )}
                   <div className="border-t pt-3 flex justify-between font-bold text-lg">
                     <span>Total</span>
                     <div className="text-right">
                       <span className="text-primary-600">
-                        {(24.00 + (establishments.length - 1) * 21.60).toFixed(2)} € TTC/mois
+                        {(39.00 + (establishments.length - 1) * 35.10).toFixed(2)} € TTC/mois
                       </span>
                       <span className="block text-xs text-gray-400 font-normal">
-                        {((24.00 + (establishments.length - 1) * 21.60) / 1.2).toFixed(2)} € HT
+                        
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm text-green-800">
-                    🎁 1 mission incluse par établissement et par mois
+                    ♾️ Missions illimitées par établissement
                   </p>
                 </div>
               </div>
@@ -497,7 +497,7 @@ export default function GroupAdminDashboard() {
                       onClick={() => navigate('/establishment/subscribe')}
                       className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-bold text-sm transition-colors"
                     >
-                      🏆 Rejoindre le Club — 30 jours gratuits
+                      🏆 Rejoindre le Club — 39€/mois
                     </button>
                   )}
                 </div>
@@ -506,7 +506,7 @@ export default function GroupAdminDashboard() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-6">
               <p className="text-blue-900">
-                <strong>ℹ️ Note :</strong> Chaque restaurant du groupe bénéficie de 30 jours d'essai gratuit lors de son adhésion au Club ExtraTaff. La facturation commence après la période d'essai.
+                <strong>ℹ️ Note :</strong> Chaque établissement du groupe bénéficie de 30 jours d'essai gratuit avec missions illimitées. La facturation commence après la période d'essai. Sans engagement.
               </p>
             </div>
           </div>

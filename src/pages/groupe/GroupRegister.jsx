@@ -40,12 +40,12 @@ export default function GroupRegister() {
 
   // Calcul du prix (Club ExtraTaff Groupe)
   const calculatePrice = (count) => {
-    if (count === 1) return 24.00
-    return 24.00 + (count - 1) * 21.60
+    if (count === 1) return 39.00
+    return 39.00 + (count - 1) * 35.10
   }
 
   const totalPrice = calculatePrice(formData.establishmentCount)
-  const priceHT = (totalPrice / 1.2).toFixed(2).replace('.', ',')
+  // Prix TTC affichés directement
 
   // Étape 1 : Choix du mode
   const handleModeSelect = (mode) => {
@@ -253,7 +253,7 @@ export default function GroupRegister() {
             <span className="text-2xl">🎁</span>
             <div>
               <p className="font-semibold text-green-900">1ère mission offerte pour chaque établissement</p>
-              <p className="text-sm text-green-700">Puis rejoignez le Club ExtraTaff avec 30 jours d'essai gratuit</p>
+              <p className="text-sm text-green-700">Puis rejoignez le Club ExtraTaff — Missions illimitées, sans engagement</p>
             </div>
           </div>
         </div>
@@ -324,7 +324,7 @@ export default function GroupRegister() {
                 </button>
                 <div className="text-right flex-1">
                   <span className="text-lg font-bold text-blue-600">{totalPrice.toFixed(2).replace('.', ',')}€ TTC/mois</span>
-                  <span className="block text-xs text-gray-400">{priceHT}€ HT</span>
+                  <span className="block text-xs text-gray-400"></span>
                 </div>
               </div>
             </div>
@@ -563,19 +563,19 @@ export default function GroupRegister() {
                 </div>
                 <div className="flex justify-between items-center text-sm mt-2">
                   <span className="text-gray-600">1er établissement :</span>
-                  <span className="font-medium">24,00€</span>
+                  <span className="font-medium">39,00€</span>
                 </div>
                 {formData.establishmentCount > 1 && (
                   <div className="flex justify-between items-center text-sm mt-1">
                     <span className="text-gray-600">{formData.establishmentCount - 1} établissement{formData.establishmentCount > 2 ? 's' : ''} supplémentaire{formData.establishmentCount > 2 ? 's' : ''} (-10%) :</span>
-                    <span className="font-medium">{((formData.establishmentCount - 1) * 21.60).toFixed(2).replace('.', ',')}€</span>
+                    <span className="font-medium">{((formData.establishmentCount - 1) * 35.10).toFixed(2).replace('.', ',')}€</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center mt-2 pt-2 border-t">
                   <span className="text-gray-600">Total après essai :</span>
                   <div className="text-right">
                     <span className="font-bold text-blue-600">{totalPrice.toFixed(2).replace('.', ',')}€ TTC/mois</span>
-                    <span className="block text-xs text-gray-400">{priceHT}€ HT</span>
+                    <span className="block text-xs text-gray-400"></span>
                   </div>
                 </div>
               </div>
@@ -610,7 +610,7 @@ export default function GroupRegister() {
               </button>
 
               <p className="text-center text-xs text-gray-500">
-                Vous bénéficiez de 1 mois d'essai gratuit.
+                Vous bénéficiez de 30 jours d'essai gratuit avec missions illimitées.
               </p>
             </form>
           </div>

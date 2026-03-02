@@ -19,7 +19,7 @@ export default function MissionForm({ onMissionCreated }) {
 
         const { data: est } = await supabase
           .from('establishments')
-          .select('id, name, address, subscription_status, subscription_plan, missions_used, missions_credit, missions_included_used')
+          .select('id, name, address, subscription_status, subscription_plan, trial_ends_at')
           .eq('user_id', user.id)
           .single()
 
@@ -85,71 +85,54 @@ export default function MissionForm({ onMissionCreated }) {
     return diff > 0 ? diff : 1
   }, [formData.start_date, formData.end_date])
 
+  // Helpers d'accès
+  const isClubMember = establishment?.subscription_status === 'active' && establishment?.subscription_plan === 'club'
+  const isTrialActive = (() => {
+    if (!establishment?.trial_ends_at) return false
+    return new Date(establishment.trial_ends_at) > new Date()
+  })()
+  const trialDaysLeft = (() => {
+    if (!establishment?.trial_ends_at) return 0
+    const diff = Math.ceil((new Date(establishment.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24))
+    return diff > 0 ? diff : 0
+  })()
+
   // Déterminer le tarif et le type de paiement
   const paymentInfo = useMemo(() => {
     if (!establishment) return null
 
-    const status = establishment.subscription_status
-    const plan = establishment.subscription_plan
-    const missionsUsed = establishment.missions_used || 0
-    const missionIncluded = establishment.missions_included_used === false
-    const FREEMIUM_MAX = 1
-
-    // Abonné Club
-    if (status === 'active' && plan === 'club') {
-      if (missionIncluded) {
-        return {
-          type: 'club_included',
-          price: 0,
-          label: 'Incluse dans votre Club',
-          description: 'Cette mission est comprise dans votre abonnement Club ExtraTaff',
-          canCreate: true
-        }
-      }
+    // Membre Club → missions illimitées gratuites
+    if (isClubMember) {
       return {
-        type: 'club_extra',
-        price: 10.80,
-        priceHT: 9.00,
-        label: isUrgent ? 'Mission urgente — Tarif Club' : 'Mission supplémentaire — Tarif Club',
-        description: `${isUrgent ? '⚡ Mission urgente' : 'Mission supplémentaire'} à 10,80€ TTC (9€ HT) grâce à votre abonnement Club`,
-        canCreate: false // Paiement requis
-      }
-    }
-
-    // Freemium avec missions gratuites restantes
-    if (status === 'freemium' && missionsUsed < FREEMIUM_MAX) {
-      return {
-        type: 'freemium',
+        type: 'club',
         price: 0,
-        label: `Mission gratuite (${missionsUsed + 1}/${FREEMIUM_MAX})`,
-        description: `Il vous reste ${FREEMIUM_MAX - missionsUsed} mission${FREEMIUM_MAX - missionsUsed > 1 ? 's' : ''} gratuite${FREEMIUM_MAX - missionsUsed > 1 ? 's' : ''}`,
+        label: '🏆 Membre Club ExtraTaff',
+        description: 'Missions illimitées comprises dans votre abonnement',
         canCreate: true
       }
     }
 
-    // Non-abonné (freemium épuisé ou pas d'abo)
-    if (isUrgent) {
+    // Freemium actif (30 jours) → missions illimitées gratuites
+    if (isTrialActive) {
       return {
-        type: 'no_sub_urgent',
-        price: 30.00,
-        priceHT: 25.00,
-        label: 'Mission urgente',
-        description: '⚡ Mission urgente — 30€ TTC (25€ HT)',
-        canCreate: false,
-        clubSaving: '21€ d\'économie avec le Club ExtraTaff'
+        type: 'trial',
+        price: 0,
+        label: `🎁 Essai gratuit — ${trialDaysLeft}j restants`,
+        description: 'Missions illimitées pendant votre période d\'essai',
+        canCreate: true
       }
     }
 
+    // Non-membre / essai expiré → 19,90€ par mission
     return {
-      type: 'no_sub_normal',
-      price: 21.60,
-      priceHT: 18.00,
-      label: 'Mission normale',
-      description: 'Mission — 21,60€ TTC (18€ HT)',
+      type: 'pay_per_mission',
+      price: 19.90,
+      label: 'Mission ponctuelle',
+      description: 'Publication à 19,90€',
       canCreate: false,
-      clubSaving: '10,80€ avec le Club (ou incluse si 1ère du mois)'
+      clubSaving: 'Passez au Club à 39€/mois pour des missions illimitées'
     }
-  }, [establishment, isUrgent])
+  }, [establishment, isClubMember, isTrialActive, trialDaysLeft])
 
   // ===== FONCTIONS =====
 
@@ -259,32 +242,17 @@ export default function MissionForm({ onMissionCreated }) {
       return
     }
 
-    // Sinon → créer directement (freemium ou club incluse)
+    // Sinon → créer directement (Club ou essai gratuit)
     await handleDirectCreate()
   }
 
-  // Création directe (gratuite : freemium ou mission incluse club)
+  // Création directe (gratuite : Club ou essai gratuit)
   const handleDirectCreate = async () => {
     setLoading(true)
     setError(null)
 
     try {
       const newMission = await createMission('open')
-
-      // Mise à jour selon le type
-      if (paymentInfo.type === 'freemium') {
-        await supabase
-          .from('establishments')
-          .update({ missions_used: (establishment.missions_used || 0) + 1 })
-          .eq('id', establishment.id)
-      }
-
-      if (paymentInfo.type === 'club_included') {
-        await supabase
-          .from('establishments')
-          .update({ missions_included_used: true })
-          .eq('id', establishment.id)
-      }
 
       // Notifier les talents
       await notifyMatchingTalents(newMission, establishment.name, establishment.address)
@@ -309,15 +277,8 @@ export default function MissionForm({ onMissionCreated }) {
       // Créer la mission en statut "pending" (en attente de paiement)
       const newMission = await createMission('pending')
 
-      // Déterminer le plan_type Stripe
-      let planType
-      if (paymentInfo.type === 'club_extra') {
-        planType = 'mission_club_extra'
-      } else if (paymentInfo.type === 'no_sub_urgent') {
-        planType = 'mission_urgent'
-      } else {
-        planType = 'mission_normal'
-      }
+      // Plan type unique : mission ponctuelle à 19,90€
+      const planType = 'mission'
 
       // Appeler l'Edge Function pour créer la session Stripe
       const { data: { session } } = await supabase.auth.refreshSession()
@@ -334,8 +295,7 @@ export default function MissionForm({ onMissionCreated }) {
           body: JSON.stringify({
             establishment_id: establishment.id,
             plan_type: planType,
-            mission_id: newMission.id,
-            is_urgent: isUrgent
+            mission_id: newMission.id
           })
         }
       )
@@ -781,7 +741,7 @@ export default function MissionForm({ onMissionCreated }) {
                 <span className="font-bold text-gray-900">Total</span>
                 <div className="text-right">
                   <span className="text-2xl font-extrabold text-primary-600">{paymentInfo.price.toFixed(2)}€</span>
-                  <span className="text-xs text-gray-500 block">{paymentInfo.priceHT?.toFixed(2)}€ HT</span>
+
                 </div>
               </div>
             </div>

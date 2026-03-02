@@ -219,25 +219,29 @@ export default function EstablishmentDashboard() {
     return diff > 0 ? diff : 0
   }
 
-  const getMissionsLeft = () => {
-    const max = 1
-    const used = profile?.missions_used || 0
-    return Math.max(0, max - used)
+  const isTrialActive = () => {
+    const days = getTrialDaysLeft()
+    return days !== null && days > 0
+  }
+
+  const isClubMember = () => {
+    return profile?.subscription_status === 'active' && profile?.subscription_plan === 'club'
   }
 
   const getSubscriptionBadge = () => {
     const status = profile?.subscription_status
     const plan = profile?.subscription_plan
     if (status === 'active' && plan === 'club') {
-      return { label: '🏆 Club ExtraTaff', color: 'bg-green-100 text-green-800' }
+      return { label: '🏆 Membre Club ExtraTaff', color: 'bg-green-100 text-green-800' }
     }
-    if (status === 'active' || status === 'premium') {
-      return { label: '🟢 Abonnement actif', color: 'bg-green-100 text-green-800' }
+    if (isTrialActive()) {
+      const days = getTrialDaysLeft()
+      return { label: `🎁 Essai gratuit — ${days}j restants`, color: 'bg-blue-100 text-blue-800' }
     }
     if (status === 'expired') {
       return { label: '🔴 Expiré', color: 'bg-red-100 text-red-800' }
     }
-    return { label: '🟡 Freemium', color: 'bg-yellow-100 text-yellow-800' }
+    return { label: '🟡 Freemium expiré', color: 'bg-yellow-100 text-yellow-800' }
   }
 
   if (loading) {
@@ -266,7 +270,6 @@ export default function EstablishmentDashboard() {
 
   const badge = getSubscriptionBadge()
   const trialDays = getTrialDaysLeft()
-  const missionsLeft = getMissionsLeft()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -296,48 +299,45 @@ export default function EstablishmentDashboard() {
               {badge.label}
             </span>
           </div>
-          {/* Ligne 3 : Infos freemium */}
-          {profile.subscription_status !== 'active' && profile.subscription_status !== 'premium' && (
+          {/* Ligne 3 : Infos freemium — essai gratuit en cours */}
+          {!isClubMember() && isTrialActive() && (
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-gray-600">
-                📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''}
+              <span className="text-blue-600 font-medium">
+                🎁 Essai gratuit — {trialDays}j restants • Missions illimitées
               </span>
               <button
                 onClick={() => navigate('/establishment/subscribe')}
                 className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
               >
-                Rejoindre le Club — 30j gratuits →
+                Rejoindre le Club — 39€/mois →
               </button>
             </div>
           )}
-          {/* Ligne 3 bis : Info Club pour les abonnés */}
-          {(profile.subscription_status === 'active') && (
+          {/* Ligne 3 : Freemium expiré */}
+          {!isClubMember() && !isTrialActive() && (
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              {profile.subscription_plan === 'club' ? (
-                <>
-                  <span className={`font-medium ${profile.missions_included_used ? 'text-gray-500' : 'text-green-600'}`}>
-                    {profile.missions_included_used 
-                      ? '📋 Mission incluse utilisée ce mois' 
-                      : '✅ 1 mission incluse disponible'}
-                  </span>
-                  <button
-                    onClick={handleManageSubscription}
-                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
-                  >
-                    Gérer mon abonnement →
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="text-green-600 font-medium">✅ Abonnement actif</span>
-                  <button
-                    onClick={handleManageSubscription}
-                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
-                  >
-                    Gérer mon abonnement →
-                  </button>
-                </>
-              )}
+              <span className="text-amber-600 font-medium">
+                ⏰ Essai terminé
+              </span>
+              <button
+                onClick={() => navigate('/establishment/subscribe')}
+                className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
+              >
+                Rejoindre le Club — 39€/mois →
+              </button>
+              <span className="text-gray-400 text-xs">ou 19,90€/mission</span>
+            </div>
+          )}
+          {/* Ligne 3 bis : Info Club pour les membres */}
+          {isClubMember() && (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-green-600 font-medium">✅ Missions illimitées</span>
+              <button
+                onClick={handleManageSubscription}
+                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
+              >
+                Gérer mon abonnement →
+              </button>
             </div>
           )}
         </div>
@@ -532,40 +532,44 @@ export default function EstablishmentDashboard() {
                       </span>
                     </div>
                     {/* Info Club */}
-                    {profile.subscription_status === 'active' && profile.subscription_plan === 'club' && (
+                    {isClubMember() && (
                       <div className="mt-2 space-y-1">
-                        <p className="text-sm text-gray-600">
-                          {profile.missions_included_used 
-                            ? '📋 Mission incluse du mois : utilisée' 
-                            : '✅ Mission incluse du mois : disponible'}
+                        <p className="text-sm text-green-600 font-medium">
+                          ✅ Missions illimitées — 39€/mois
                         </p>
                         <p className="text-sm text-gray-500">
-                          Missions supplémentaires : 10,80€ TTC • Urgentes : 10,80€ TTC
+                          Sans engagement • Résiliable à tout moment
                         </p>
                       </div>
                     )}
-                    {/* Info Freemium */}
-                    {profile.subscription_status !== 'active' && profile.subscription_status !== 'premium' && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        📝 {missionsLeft} mission{missionsLeft > 1 ? 's' : ''} gratuite{missionsLeft > 1 ? 's' : ''} restante{missionsLeft > 1 ? 's' : ''}
+                    {/* Info Freemium actif */}
+                    {!isClubMember() && isTrialActive() && (
+                      <div className="mt-2">
+                        <p className="text-sm text-blue-600 font-medium">
+                          🎁 Essai gratuit — {trialDays} jours restants • Missions illimitées
+                        </p>
+                      </div>
+                    )}
+                    {/* Info Freemium expiré */}
+                    {!isClubMember() && !isTrialActive() && (
+                      <p className="text-sm text-amber-600 mt-2">
+                        ⏰ Essai gratuit terminé — Rejoignez le Club ou publiez à 19,90€/mission
                       </p>
                     )}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {profile.subscription_status === 'active' ? (
-                        <>
-                          <button
-                            onClick={handleManageSubscription}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
-                          >
-                            ⚙️ Gérer mon abonnement
-                          </button>
-                        </>
+                      {isClubMember() ? (
+                        <button
+                          onClick={handleManageSubscription}
+                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          ⚙️ Gérer mon abonnement
+                        </button>
                       ) : (
                         <button
                           onClick={() => navigate('/establishment/subscribe')}
                           className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
                         >
-                          🏆 Rejoindre le Club — 30 jours gratuits
+                          🏆 Rejoindre le Club — 39€/mois
                         </button>
                       )}
                     </div>

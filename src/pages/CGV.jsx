@@ -10,7 +10,7 @@ const CGV = () => {
             ← Retour à l'accueil
           </Link>
           <h1 className="text-3xl font-bold">Conditions Générales de Vente</h1>
-          <p className="text-blue-200 mt-2">Dernière mise à jour : 24 février 2026</p>
+          <p className="text-blue-200 mt-2">Dernière mise à jour : 2 mars 2026</p>
         </div>
       </div>
 
@@ -59,11 +59,19 @@ const CGV = () => {
               L'utilisation d'ExtraTaff est gratuite pour les talents. Les établissements bénéficient des conditions tarifaires suivantes :
             </p>
 
-            {/* Freemium */}
+            {/* Essai gratuit */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-5 mb-4">
-              <h3 className="font-semibold text-green-800 mb-2">Offre d'essai gratuite (Freemium)</h3>
+              <h3 className="font-semibold text-green-800 mb-2">Essai gratuit (30 jours)</h3>
               <p className="text-gray-700 text-sm">
-                À l'inscription, chaque établissement bénéficie d'une mission gratuite (urgente ou non) au cours du premier mois. Les candidatures sont limitées à 10 candidats maximum par mission.
+                À l'inscription, chaque établissement bénéficie de 30 jours d'essai gratuit avec un accès illimité à la publication de missions. Les candidatures sont limitées à 10 candidats maximum par mission. L'essai démarre automatiquement à la création du compte.
+              </p>
+            </div>
+
+            {/* Offre de lancement */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-5 mb-4">
+              <h3 className="font-semibold text-purple-800 mb-2">Offre de lancement</h3>
+              <p className="text-gray-700 text-sm">
+                Jusqu'au 31 mars 2026, les établissements qui s'inscrivent bénéficient du premier mois offert. Cette offre est cumulable avec l'essai gratuit de 30 jours.
               </p>
             </div>
 
@@ -71,18 +79,28 @@ const CGV = () => {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-4">
               <h3 className="font-semibold text-blue-800 mb-2">Club ExtraTaff — Abonnement mensuel</h3>
               <div className="text-gray-700 text-sm space-y-2">
-                <p><strong>Abonnement :</strong> 20,00 € HT / mois (24,00 € TTC), incluant 1 mission (1 poste).</p>
-                <p><strong>Mission supplémentaire :</strong> 9,00 € HT (10,80 € TTC) par mission, que celle-ci soit normale ou urgente.</p>
-                <p>L'abonnement est sans engagement et peut être résilié à tout moment. La résiliation prend effet à la fin de la période en cours. La mission incluse est remise à zéro à chaque renouvellement mensuel.</p>
+                <p><strong>Abonnement :</strong> 39,00 € TTC / mois — missions illimitées.</p>
+                <p><strong>Sans engagement :</strong> résiliable à tout moment. La résiliation prend effet à la fin de la période de facturation en cours.</p>
+                <p>Les candidatures restent limitées à 10 candidats maximum par mission.</p>
               </div>
             </div>
 
-            {/* Sans abonnement */}
+            {/* Mission ponctuelle */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 mb-4">
-              <h3 className="font-semibold text-gray-800 mb-2">Sans abonnement (paiement à l'acte)</h3>
+              <h3 className="font-semibold text-gray-800 mb-2">Mission ponctuelle (sans abonnement)</h3>
               <div className="text-gray-700 text-sm space-y-2">
-                <p><strong>Mission normale :</strong> 18,00 € HT (21,60 € TTC) par mission.</p>
-                <p><strong>Mission urgente :</strong> 25,00 € HT (30,00 € TTC) par mission.</p>
+                <p><strong>Tarif unique :</strong> 19,90 € TTC par mission, quel que soit le type de mission (urgente ou non).</p>
+                <p>Les candidatures sont limitées à 10 candidats maximum par mission.</p>
+              </div>
+            </div>
+
+            {/* Offre Groupe */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-5 mb-4">
+              <h3 className="font-semibold text-indigo-800 mb-2">Offre Groupe (multi-établissements)</h3>
+              <div className="text-gray-700 text-sm space-y-2">
+                <p><strong>1er établissement :</strong> 39,00 € TTC / mois — missions illimitées.</p>
+                <p><strong>Établissements supplémentaires :</strong> 35,10 € TTC / mois chacun (-10%) — missions illimitées.</p>
+                <p>Facturation commune, sans engagement. Chaque établissement du groupe bénéficie de 30 jours d'essai gratuit à son ajout.</p>
               </div>
             </div>
 
@@ -90,12 +108,12 @@ const CGV = () => {
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-5 mb-4">
               <h3 className="font-semibold text-orange-800 mb-2">Détection automatique des missions urgentes</h3>
               <p className="text-gray-700 text-sm">
-                Une mission est automatiquement considérée comme urgente lorsque sa date de début est fixée au jour même (J) ou au lendemain (J+1). Ce caractère urgent est déterminé automatiquement par le système en fonction des dates saisies — il n'y a pas de sélection manuelle.
+                Une mission est automatiquement considérée comme urgente lorsque sa date de début est fixée au jour même (J) ou au lendemain (J+1). Ce caractère urgent est déterminé automatiquement par le système en fonction des dates saisies — il n'y a pas de sélection manuelle. Le tarif des missions urgentes est identique à celui des missions normales.
               </p>
             </div>
 
             <p className="text-gray-700 leading-relaxed">
-              Tous les prix sont indiqués en euros. La TVA applicable est de 20 %. Les paiements sont traités de manière sécurisée par Stripe. Les factures sont disponibles dans l'espace client Stripe de l'établissement.
+              Tous les prix sont indiqués en euros TTC. Les paiements sont traités de manière sécurisée par Stripe. Les factures sont disponibles dans l'espace client Stripe de l'établissement.
             </p>
           </section>
 

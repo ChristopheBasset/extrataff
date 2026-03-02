@@ -208,6 +208,14 @@ export default function TalentProfileEdit() {
     setLoading(true)
     setError(null)
 
+    // Validation téléphone mobile FR (06 ou 07)
+    const cleanPhone = formData.phone.replace(/[\s\-\.]/g, '').trim()
+    if (!/^0[67]\d{8}$/.test(cleanPhone)) {
+      setError('Veuillez entrer un numéro de mobile valide (06 ou 07, 10 chiffres)')
+      setLoading(false)
+      return
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
@@ -241,7 +249,7 @@ export default function TalentProfileEdit() {
       const updateData = {
         first_name: formData.first_name,
         last_name: formData.last_name,
-        phone: formData.phone,
+        phone: cleanPhone,
         address: formData.address,
         city: formData.city,
         postal_code: formData.postal_code,
@@ -350,7 +358,9 @@ export default function TalentProfileEdit() {
                   placeholder="06 12 34 56 78"
                   className="input"
                   required
+                  maxLength={14}
                 />
+                <p className="text-xs text-gray-500 mt-1">Numéro mobile uniquement (06 ou 07)</p>
               </div>
 
               <div>

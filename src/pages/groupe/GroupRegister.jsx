@@ -108,6 +108,14 @@ export default function GroupRegister() {
       return
     }
 
+    // Validation téléphone mobile FR (06 ou 07)
+    const cleanPhone = formData.phone.replace(/[\s\-\.]/g, '').trim()
+    if (!/^0[67]\d{8}$/.test(cleanPhone)) {
+      setError('Veuillez entrer un numéro de mobile valide (06 ou 07, 10 chiffres)')
+      setLoading(false)
+      return
+    }
+
     try {
       // 1. Créer le compte utilisateur
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -147,7 +155,7 @@ export default function GroupRegister() {
           is_group_owner: true,
           name: formData.establishmentName,
           type: formData.establishmentType,
-          phone: formData.phone,
+          phone: cleanPhone,
           address: formData.address,
           city: formData.city,
           postal_code: formData.postalCode,
@@ -529,7 +537,9 @@ export default function GroupRegister() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="06 12 34 56 78"
                       required
+                      maxLength={14}
                     />
+                    <p className="text-xs text-gray-500 mt-1">Numéro mobile uniquement (06 ou 07)</p>
                   </div>
 
                   <div>

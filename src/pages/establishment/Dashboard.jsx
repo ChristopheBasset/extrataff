@@ -173,6 +173,14 @@ export default function EstablishmentDashboard() {
     setProfileError(null)
     setProfileSuccess(false)
 
+    // Validation téléphone mobile FR (06 ou 07)
+    const cleanPhone = profileForm.phone.replace(/[\s\-\.]/g, '').trim()
+    if (!/^0[67]\d{8}$/.test(cleanPhone)) {
+      setProfileError('Veuillez entrer un numéro de mobile valide (06 ou 07, 10 chiffres)')
+      setProfileSaving(false)
+      return
+    }
+
     try {
       const { error } = await supabase
         .from('establishments')
@@ -635,7 +643,10 @@ export default function EstablishmentDashboard() {
                       onChange={handleProfileChange}
                       className="input"
                       required
+                      placeholder="06 12 34 56 78"
+                      maxLength={14}
                     />
+                    <p className="text-xs text-gray-500 mt-1">Numéro mobile uniquement (06 ou 07)</p>
                   </div>
 
                   <div>

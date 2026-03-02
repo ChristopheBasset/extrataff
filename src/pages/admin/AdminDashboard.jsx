@@ -266,8 +266,6 @@ const EstablishmentDetailModal = ({ item, onClose }) => {
     { label: 'Fin abo', value: formatDate(item.subscription_ends_at) },
     { label: 'Fin essai', value: formatDate(item.trial_ends_at) },
     { label: 'Missions créées', value: item.missions_used },
-    { label: 'Crédits missions', value: item.missions_credit },
-    { label: 'Mission incluse', value: item.missions_included_used ? 'Utilisée' : 'Disponible' },
     { label: '📊 Total missions', value: `${item.total_missions || 0} (${item.active_missions || 0} actives)` },
     { label: '📩 Candidatures reçues', value: item.total_applications_received || 0 },
     { label: 'Groupe', value: item.group_id || '—' },
@@ -546,21 +544,74 @@ export default function AdminDashboard() {
     }
   };
 
+  // Bloquer / Débloquer un talent ou établissement
+  const handleToggleBlock = async (table, id, currentlyBlocked, name) => {
+    const action = currentlyBlocked ? 'Débloquer' : 'Bloquer';
+    if (!confirm(`${action} "${name}" ?`)) return;
+    const { error } = await supabase.from(table).update({
+      is_blocked: !currentlyBlocked,
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
+    if (error) {
+      alert('Erreur: ' + error.message);
+    } else {
+      loadData();
+    }
+  };
+
+  // Bloquer en masse
+  const handleBulkBlock = async (table, block = true) => {
+    if (!selectedIds.size) return;
+    const action = block ? 'Bloquer' : 'Débloquer';
+    if (!confirm(`${action} ${selectedIds.size} élément(s) ?`)) return;
+    const ids = Array.from(selectedIds);
+    const { error } = await supabase.from(table).update({
+      is_blocked: block,
+      updated_at: new Date().toISOString()
+    }).in('id', ids);
+    if (error) {
+      alert('Erreur: ' + error.message);
+    } else {
+      setSelectedIds(new Set());
+      loadData();
+    }
+  };
+
+  // Accorder un freemium de 30 jours à un établissement
+  const handleGrantFreemium = async (id, name) => {
+    if (!confirm(`Accorder 30 jours de freemium à "${name}" ?`)) return;
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 30);
+    const { error } = await supabase.from('establishments').update({
+      trial_ends_at: trialEnd.toISOString(),
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
+    if (error) {
+      alert('Erreur: ' + error.message);
+    } else {
+      loadData();
+    }
+  };
+
   // ============================================================
   // ONGLET : Vue d'ensemble
   // ============================================================
   const renderOverview = () => {
     if (!stats) return <div className="text-center py-12 text-gray-500">Chargement des statistiques...</div>;
 
+    // Compteurs calculés localement pour concordance avec les onglets
+    const localClubCount = establishments.filter(e => e.subscription_plan === 'club').length;
+    const localActiveMissions = missions.filter(m => m.status === 'open' || m.status === 'active').length;
+
     const cards = [
-      { label: 'Talents inscrits', value: stats.total_talents, icon: '👤', color: 'blue' },
-      { label: 'Établissements', value: stats.total_establishments, icon: '🏪', color: 'green' },
-      { label: 'Missions créées', value: stats.total_missions, icon: '📋', color: 'purple' },
-      { label: 'Missions actives', value: stats.active_missions, icon: '🔥', color: 'orange' },
-      { label: 'Candidatures', value: stats.total_applications, icon: '📩', color: 'pink' },
+      { label: 'Talents inscrits', value: talents.length, icon: '👤', color: 'blue' },
+      { label: 'Établissements', value: establishments.length, icon: '🏪', color: 'green' },
+      { label: 'Missions créées', value: missions.length, icon: '📋', color: 'purple' },
+      { label: 'Missions actives', value: localActiveMissions, icon: '🔥', color: 'orange' },
+      { label: 'Candidatures', value: applications.length, icon: '📩', color: 'pink' },
       { label: 'Messages', value: stats.total_messages, icon: '💬', color: 'indigo' },
-      { label: 'Abonnés Club', value: stats.club_subscribers, icon: '🏆', color: 'yellow' },
-      { label: 'Revenu mensuel estimé', value: `${stats.estimated_monthly_revenue}€`, icon: '💰', color: 'emerald' },
+      { label: 'Abonnés Club', value: localClubCount, icon: '🏆', color: 'yellow' },
+      { label: 'Revenu mensuel estimé', value: `${localClubCount * 39}€`, icon: '💰', color: 'emerald' },
     ];
 
     const activityCards = [
@@ -568,10 +619,10 @@ export default function AdminDashboard() {
       { label: 'Nouveaux établissements (7j)', value: stats.new_establishments_week, icon: '🆕' },
       { label: 'Talents actifs (7j)', value: stats.active_talents_week, icon: '🟢' },
       { label: 'Établissements actifs (7j)', value: stats.active_establishments_week, icon: '🟢' },
-      { label: 'Emails non confirmés (talents)', value: stats.unconfirmed_talents, icon: '⚠️' },
-      { label: 'Emails non confirmés (établ.)', value: stats.unconfirmed_establishments, icon: '⚠️' },
-      { label: 'Talents bloqués', value: stats.blocked_talents, icon: '🚫' },
-      { label: 'Établissements bloqués', value: stats.blocked_establishments, icon: '🚫' },
+      { label: 'Emails non confirmés (talents)', value: talents.filter(t => !t.email_confirmed_at).length, icon: '⚠️' },
+      { label: 'Emails non confirmés (établ.)', value: establishments.filter(e => !e.email_confirmed_at).length, icon: '⚠️' },
+      { label: 'Talents bloqués', value: talents.filter(t => t.is_blocked).length, icon: '🚫' },
+      { label: 'Établissements bloqués', value: establishments.filter(e => e.is_blocked).length, icon: '🚫' },
     ];
 
     return (
@@ -610,12 +661,18 @@ export default function AdminDashboard() {
         <div>
           <h3 className="text-lg font-semibold mb-4">🔄 Funnel Établissements</h3>
           <div className="bg-white rounded-xl border p-6 shadow-sm space-y-3">
-            {[
-              { label: '1. Inscrits', value: stats.total_establishments, width: '100%' },
-              { label: '2. Freemium actifs', value: stats.freemium_users, width: `${stats.total_establishments ? Math.round(stats.freemium_users / stats.total_establishments * 100) : 0}%` },
-              { label: '3. Mission gratuite épuisée', value: establishments.filter(e => e.missions_used >= 1 && e.subscription_plan !== 'club').length, width: `${stats.total_establishments ? Math.round(establishments.filter(e => e.missions_used >= 1 && e.subscription_plan !== 'club').length / stats.total_establishments * 100) : 0}%` },
-              { label: '4. 🏆 Club ExtraTaff', value: stats.club_subscribers, width: `${stats.total_establishments ? Math.round(stats.club_subscribers / stats.total_establishments * 100) : 0}%` },
-            ].map((step, i) => (
+            {(() => {
+              const total = establishments.length;
+              const freemiumActive = establishments.filter(e => e.subscription_plan !== 'club' && e.trial_ends_at && new Date(e.trial_ends_at) > new Date()).length;
+              const freemiumExpired = establishments.filter(e => e.subscription_plan !== 'club' && e.trial_ends_at && new Date(e.trial_ends_at) <= new Date()).length;
+              const clubCount = establishments.filter(e => e.subscription_plan === 'club').length;
+              const steps = [
+                { label: '1. Inscrits', value: total, width: '100%' },
+                { label: '2. Freemium actifs (30j)', value: freemiumActive, width: `${total ? Math.round(freemiumActive / total * 100) : 0}%` },
+                { label: '3. Freemium expiré', value: freemiumExpired, width: `${total ? Math.round(freemiumExpired / total * 100) : 0}%` },
+                { label: '4. 🏆 Club ExtraTaff (39€/mois)', value: clubCount, width: `${total ? Math.round(clubCount / total * 100) : 0}%` },
+              ];
+              return steps.map((step, i) => (
               <div key={i} className="flex items-center gap-4">
                 <span className="text-sm w-52 shrink-0">{step.label}</span>
                 <div className="flex-1 bg-gray-100 rounded-full h-6">
@@ -625,7 +682,8 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       </div>
@@ -677,9 +735,17 @@ export default function AdminDashboard() {
             📥 Export CSV ({filtered.length})
           </button>
           {selectedIds.size > 0 && (
-            <button onClick={() => handleBulkDelete('talents')} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
-              🗑️ Supprimer ({selectedIds.size})
-            </button>
+            <>
+              <button onClick={() => handleBulkBlock('talents', true)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm">
+                🚫 Bloquer ({selectedIds.size})
+              </button>
+              <button onClick={() => handleBulkBlock('talents', false)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
+                ✅ Débloquer ({selectedIds.size})
+              </button>
+              <button onClick={() => handleBulkDelete('talents')} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+                🗑️ Supprimer ({selectedIds.size})
+              </button>
+            </>
           )}
           <span className="text-sm text-gray-500">{filtered.length} talent{filtered.length > 1 ? 's' : ''}</span>
         </div>
@@ -735,12 +801,18 @@ export default function AdminDashboard() {
                   <td className="px-3 py-2 text-xs text-gray-500">
                     {t.last_sign_in_at ? timeAgo(t.last_sign_in_at) : <span className="text-red-400">Jamais</span>}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 flex gap-2">
                     <button
                       onClick={() => { setDetailItem(t); setDetailType('talent'); }}
                       className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
                       👁️ Voir
+                    </button>
+                    <button
+                      onClick={() => handleToggleBlock('talents', t.id, t.is_blocked, `${t.first_name} ${t.last_name}`)}
+                      className={`text-xs font-medium ${t.is_blocked ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'}`}
+                    >
+                      {t.is_blocked ? '✅ Débloquer' : '🚫 Bloquer'}
                     </button>
                   </td>
                 </tr>
@@ -778,7 +850,6 @@ export default function AdminDashboard() {
       { label: 'Statut abo', accessor: d => d.subscription_status },
       { label: 'Plan', accessor: d => d.subscription_plan },
       { label: 'Missions créées', accessor: d => d.missions_used },
-      { label: 'Crédits missions', accessor: d => d.missions_credit },
       { label: 'Total missions', accessor: d => d.total_missions },
       { label: 'Missions actives', accessor: d => d.active_missions },
       { label: 'Candidatures reçues', accessor: d => d.total_applications_received },
@@ -800,9 +871,17 @@ export default function AdminDashboard() {
             📥 Export CSV ({filtered.length})
           </button>
           {selectedIds.size > 0 && (
-            <button onClick={() => handleBulkDelete('establishments')} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
-              🗑️ Supprimer ({selectedIds.size})
-            </button>
+            <>
+              <button onClick={() => handleBulkBlock('establishments', true)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm">
+                🚫 Bloquer ({selectedIds.size})
+              </button>
+              <button onClick={() => handleBulkBlock('establishments', false)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
+                ✅ Débloquer ({selectedIds.size})
+              </button>
+              <button onClick={() => handleBulkDelete('establishments')} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+                🗑️ Supprimer ({selectedIds.size})
+              </button>
+            </>
           )}
           <span className="text-sm text-gray-500">{filtered.length} établissement{filtered.length > 1 ? 's' : ''}</span>
         </div>
@@ -853,30 +932,45 @@ export default function AdminDashboard() {
                     <td className="px-3 py-2 text-xs text-gray-500">
                       {e.last_sign_in_at ? timeAgo(e.last_sign_in_at) : <span className="text-red-400">Jamais</span>}
                     </td>
-                    <td className="px-3 py-2 flex gap-2">
-                      <button
-                        onClick={() => { setDetailItem(e); setDetailType('establishment'); }}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        👁️ Voir
-                      </button>
-                      {e.subscription_plan !== 'club' && (
+                    <td className="px-3 py-2">
+                      <div className="flex gap-2 flex-wrap">
                         <button
-                          onClick={async () => {
-                            if (!confirm(`Activer Club ExtraTaff pour ${e.name} ?`)) return;
-                            await supabase.from('establishments').update({
-                              subscription_status: 'active',
-                              subscription_plan: 'club',
-                              missions_included_used: false,
-                              subscription_started_at: new Date().toISOString(),
-                            }).eq('id', e.id);
-                            loadData();
-                          }}
-                          className="text-yellow-600 hover:text-yellow-800 text-xs font-medium"
+                          onClick={() => { setDetailItem(e); setDetailType('establishment'); }}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                         >
-                          🏆 Club
+                          👁️ Voir
                         </button>
-                      )}
+                        <button
+                          onClick={() => handleToggleBlock('establishments', e.id, e.is_blocked, e.name)}
+                          className={`text-xs font-medium ${e.is_blocked ? 'text-green-600 hover:text-green-800' : 'text-orange-600 hover:text-orange-800'}`}
+                        >
+                          {e.is_blocked ? '✅ Débloquer' : '🚫 Bloquer'}
+                        </button>
+                        {e.subscription_plan !== 'club' && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Activer Club ExtraTaff pour ${e.name} ?`)) return;
+                                await supabase.from('establishments').update({
+                                  subscription_status: 'active',
+                                  subscription_plan: 'club',
+                                  subscription_started_at: new Date().toISOString(),
+                                }).eq('id', e.id);
+                                loadData();
+                              }}
+                              className="text-yellow-600 hover:text-yellow-800 text-xs font-medium"
+                            >
+                              🏆 Club
+                            </button>
+                            <button
+                              onClick={() => handleGrantFreemium(e.id, e.name)}
+                              className="text-purple-600 hover:text-purple-800 text-xs font-medium"
+                            >
+                              🎁 30j gratuits
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1076,7 +1170,7 @@ export default function AdminDashboard() {
   // ============================================================
   const renderSubscriptions = () => {
     const clubMembers = establishments.filter(e => e.subscription_plan === 'club');
-    const freemiumUsed = establishments.filter(e => e.subscription_plan !== 'club' && e.missions_used >= 1);
+    const freemiumUsed = establishments.filter(e => e.subscription_plan !== 'club' && e.trial_ends_at && new Date(e.trial_ends_at) <= new Date());
 
     return (
       <div className="space-y-6">
@@ -1087,7 +1181,7 @@ export default function AdminDashboard() {
             <div className="text-sm text-yellow-600">🏆 Membres Club</div>
           </div>
           <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-            <div className="text-2xl font-bold text-green-800">{clubMembers.length * 24}€</div>
+            <div className="text-2xl font-bold text-green-800">{clubMembers.length * 39}€</div>
             <div className="text-sm text-green-600">💰 Revenu mensuel</div>
           </div>
           <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
@@ -1114,7 +1208,7 @@ export default function AdminDashboard() {
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Établissement</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">📱 Tél.</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mission incluse</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Missions</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Début abo</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stripe ID</th>
                   </tr>
@@ -1126,13 +1220,7 @@ export default function AdminDashboard() {
                       <td className="px-3 py-2 text-sm font-medium">{e.name}</td>
                       <td className="px-3 py-2 text-sm">{e.phone || '—'}</td>
                       <td className="px-3 py-2 text-sm">{e.city || '—'}</td>
-                      <td className="px-3 py-2 text-sm">
-                        {e.missions_included_used ? (
-                          <span className="text-orange-600">Utilisée</span>
-                        ) : (
-                          <span className="text-green-600">✅ Disponible</span>
-                        )}
-                      </td>
+                      <td className="px-3 py-2 text-sm text-green-600 font-medium">♾️ Illimité</td>
                       <td className="px-3 py-2 text-xs">{formatDate(e.subscription_started_at)}</td>
                       <td className="px-3 py-2 text-xs text-gray-400 font-mono">{e.stripe_customer_id || '—'}</td>
                     </tr>
@@ -1145,7 +1233,7 @@ export default function AdminDashboard() {
 
         {/* Prospects chauds */}
         <div>
-          <h3 className="text-lg font-semibold mb-3">🎯 Prospects chauds (≥1 mission, pas Club)</h3>
+          <h3 className="text-lg font-semibold mb-3">🎯 Prospects chauds (freemium expiré, pas Club)</h3>
           {freemiumUsed.length === 0 ? (
             <p className="text-gray-400 text-center py-4">Aucun prospect chaud</p>
           ) : (
@@ -1159,7 +1247,7 @@ export default function AdminDashboard() {
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Missions</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inscription</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -1169,24 +1257,31 @@ export default function AdminDashboard() {
                       <td className="px-3 py-2 text-sm font-medium">{e.name}</td>
                       <td className="px-3 py-2 text-sm">{e.phone || '—'}</td>
                       <td className="px-3 py-2 text-sm">{e.city || '—'}</td>
-                      <td className="px-3 py-2 text-sm">{e.missions_used}</td>
+                      <td className="px-3 py-2 text-sm">{e.missions_used || 0}</td>
                       <td className="px-3 py-2 text-xs">{formatDate(e.created_at)}</td>
                       <td className="px-3 py-2">
-                        <button
-                          onClick={async () => {
-                            if (!confirm(`Activer Club ExtraTaff pour ${e.name} ?`)) return;
-                            await supabase.from('establishments').update({
-                              subscription_status: 'active',
-                              subscription_plan: 'club',
-                              missions_included_used: false,
-                              subscription_started_at: new Date().toISOString(),
-                            }).eq('id', e.id);
-                            loadData();
-                          }}
-                          className="text-xs px-3 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
-                        >
-                          🏆 Activer Club
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Activer Club ExtraTaff pour ${e.name} ?`)) return;
+                              await supabase.from('establishments').update({
+                                subscription_status: 'active',
+                                subscription_plan: 'club',
+                                subscription_started_at: new Date().toISOString(),
+                              }).eq('id', e.id);
+                              loadData();
+                            }}
+                            className="text-xs px-3 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                          >
+                            🏆 Activer Club
+                          </button>
+                          <button
+                            onClick={() => handleGrantFreemium(e.id, e.name)}
+                            className="text-xs px-3 py-1 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+                          >
+                            🎁 +30j gratuits
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

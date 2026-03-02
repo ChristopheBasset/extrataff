@@ -24,7 +24,7 @@ export default function Landing() {
     },
     {
       question: "C'est gratuit ?",
-      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, nous offrons 1 mission gratuite pour tester la plateforme. Ensuite, vous pouvez rejoindre le Club ExtraTaff à 24€ TTC/mois (1 mission incluse, supplémentaires à 10,80€) ou publier à la mission sans abonnement (21,60€ la mission normale, 30€ en urgence). Sans engagement."
+      answer: "Pour les talents, c'est 100% gratuit ! Pour les établissements, devenez membre du Club ExtraTaff à 39€/mois pour des missions illimitées. Vous pouvez aussi publier une mission ponctuelle à 19,90€ sans abonnement. Simple, transparent, sans engagement."
     },
     {
       question: "Comment créer un compte ?",
@@ -44,11 +44,11 @@ export default function Landing() {
     },
     {
       question: "Qu'est-ce que le Club ExtraTaff ?",
-      answer: "Le Club ExtraTaff est notre abonnement mensuel à 24€ TTC (20€ HT) pour les établissements. Il inclut 1 mission par mois, des missions supplémentaires à 10,80€ (au lieu de 21,60€), et surtout les missions urgentes au même tarif de 10,80€ (au lieu de 30€ sans abonnement). Sans engagement, résiliable à tout moment."
+      answer: "Le Club ExtraTaff est notre abonnement mensuel à 39€/mois pour les établissements. En devenant membre, vous publiez des missions en illimité, accédez à tous les talents et profitez de la messagerie instantanée. Sans engagement, résiliable à tout moment. Pour les inscriptions avant fin mars 2026, le premier mois est offert !"
     },
     {
       question: "Qu'est-ce qu'une mission urgente ?",
-      answer: "Une mission est automatiquement détectée comme urgente lorsque la date de début est aujourd'hui ou demain. Les talents sont notifiés en priorité et la mission apparaît en haut des résultats. Pour les membres du Club, le tarif reste le même qu'une mission classique (10,80€). Sans abonnement, une mission urgente coûte 30€."
+      answer: "Une mission est automatiquement détectée comme urgente lorsque la date de début est aujourd'hui ou demain. Les talents sont notifiés en priorité par SMS et notification push, et la mission apparaît en haut des résultats. Le tarif reste le même, que la mission soit urgente ou non."
     },
     {
       question: "Comment contacter un candidat ou un établissement ?",
@@ -201,16 +201,16 @@ export default function Landing() {
               </div>
               <div className="bg-white/10 rounded-xl px-6 py-4 flex-1 max-w-xs relative">
                 <div className="absolute -top-2 right-2 bg-yellow-400 text-blue-900 text-xs font-bold px-2 py-0.5 rounded-full">RECOMMANDÉ</div>
-                <p className="text-3xl font-extrabold">24€</p>
+                <p className="text-3xl font-extrabold">39€</p>
                 <p className="text-blue-200 text-sm mt-1">/mois — Club ExtraTaff</p>
-                <p className="text-blue-300 text-xs mt-1">1 mission incluse + supp. 10,80€</p>
+                <p className="text-blue-300 text-xs mt-1">Missions illimitées • Sans engagement</p>
               </div>
               <div className="bg-white/10 rounded-xl px-6 py-4 flex-1 max-w-xs">
-                <p className="text-3xl font-extrabold">21,60€</p>
-                <p className="text-blue-200 text-sm mt-1">Par mission, sans engagement</p>
+                <p className="text-3xl font-extrabold">19,90€</p>
+                <p className="text-blue-200 text-sm mt-1">Par mission, sans abonnement</p>
               </div>
             </div>
-            <p className="text-blue-200 text-sm mt-4">🎁 1ère mission offerte pour tester la plateforme !</p>
+            <p className="text-yellow-300 text-sm mt-4 font-semibold">🚀 Offre de lancement : 1er mois offert avant fin mars 2026 !</p>
           </div>
         </div>
       </section>

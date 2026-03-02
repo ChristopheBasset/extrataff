@@ -1298,27 +1298,55 @@ export default function AdminDashboard() {
   // ONGLET : Admins
   // ============================================================
   const handleInviteAdmin = async () => {
-    if (!inviteEmail || !inviteName) {
-      alert('Email et nom requis');
-      return;
-    }
-    setInviting(true);
-    try {
-      const { error } = await supabase.functions.invoke('send-admin-invite', {
-        body: { email: inviteEmail, name: inviteName }
+  if (!inviteEmail || !inviteName) {
+    alert('Email et nom requis');
+    return;
+  }
+  setInviting(true);
+  try {
+    // 1. Générer un token unique
+    const activationToken = crypto.randomUUID();
+
+    // 2. Récupérer l'email de l'admin connecté
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // 3. Insérer dans la table admins
+    const { error: insertError } = await supabase
+      .from('admins')
+      .insert({
+        email: inviteEmail.toLowerCase().trim(),
+        name: inviteName.trim(),
+        activation_token: activationToken,
+        is_activated: false,
+        created_by: user?.email || 'admin'
       });
-      if (error) throw error;
-      alert(`Invitation envoyée à ${inviteEmail}`);
-      setInviteEmail('');
-      setInviteName('');
-      loadData();
-    } catch (err) {
-      console.error('Erreur invitation:', err);
-      alert('Erreur: ' + (err.message || 'Échec de l\'envoi'));
-    } finally {
-      setInviting(false);
+
+    if (insertError) {
+      if (insertError.message.includes('duplicate') || insertError.message.includes('unique')) {
+        alert('Cet email est déjà dans la liste des admins.');
+        return;
+      }
+      throw insertError;
     }
-  };
+
+    // 4. Envoyer l'email d'invitation avec le token
+    const { error } = await supabase.functions.invoke('send-admin-invite', {
+      body: { email: inviteEmail, name: inviteName, activationToken }
+    });
+
+    if (error) throw error;
+
+    alert(`Invitation envoyée à ${inviteEmail}`);
+    setInviteEmail('');
+    setInviteName('');
+    loadData();
+  } catch (err) {
+    console.error('Erreur invitation:', err);
+    alert('Erreur: ' + (err.message || "Échec de l'envoi"));
+  } finally {
+    setInviting(false);
+  }
+};
 
   const renderAdmins = () => {
     return (

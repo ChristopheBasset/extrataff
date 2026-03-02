@@ -9,16 +9,6 @@ export default function Subscribe() {
   const [error, setError] = useState('')
   const [selectedPlan, setSelectedPlan] = useState(null)
 
-  // Prix TTC (affichés au client)
-  const clubPriceTTC = 24.00
-  const clubPriceHT = 20.00
-  const missionNormalTTC = 21.60
-  const missionNormalHT = 18.00
-  const missionUrgentTTC = 30.00
-  const missionUrgentHT = 25.00
-  const missionSuppTTC = 10.80
-  const missionSuppHT = 9.00
-
   useEffect(() => {
     loadEstablishment()
   }, [])
@@ -101,7 +91,8 @@ export default function Subscribe() {
     }
   }
 
-  const missionsUsed = establishment?.missions_used || 0
+  // Vérifier si on est dans la période de lancement (avant fin mars 2026)
+  const isLaunchOffer = new Date() <= new Date('2026-03-31T23:59:59')
 
   // Spinner réutilisable
   const Spinner = ({ text }) => (
@@ -120,22 +111,21 @@ export default function Subscribe() {
         
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Rejoignez le Club ExtraTaff 🏆</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Choisissez votre formule 🏆</h1>
           <p className="text-gray-600">
-            Recrutez vos extras en quelques clics. <strong>30 jours d'essai gratuit</strong>, puis choisissez la formule qui vous convient.
+            Simple, transparent, sans engagement.
           </p>
         </div>
 
-        {/* Statut freemium épuisé */}
-        {establishment && missionsUsed >= 1 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🎁</span>
-              <div>
-                <p className="font-medium text-gray-900">Votre mission d'essai est épuisée</p>
-                <p className="text-sm text-gray-600">{missionsUsed}/1 mission gratuite utilisée</p>
-              </div>
-            </div>
+        {/* Offre de lancement */}
+        {isLaunchOffer && (
+          <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl p-4 mb-6 text-center shadow-lg">
+            <p className="text-lg font-bold">
+              🚀 Offre de lancement — 1er mois GRATUIT !
+            </p>
+            <p className="text-sm opacity-90">
+              Inscrivez-vous avant fin mars 2026
+            </p>
           </div>
         )}
 
@@ -152,7 +142,7 @@ export default function Subscribe() {
           {/* Option 1 : Club ExtraTaff */}
           <div 
             onClick={() => setSelectedPlan('club')}
-            className={`bg-white rounded-2xl p-6 cursor-pointer transition-all ${
+            className={`relative bg-white rounded-2xl p-6 cursor-pointer transition-all ${
               selectedPlan === 'club' 
                 ? 'ring-2 ring-primary-600 shadow-lg' 
                 : 'border border-gray-200 hover:shadow-md'
@@ -160,55 +150,50 @@ export default function Subscribe() {
           >
             <div className="flex justify-between items-start mb-4">
               <span className="text-3xl">🏆</span>
-              <div className="flex gap-2">
-                <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
-                  30 JOURS GRATUITS
-                </span>
-                <span className="bg-primary-100 text-primary-700 text-xs font-bold px-3 py-1 rounded-full">
-                  RECOMMANDÉ
-                </span>
-              </div>
+              <span className="bg-primary-100 text-primary-700 text-xs font-bold px-3 py-1 rounded-full">
+                RECOMMANDÉ
+              </span>
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-1">Club ExtraTaff</h3>
             <div className="mb-1">
-              <span className="text-4xl font-extrabold text-primary-600">{clubPriceTTC}€</span>
+              <span className="text-4xl font-extrabold text-primary-600">39€</span>
               <span className="text-gray-500">/mois</span>
             </div>
-            <p className="text-xs text-gray-500 mb-4">{clubPriceHT}€ HT/mois • Sans engagement • 30 jours gratuits</p>
+            <p className="text-xs text-gray-500 mb-4">Sans engagement • Résiliable à tout moment</p>
             <ul className="space-y-3 mb-6">
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>1 mission incluse</strong> chaque mois <span className="text-gray-400">(valeur {missionNormalTTC}€)</span></span>
+                <span><strong>Missions illimitées</strong></span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Missions supplémentaires à <strong>{missionSuppTTC}€</strong></span>
+                <span>Accès à tous les talents</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Missions urgentes à <strong>{missionSuppTTC}€</strong> <span className="text-red-500 line-through text-xs">{missionUrgentTTC}€</span></span>
+                <span>Matching & messagerie instantanée</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Matching & messagerie</span>
+                <span>Notifications SMS & push temps réel</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Sans engagement</strong></span>
+                <span><strong>Sans engagement</strong> — résiliable à tout moment</span>
               </li>
             </ul>
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-xs text-green-700 text-center font-medium">
-                💡 1 urgence suffit pour rentabiliser l'abonnement
+                💡 Dès 2 missions/mois, le Club est plus avantageux
               </p>
             </div>
           </div>
 
-          {/* Option 2 : Sans abonnement */}
+          {/* Option 2 : Mission ponctuelle */}
           <div 
-            onClick={() => setSelectedPlan('no_sub')}
+            onClick={() => setSelectedPlan('mission')}
             className={`bg-white rounded-2xl p-6 cursor-pointer transition-all ${
-              selectedPlan === 'no_sub' 
+              selectedPlan === 'mission' 
                 ? 'ring-2 ring-primary-600 shadow-lg' 
                 : 'border border-gray-200 hover:shadow-md'
             }`}
@@ -216,75 +201,35 @@ export default function Subscribe() {
             <div className="mb-4">
               <span className="text-3xl">📋</span>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-1">Sans abonnement</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-1">Mission ponctuelle</h3>
             <div className="mb-1">
-              <span className="text-4xl font-extrabold text-primary-600">{missionNormalTTC}€</span>
+              <span className="text-4xl font-extrabold text-primary-600">19,90€</span>
               <span className="text-gray-500">/mission</span>
             </div>
-            <p className="text-xs text-gray-500 mb-4">{missionNormalHT}€ HT • Payez à l'usage</p>
+            <p className="text-xs text-gray-500 mb-4">Sans abonnement • Payez à l'usage</p>
             <ul className="space-y-3 mb-6">
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Payez ce que vous utilisez</strong></span>
+                <span><strong>1 mission publiée</strong></span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Mission normale : <strong>{missionNormalTTC}€</strong></span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-amber-500 mt-0.5">⚡</span>
-                <span>Mission urgente : <strong>{missionUrgentTTC}€</strong></span>
+                <span>Accès à tous les talents</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
-                <span>Matching & messagerie</span>
+                <span>Matching & messagerie instantanée</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-gray-700">
                 <span className="text-green-500 mt-0.5">✓</span>
                 <span><strong>Aucun engagement</strong></span>
               </li>
+              <li className="flex items-start gap-2 text-sm text-gray-500 italic">
+                <span className="text-gray-400 mt-0.5">—</span>
+                <span>2 missions = 39,80€ → le Club est plus avantageux !</span>
+              </li>
             </ul>
             <p className="text-xs text-gray-500 text-center">Idéal pour les besoins occasionnels</p>
-          </div>
-        </div>
-
-        {/* Tableau comparatif */}
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h4 className="font-bold text-gray-900">📊 Comparer les formules</h4>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left px-6 py-3 text-gray-500 font-medium"></th>
-                  <th className="text-center px-4 py-3 text-gray-500 font-medium">Sans abo</th>
-                  <th className="text-center px-4 py-3 font-medium text-primary-700 bg-primary-50">Club ExtraTaff</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-gray-50">
-                  <td className="px-6 py-3 text-gray-700">1ère mission du mois</td>
-                  <td className="text-center px-4 py-3 text-gray-700">{missionNormalTTC}€</td>
-                  <td className="text-center px-4 py-3 font-bold text-green-600 bg-primary-50">Incluse ✓</td>
-                </tr>
-                <tr className="border-b border-gray-50">
-                  <td className="px-6 py-3 text-gray-700">Mission supplémentaire</td>
-                  <td className="text-center px-4 py-3 text-gray-700">{missionNormalTTC}€</td>
-                  <td className="text-center px-4 py-3 font-bold text-primary-600 bg-primary-50">{missionSuppTTC}€</td>
-                </tr>
-                <tr className="border-b border-gray-50">
-                  <td className="px-6 py-3 text-gray-700">Mission urgente ⚡</td>
-                  <td className="text-center px-4 py-3 text-gray-700">{missionUrgentTTC}€</td>
-                  <td className="text-center px-4 py-3 font-bold text-primary-600 bg-primary-50">{missionSuppTTC}€</td>
-                </tr>
-                <tr>
-                  <td className="px-6 py-3 text-gray-700">Économie sur 2 missions</td>
-                  <td className="text-center px-4 py-3 text-gray-400">—</td>
-                  <td className="text-center px-4 py-3 font-bold text-green-600 bg-primary-50">-7,20€</td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
 
@@ -295,59 +240,43 @@ export default function Subscribe() {
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-700">Abonnement Club ExtraTaff</span>
-                <span className="text-xl font-bold text-gray-900">{clubPriceTTC}€/mois</span>
+                <span className="text-xl font-bold text-gray-900">39€/mois</span>
               </div>
-              <p className="text-sm text-gray-500">{clubPriceHT}€ HT • 1 mission incluse • Sans engagement</p>
-              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm text-green-800 font-medium">🎁 30 jours d'essai gratuit — votre carte ne sera débitée qu'à l'issue de la période d'essai</p>
-              </div>
-              <div className="mt-3 pt-3 border-t border-gray-200 space-y-1">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Missions supplémentaires</span>
-                  <span>{missionSuppTTC}€ / mission</span>
+              <p className="text-sm text-gray-500">Missions illimitées • Sans engagement</p>
+              {isLaunchOffer && (
+                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium">🎁 Offre de lancement : votre 1er mois est offert !</p>
                 </div>
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Missions urgentes</span>
-                  <span>{missionSuppTTC}€ / mission <span className="text-red-400 line-through ml-1">{missionUrgentTTC}€</span></span>
-                </div>
-              </div>
+              )}
             </div>
             <button
-              onClick={() => handleCheckout('club_subscription')}
+              onClick={() => handleCheckout('club')}
               disabled={loading}
               className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <Spinner />
               ) : (
-                `🏆 Essai gratuit 30 jours — puis ${clubPriceTTC}€/mois`
+                isLaunchOffer ? '🚀 Commencer gratuitement — puis 39€/mois' : '🏆 Rejoindre le Club — 39€/mois'
               )}
             </button>
           </div>
         )}
 
-        {/* Zone d'action - Sans abonnement */}
-        {selectedPlan === 'no_sub' && (
+        {/* Zone d'action - Mission ponctuelle */}
+        {selectedPlan === 'mission' && (
           <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
-            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Sans abonnement</h4>
+            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Mission ponctuelle</h4>
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <p className="text-sm text-gray-600 mb-3">
-                Vous paierez au moment de publier chaque mission :
-              </p>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-700">Mission normale</span>
-                  <span className="font-bold text-gray-900">{missionNormalTTC}€ TTC</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-700">Mission urgente ⚡</span>
-                  <span className="font-bold text-gray-900">{missionUrgentTTC}€ TTC</span>
-                </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-700">1 mission publiée</span>
+                <span className="text-xl font-bold text-gray-900">19,90€</span>
               </div>
+              <p className="text-sm text-gray-500">Paiement unique • Sans abonnement</p>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
               <p className="text-sm text-amber-800">
-                💡 <strong>Astuce :</strong> Avec le Club à {clubPriceTTC}€/mois, votre 1ère mission est incluse et les suivantes ne coûtent que {missionSuppTTC}€.
+                💡 <strong>Astuce :</strong> Avec le Club à 39€/mois, vos missions sont illimitées.
                 <button onClick={() => setSelectedPlan('club')} className="ml-2 text-primary-600 font-semibold underline">
                   Voir le Club
                 </button>
@@ -360,7 +289,7 @@ export default function Subscribe() {
               Continuer sans abonnement
             </button>
             <p className="text-xs text-gray-400 text-center mt-2">
-              Le paiement sera demandé lors de la publication d'une mission.
+              Le paiement de 19,90€ sera demandé lors de la publication de votre mission.
             </p>
           </div>
         )}

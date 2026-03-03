@@ -67,6 +67,11 @@ export default function AdminActivate() {
 
     setSubmitting(true)
     try {
+      // 0. Nettoyer un éventuel compte auth fantôme (tentative précédente échouée)
+      await supabase.rpc('cleanup_auth_for_admin', {
+        admin_email: admin.email
+      })
+
       // 1. Créer le compte utilisateur dans Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: admin.email,
@@ -80,10 +85,6 @@ export default function AdminActivate() {
       })
 
       if (authError) {
-        if (authError.message.includes('already registered')) {
-          setError('Un compte existe déjà avec cet email. Utilisez la page de connexion admin.')
-          return
-        }
         throw authError
       }
 

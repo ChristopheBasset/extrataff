@@ -439,12 +439,24 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false });
       setMissions(missionsData || []);
 
-      // Charger candidatures
-      const { data: appsData } = await supabase
-        .from('applications')
-        .select('*, talents(first_name, last_name), missions(position, establishments(name))')
-        .order('created_at', { ascending: false });
-      setApplications(appsData || []);
+      // Charger candidatures via RPC (bypass RLS)
+      const { data: appsData, error: appsErr } = await supabase.rpc('get_admin_applications');
+      if (appsErr) {
+        console.error('Erreur RPC applications:', appsErr);
+        // Fallback : requête directe
+        const { data: fallbackApps } = await supabase
+          .from('applications')
+          .select('*, talents(first_name, last_name), missions(position, establishments(name))')
+          .order('created_at', { ascending: false });
+        setApplications(fallbackApps || []);
+      } else {
+        // Reformater pour garder la même structure que l'affichage
+        setApplications((appsData || []).map(a => ({
+          ...a,
+          talents: { first_name: a.talent_first_name, last_name: a.talent_last_name },
+          missions: { position: a.mission_position, establishments: { name: a.establishment_name } }
+        })));
+      }
 
       // Stats globales via RPC
       const { data: statsData, error: statsErr } = await supabase.rpc('get_admin_stats');
@@ -1134,8 +1146,10 @@ export default function AdminDashboard() {
             <tbody className="bg-white divide-y divide-gray-200">
               {paged.map((a) => {
                 const statusColors = {
+                  interested: 'bg-blue-100 text-blue-800',
                   pending: 'bg-yellow-100 text-yellow-800',
                   accepted: 'bg-green-100 text-green-800',
+                  confirmed: 'bg-emerald-100 text-emerald-800',
                   rejected: 'bg-red-100 text-red-800',
                 };
                 return (

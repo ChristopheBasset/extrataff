@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, POSITION_TYPES, FRENCH_DEPARTMENTS, extractDepartment } from '../../lib/supabase'
 import NotificationBell from '../../components/shared/NotificationBell'
@@ -29,6 +29,32 @@ export default function TalentDashboard() {
   const [cvUploading, setCvUploading] = useState(false)
   const [cvDeleting, setCvDeleting] = useState(false)
   const [talentRating, setTalentRating] = useState({ avg: 0, count: 0 })
+
+  // ---- Navigation avec historique (bouton retour smartphone) ----
+  const changeView = useCallback((newView) => {
+    setView(newView)
+    if (newView !== 'home') {
+      window.history.pushState({ view: newView }, '')
+    }
+  }, [])
+
+  const handleBack = useCallback(() => {
+    window.history.back()
+  }, [])
+
+  useEffect(() => {
+    // Initialiser l'état historique pour la page home
+    window.history.replaceState({ view: 'home' }, '')
+
+    const onPopState = (event) => {
+      const newView = event.state?.view || 'home'
+      setView(newView)
+      setEditProfile(false)
+    }
+
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   useEffect(() => {
     checkProfile()
@@ -456,7 +482,7 @@ export default function TalentDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Missions Matchées */}
             <div
-              onClick={() => setView('matched')}
+              onClick={() => changeView('matched')}
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">🎯</div>
@@ -467,7 +493,7 @@ export default function TalentDashboard() {
 
             {/* Missions Intéressées */}
             <div
-              onClick={() => setView('interested')}
+              onClick={() => changeView('interested')}
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">❤️</div>
@@ -478,7 +504,7 @@ export default function TalentDashboard() {
 
             {/* Mes Missions Validées */}
             <div
-              onClick={() => setView('confirmed')}
+              onClick={() => changeView('confirmed')}
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">✅</div>
@@ -489,7 +515,7 @@ export default function TalentDashboard() {
 
             {/* Mon Profil */}
             <div
-              onClick={() => setView('profile')}
+              onClick={() => changeView('profile')}
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">⚙️</div>
@@ -502,7 +528,7 @@ export default function TalentDashboard() {
 
             {/* Planning */}
             <div
-              onClick={() => setView('planning')}
+              onClick={() => changeView('planning')}
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">📅</div>
@@ -520,7 +546,7 @@ export default function TalentDashboard() {
           <MatchedMissions
             talentId={profile.id}
             talentProfile={profile}
-            onBack={() => setView('home')}
+            onBack={() => handleBack()}
             onCountChange={(count) => setCounts(prev => ({ ...prev, matched: count }))}
           />
         )}
@@ -529,7 +555,7 @@ export default function TalentDashboard() {
         {view === 'interested' && (
           <TalentApplications
             talentId={profile.id}
-            onBack={() => setView('home')}
+            onBack={() => handleBack()}
           />
         )}
 
@@ -537,7 +563,7 @@ export default function TalentDashboard() {
         {view === 'confirmed' && (
           <TalentConfirmed
             talentId={profile.id}
-            onBack={() => setView('home')}
+            onBack={() => handleBack()}
           />
         )}
 
@@ -545,7 +571,7 @@ export default function TalentDashboard() {
         {view === 'planning' && (
           <TalentPlanning
             talentId={profile.id}
-            onBack={() => setView('home')}
+            onBack={() => handleBack()}
           />
         )}
 
@@ -554,7 +580,7 @@ export default function TalentDashboard() {
           <div>
             <div className="mb-6">
               <button
-                onClick={() => { setView('home'); setEditProfile(false) }}
+                onClick={() => handleBack()}
                 className="text-primary-600 hover:text-primary-700 font-medium"
               >
                 ← Retour

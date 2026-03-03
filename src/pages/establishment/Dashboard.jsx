@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, ESTABLISHMENT_TYPES } from '../../lib/supabase'
 import MyMissions from '../../components/Establishment/MyMissions'
@@ -26,6 +26,31 @@ export default function EstablishmentDashboard() {
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileError, setProfileError] = useState(null)
   const [profileSuccess, setProfileSuccess] = useState(false)
+
+  // ---- Navigation avec historique (bouton retour smartphone) ----
+  const changeView = useCallback((newView) => {
+    setView(newView)
+    if (newView !== 'home') {
+      window.history.pushState({ view: newView }, '')
+    }
+  }, [])
+
+  const handleBack = useCallback(() => {
+    window.history.back()
+  }, [])
+
+  useEffect(() => {
+    window.history.replaceState({ view: 'home' }, '')
+
+    const onPopState = (event) => {
+      const newView = event.state?.view || 'home'
+      setView(newView)
+      setEditProfile(false)
+    }
+
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   useEffect(() => {
     checkProfile()
@@ -373,7 +398,7 @@ export default function EstablishmentDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Mes Missions */}
               <div
-                onClick={() => setView('missions')}
+                onClick={() => changeView('missions')}
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">📝</div>
@@ -384,7 +409,7 @@ export default function EstablishmentDashboard() {
 
               {/* Mes Candidats */}
               <div
-                onClick={() => setView('candidates')}
+                onClick={() => changeView('candidates')}
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">👥</div>
@@ -395,7 +420,7 @@ export default function EstablishmentDashboard() {
 
               {/* Mes Embauches */}
               <div
-                onClick={() => setView('hired')}
+                onClick={() => changeView('hired')}
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">✅</div>
@@ -406,7 +431,7 @@ export default function EstablishmentDashboard() {
 
               {/* Mon Profil */}
               <div
-                onClick={() => setView('profile')}
+                onClick={() => changeView('profile')}
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">⚙️</div>
@@ -419,7 +444,7 @@ export default function EstablishmentDashboard() {
 
               {/* Planning */}
               <div
-                onClick={() => setView('planning')}
+                onClick={() => changeView('planning')}
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">📅</div>
@@ -437,7 +462,7 @@ export default function EstablishmentDashboard() {
         {view === 'missions' && (
           <MyMissions 
             establishmentId={profile.id} 
-            onBack={() => setView('home')} 
+            onBack={() => handleBack()} 
           />
         )}
 
@@ -445,7 +470,7 @@ export default function EstablishmentDashboard() {
         {view === 'candidates' && (
           <ApplicationsReceived
             establishmentId={profile.id}
-            onBack={() => setView('home')}
+            onBack={() => handleBack()}
           />
         )}
 
@@ -453,7 +478,7 @@ export default function EstablishmentDashboard() {
         {view === 'hired' && (
           <EstablishmentHired
             establishmentId={profile.id}
-            onBack={() => setView('home')}
+            onBack={() => handleBack()}
           />
         )}
 
@@ -461,7 +486,7 @@ export default function EstablishmentDashboard() {
         {view === 'planning' && (
           <EstablishmentPlanning
             establishmentId={profile.id}
-            onBack={() => setView('home')}
+            onBack={() => handleBack()}
           />
         )}
 
@@ -470,7 +495,7 @@ export default function EstablishmentDashboard() {
           <div>
             <div className="mb-6">
               <button
-                onClick={() => { setView('home'); setEditProfile(false) }}
+                onClick={() => handleBack()}
                 className="text-primary-600 hover:text-primary-700 font-medium"
               >
                 ← Retour

@@ -6,6 +6,7 @@ import MatchedMissions from '../../components/Talent/MatchedMissions'
 import TalentApplications from '../../components/Talent/TalentApplications'
 import TalentConfirmed from '../../components/Talent/TalentConfirmed'
 import TalentPlanning from '../../components/Talent/TalentPlanning'
+import HelpBubble from '../../components/HelpBubble'
 
 export default function TalentDashboard() {
   const navigate = useNavigate()
@@ -459,7 +460,7 @@ export default function TalentDashboard() {
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">🎯</div>
-              <h2 className="text-2xl font-bold text-gray-900">Missions Matchées</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Missions Matchées <HelpBubble text="Ici vous trouverez les missions qui correspondent à votre profil (postes, départements, disponibilités)." /></h2>
               <p className="text-gray-600 mt-2">Missions proposées</p>
               <div className="mt-6 text-5xl font-bold text-primary-600">{counts.matched}</div>
             </div>
@@ -470,7 +471,7 @@ export default function TalentDashboard() {
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">❤️</div>
-              <h2 className="text-2xl font-bold text-gray-900">Missions Intéressées</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Missions Intéressées <HelpBubble text="Vos candidatures en cours. Vous serez notifié dès qu'un établissement accepte votre candidature et pourrez converser avec lui." /></h2>
               <p className="text-gray-600 mt-2">Candidatures en cours</p>
               <div className="mt-6 text-5xl font-bold text-primary-600">{counts.interested}</div>
             </div>
@@ -481,7 +482,7 @@ export default function TalentDashboard() {
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">✅</div>
-              <h2 className="text-2xl font-bold text-gray-900">Mes Missions Validées</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Mes Missions Validées <HelpBubble text="Vos missions acceptées par l'établissement. Vous pourrez continuer à converser avec lui pour l'organisation." /></h2>
               <p className="text-gray-600 mt-2">Embauches confirmées</p>
               <div className="mt-6 text-5xl font-bold text-primary-600">{counts.confirmed}</div>
             </div>
@@ -492,7 +493,7 @@ export default function TalentDashboard() {
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">⚙️</div>
-              <h2 className="text-2xl font-bold text-gray-900">Mon Profil</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Mon Profil <HelpBubble text="Remplissez toutes les informations pour un match parfait avec les missions proposées." /></h2>
               <p className="text-gray-600 mt-2">Gérer mon profil</p>
               <div className="mt-6">
                 <span className="text-sm text-gray-500">Paramètres & infos</span>
@@ -505,7 +506,7 @@ export default function TalentDashboard() {
               className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-4">📅</div>
-              <h2 className="text-2xl font-bold text-gray-900">Mon Planning</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Mon Planning <HelpBubble text="Visualisez vos missions confirmées sur un calendrier mensuel." /></h2>
               <p className="text-gray-600 mt-2">Mes missions à venir</p>
               <div className="mt-6">
                 <span className="text-sm text-gray-500">Vue par mois</span>

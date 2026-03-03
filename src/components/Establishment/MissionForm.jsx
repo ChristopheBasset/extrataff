@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, POSITION_TYPES, CONTRACT_TYPES, generateFuzzyLocation } from '../../lib/supabase'
+import HelpBubble from '../../components/HelpBubble'
 
 export default function MissionForm({ onMissionCreated }) {
   const navigate = useNavigate()
@@ -356,7 +357,7 @@ export default function MissionForm({ onMissionCreated }) {
       {/* Formulaire */}
       <div className="max-w-2xl mx-auto px-4 pb-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Créer une mission</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Créer une mission <HelpBubble text="Remplissez bien tous les champs pour un match parfait avec les talents disponibles !" /></h2>
           <p className="text-gray-600 mt-2">Publiez votre annonce et recevez des candidatures</p>
         </div>
 

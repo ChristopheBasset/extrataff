@@ -7,6 +7,7 @@ import EstablishmentHired from '../../components/Establishment/EstablishmentHire
 import EstablishmentPlanning from '../../components/Establishment/EstablishmentPlanning'
 import AddressAutocomplete from '../../components/shared/AddressAutocomplete'
 import NotificationBell from '../../components/shared/NotificationBell'
+import HelpBubble from '../../components/HelpBubble'
 
 export default function EstablishmentDashboard() {
   const navigate = useNavigate()
@@ -376,7 +377,7 @@ export default function EstablishmentDashboard() {
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">📝</div>
-                <h2 className="text-2xl font-bold text-gray-900">Mes Missions</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Mes Missions <HelpBubble text="Retrouvez ici toutes les missions que vous avez créées. Vous pouvez suivre leur statut et les gérer." /></h2>
                 <p className="text-gray-600 mt-2">Missions créées et gérées</p>
                 <div className="mt-6 text-5xl font-bold text-primary-600">{counts.missions}</div>
               </div>
@@ -387,7 +388,7 @@ export default function EstablishmentDashboard() {
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">👥</div>
-                <h2 className="text-2xl font-bold text-gray-900">Mes Candidats</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Mes Candidats <HelpBubble text="Acceptez, refusez et conversez avec les candidats intéressés par vos missions." /></h2>
                 <p className="text-gray-600 mt-2">Candidatures reçues</p>
                 <div className="mt-6 text-5xl font-bold text-primary-600">{counts.candidates}</div>
               </div>
@@ -398,7 +399,7 @@ export default function EstablishmentDashboard() {
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">✅</div>
-                <h2 className="text-2xl font-bold text-gray-900">Mes Embauches</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Mes Embauches <HelpBubble text="Vos candidats confirmés. Conversez avec eux pour organiser leur arrivée." /></h2>
                 <p className="text-gray-600 mt-2">Candidats validés</p>
                 <div className="mt-6 text-5xl font-bold text-primary-600">{counts.hired}</div>
               </div>
@@ -409,7 +410,7 @@ export default function EstablishmentDashboard() {
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">⚙️</div>
-                <h2 className="text-2xl font-bold text-gray-900">Mon Profil</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Mon Profil <HelpBubble text="Complétez toutes vos informations pour un match parfait avec les candidats." /></h2>
                 <p className="text-gray-600 mt-2">Gérer mon établissement</p>
                 <div className="mt-6">
                   <span className="text-sm text-gray-500">Paramètres & infos</span>
@@ -422,7 +423,7 @@ export default function EstablishmentDashboard() {
                 className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <div className="text-4xl mb-4">📅</div>
-                <h2 className="text-2xl font-bold text-gray-900">Planning</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Planning <HelpBubble text="Visualisez vos missions et talents confirmés sur un calendrier mensuel." /></h2>
                 <p className="text-gray-600 mt-2">Vue d'ensemble par mois</p>
                 <div className="mt-6">
                   <span className="text-sm text-gray-500">Missions & talents</span>

@@ -128,6 +128,13 @@ export default function Landing() {
           La plateforme qui connecte en instantané les établissements CHR et les Talents !
         </p>
 
+        {/* Bandeau matching */}
+        <div className="max-w-lg mb-8 bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 border border-white/20">
+          <p className="text-sm text-blue-100 leading-relaxed">
+            🔔 À chaque match entre une mission et un candidat, vous recevez une notification automatique. Remplissez bien votre profil pour <strong className="text-white">le bon job</strong> et <strong className="text-white">le bon candidat</strong>, au bon moment !
+          </p>
+        </div>
+
         {/* CTA Buttons */}
         <div className="w-full max-w-md space-y-4 mb-6">
           

@@ -122,6 +122,47 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
     }
   }
 
+  const handleDecline = async (applicationId) => {
+    if (!confirm('Décliner ce candidat ? La conversation sera supprimée et il disparaîtra de votre liste. Le candidat pourra repostuler sur une future mission.')) return
+
+    try {
+      // 1. Supprimer les messages du chat liés à cette candidature
+      const { error: msgErr } = await supabase
+        .from('messages')
+        .delete()
+        .eq('application_id', applicationId)
+
+      if (msgErr) console.warn('Erreur suppression messages:', msgErr)
+
+      // 2. Supprimer la candidature
+      const { error: appErr } = await supabase
+        .from('applications')
+        .delete()
+        .eq('id', applicationId)
+
+      if (appErr) throw appErr
+
+      // 3. Notifier le talent
+      const app = applications.find(a => a.id === applicationId)
+      if (app?.talent?.user_id) {
+        const posLabel = app.mission ? getPositionLabel(app.mission.position) : 'la mission'
+        await supabase.from('notifications').insert({
+          user_id: app.talent.user_id,
+          type: 'application_declined',
+          title: '😔 Candidature déclinée',
+          content: `L'établissement a finalement décliné votre candidature pour ${posLabel}. N'hésitez pas à postuler sur d'autres missions !`,
+          link: '/talent/missions',
+          read: false
+        })
+      }
+
+      loadApplications()
+    } catch (err) {
+      console.error('Erreur déclinaison:', err)
+      alert('Erreur lors de la déclinaison')
+    }
+  }
+
   const handleOpenChat = (applicationId) => {
     navigate(`/establishment/chat/${applicationId}`)
   }
@@ -283,12 +324,20 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
                   </>
                 )}
                 {app.status === 'accepted' && (
-                  <button
-                    onClick={() => handleOpenChat(app.id)}
-                    className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
-                  >
-                    💬 Ouvrir conversation
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleOpenChat(app.id)}
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      💬 Ouvrir conversation
+                    </button>
+                    <button
+                      onClick={() => handleDecline(app.id)}
+                      className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      ❌ Décliner
+                    </button>
+                  </>
                 )}
               </div>
             </div>

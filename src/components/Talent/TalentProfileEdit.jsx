@@ -9,7 +9,6 @@ export default function TalentProfileEdit() {
   const [error, setError] = useState(null)
   const [initialLoading, setInitialLoading] = useState(true)
   
-  // État pour le CV
   const [cvFile, setCvFile] = useState(null)
   const [cvUploading, setCvUploading] = useState(false)
   const [cvFileName, setCvFileName] = useState('')
@@ -31,7 +30,9 @@ export default function TalentProfileEdit() {
     contract_preferences: [],
     min_hourly_rate: '',
     bio: '',
-    accepts_coupure: true
+    accepts_coupure: true,
+    notif_push: true,
+    notif_email: true,
   })
 
   useEffect(() => {
@@ -67,10 +68,11 @@ export default function TalentProfileEdit() {
           contract_preferences: data.contract_preferences || [],
           min_hourly_rate: data.min_hourly_rate || '',
           bio: data.bio || '',
-          accepts_coupure: data.accepts_coupure !== false
+          accepts_coupure: data.accepts_coupure !== false,
+          notif_push: data.notif_push !== false,
+          notif_email: data.notif_email !== false,
         })
         
-        // Charger le CV existant
         if (data.cv_url) {
           setExistingCvUrl(data.cv_url)
         }
@@ -85,13 +87,9 @@ export default function TalentProfileEdit() {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  // Gestion de l'adresse avec autocomplete
   const handleAddressChange = (addressData) => {
     setFormData(prev => ({
       ...prev,
@@ -103,7 +101,6 @@ export default function TalentProfileEdit() {
     }))
   }
 
-  // Gestion du fichier CV
   const handleCvChange = (e) => {
     const file = e.target.files[0]
     if (file) {
@@ -121,24 +118,13 @@ export default function TalentProfileEdit() {
     }
   }
 
-  // Supprimer le CV (nouveau ou existant)
   const handleRemoveCv = async () => {
     if (existingCvUrl && !cvFile) {
-      // Supprimer le CV existant du storage
       try {
-        const { error } = await supabase.storage
-          .from('CV')
-          .remove([existingCvUrl])
-        
+        const { error } = await supabase.storage.from('CV').remove([existingCvUrl])
         if (error) throw error
-        
-        // Mettre à jour la base
         const { data: { user } } = await supabase.auth.getUser()
-        await supabase
-          .from('talents')
-          .update({ cv_url: null })
-          .eq('user_id', user.id)
-        
+        await supabase.from('talents').update({ cv_url: null }).eq('user_id', user.id)
         setExistingCvUrl(null)
         alert('CV supprimé')
       } catch (err) {
@@ -146,22 +132,15 @@ export default function TalentProfileEdit() {
         setError('Erreur lors de la suppression du CV')
       }
     } else {
-      // Annuler le nouveau fichier sélectionné
       setCvFile(null)
       setCvFileName('')
     }
   }
 
-  // Télécharger le CV existant
   const handleDownloadCv = async () => {
     try {
-      const { data, error } = await supabase.storage
-        .from('CV')
-        .download(existingCvUrl)
-      
+      const { data, error } = await supabase.storage.from('CV').download(existingCvUrl)
       if (error) throw error
-      
-      // Créer un lien de téléchargement
       const url = URL.createObjectURL(data)
       const a = document.createElement('a')
       a.href = url
@@ -208,7 +187,6 @@ export default function TalentProfileEdit() {
     setLoading(true)
     setError(null)
 
-    // Validation téléphone mobile FR (06 ou 07)
     const cleanPhone = formData.phone.replace(/[\s\-\.]/g, '').trim()
     if (!/^0[67]\d{8}$/.test(cleanPhone)) {
       setError('Veuillez entrer un numéro de mobile valide (06 ou 07, 10 chiffres)')
@@ -219,33 +197,21 @@ export default function TalentProfileEdit() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Upload du nouveau CV si présent
       let cvUrl = existingCvUrl
       if (cvFile) {
         setCvUploading(true)
-        
-        // Supprimer l'ancien CV si existe
         if (existingCvUrl) {
           await supabase.storage.from('CV').remove([existingCvUrl])
         }
-        
         const fileExt = cvFile.name.split('.').pop()
         const fileName = `${user.id}_${Date.now()}.${fileExt}`
         const filePath = `${user.id}/${fileName}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('CV')
-          .upload(filePath, cvFile)
-
-        if (uploadError) {
-          throw new Error('Erreur lors de l\'upload du CV: ' + uploadError.message)
-        }
-
+        const { error: uploadError } = await supabase.storage.from('CV').upload(filePath, cvFile)
+        if (uploadError) throw new Error('Erreur lors de l\'upload du CV: ' + uploadError.message)
         cvUrl = filePath
         setCvUploading(false)
       }
 
-      // Préparer les données à mettre à jour
       const updateData = {
         first_name: formData.first_name,
         last_name: formData.last_name,
@@ -262,19 +228,16 @@ export default function TalentProfileEdit() {
         min_hourly_rate: formData.min_hourly_rate ? parseFloat(formData.min_hourly_rate) : null,
         bio: formData.bio || null,
         accepts_coupure: formData.accepts_coupure,
-        cv_url: cvUrl
+        cv_url: cvUrl,
+        notif_push: formData.notif_push,
+        notif_email: formData.notif_email,
       }
 
-      // Mettre à jour les coordonnées seulement si une nouvelle adresse a été sélectionnée
       if (formData.coordinates && formData.coordinates.length === 2) {
         updateData.location = `POINT(${formData.coordinates[0]} ${formData.coordinates[1]})`
       }
 
-      const { error } = await supabase
-        .from('talents')
-        .update(updateData)
-        .eq('user_id', user.id)
-
+      const { error } = await supabase.from('talents').update(updateData).eq('user_id', user.id)
       if (error) throw error
 
       alert('Profil mis à jour avec succès !')
@@ -309,9 +272,7 @@ export default function TalentProfileEdit() {
 
         <form onSubmit={handleSubmit} className="card space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>
           )}
 
           {/* Informations personnelles */}
@@ -319,70 +280,28 @@ export default function TalentProfileEdit() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Informations personnelles</h2>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prénom *
-                </label>
-                <input
-                  type="text"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleChange}
-                  className="input"
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prénom *</label>
+                <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} className="input" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nom *
-                </label>
-                <input
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  className="input"
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+                <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} className="input" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Téléphone *
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="06 12 34 56 78"
-                  className="input"
-                  required
-                  maxLength={14}
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
+                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="06 12 34 56 78" className="input" required maxLength={14} />
                 <p className="text-xs text-gray-500 mt-1">Numéro mobile uniquement (06 ou 07)</p>
               </div>
-
               <div>
-                {/* Adresse avec autocomplete */}
-                <AddressAutocomplete
-                  value={formData.address}
-                  onChange={handleAddressChange}
-                  label="Adresse *"
-                  placeholder="Tapez votre adresse..."
-                  required
-                />
+                <AddressAutocomplete value={formData.address} onChange={handleAddressChange} label="Adresse *" placeholder="Tapez votre adresse..." required />
               </div>
             </div>
           </div>
 
           {/* CV */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              CV (optionnel)
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">CV (optionnel)</label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-              {/* CV existant */}
               {existingCvUrl && !cvFile && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -397,18 +316,8 @@ export default function TalentProfileEdit() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleDownloadCv}
-                      className="text-primary-600 hover:text-primary-800 text-sm font-medium"
-                    >
-                      Télécharger
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRemoveCv}
-                      className="text-red-600 hover:text-red-800"
-                    >
+                    <button type="button" onClick={handleDownloadCv} className="text-primary-600 hover:text-primary-800 text-sm font-medium">Télécharger</button>
+                    <button type="button" onClick={handleRemoveCv} className="text-red-600 hover:text-red-800">
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
@@ -416,8 +325,6 @@ export default function TalentProfileEdit() {
                   </div>
                 </div>
               )}
-
-              {/* Nouveau CV sélectionné */}
               {cvFile && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -431,19 +338,13 @@ export default function TalentProfileEdit() {
                       <p className="text-xs text-gray-500">Nouveau fichier (sera enregistré)</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveCv}
-                    className="text-red-600 hover:text-red-800"
-                  >
+                  <button type="button" onClick={handleRemoveCv} className="text-red-600 hover:text-red-800">
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
               )}
-
-              {/* Zone d'upload (si pas de CV) */}
               {!existingCvUrl && !cvFile && (
                 <div className="text-center">
                   <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
@@ -451,34 +352,18 @@ export default function TalentProfileEdit() {
                   </svg>
                   <div className="mt-2">
                     <label className="cursor-pointer">
-                      <span className="text-primary-600 hover:text-primary-500 font-medium">
-                        Choisir un fichier
-                      </span>
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={handleCvChange}
-                        className="hidden"
-                      />
+                      <span className="text-primary-600 hover:text-primary-500 font-medium">Choisir un fichier</span>
+                      <input type="file" accept=".pdf" onChange={handleCvChange} className="hidden" />
                     </label>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">PDF uniquement, 5 Mo max</p>
                 </div>
               )}
-
-              {/* Bouton remplacer si CV existe */}
               {existingCvUrl && !cvFile && (
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <label className="cursor-pointer">
-                    <span className="text-primary-600 hover:text-primary-500 text-sm font-medium">
-                      Remplacer par un nouveau CV
-                    </span>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleCvChange}
-                      className="hidden"
-                    />
+                    <span className="text-primary-600 hover:text-primary-500 text-sm font-medium">Remplacer par un nouveau CV</span>
+                    <input type="file" accept=".pdf" onChange={handleCvChange} className="hidden" />
                   </label>
                 </div>
               )}
@@ -487,68 +372,36 @@ export default function TalentProfileEdit() {
 
           {/* Rayon de recherche */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Rayon de recherche : {formData.search_radius} km
-            </label>
-            <input
-              type="range"
-              name="search_radius"
-              min="5"
-              max="50"
-              step="5"
-              value={formData.search_radius}
-              onChange={handleChange}
-              className="w-full"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Rayon de recherche : {formData.search_radius} km</label>
+            <input type="range" name="search_radius" min="5" max="50" step="5" value={formData.search_radius} onChange={handleChange} className="w-full" />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>5 km</span>
-              <span>50 km</span>
+              <span>5 km</span><span>50 km</span>
             </div>
           </div>
 
           {/* Départements préférés */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Départements de recherche (optionnel)
-            </label>
-            <p className="text-xs text-gray-500 mb-2">
-              Sélectionnez les départements où vous souhaitez trouver des missions
-            </p>
-            <select
-              multiple
-              value={formData.preferred_departments}
+            <label className="block text-sm font-medium text-gray-700 mb-2">Départements de recherche (optionnel)</label>
+            <p className="text-xs text-gray-500 mb-2">Sélectionnez les départements où vous souhaitez trouver des missions</p>
+            <select multiple value={formData.preferred_departments}
               onChange={(e) => {
                 const selected = Array.from(e.target.selectedOptions, option => option.value)
                 setFormData(prev => ({ ...prev, preferred_departments: selected }))
               }}
-              className="input min-h-[150px]"
-            >
+              className="input min-h-[150px]">
               {FRENCH_DEPARTMENTS.map(dept => (
-                <option key={dept.value} value={dept.value}>
-                  {dept.label}
-                </option>
+                <option key={dept.value} value={dept.value}>{dept.label}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Maintenez Ctrl (Windows) ou Cmd (Mac) pour sélectionner plusieurs départements
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Maintenez Ctrl (Windows) ou Cmd (Mac) pour sélectionner plusieurs départements</p>
             {formData.preferred_departments.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {formData.preferred_departments.map(dept => {
                   const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
                   return (
-                    <span
-                      key={dept}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
-                    >
+                    <span key={dept} className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm">
                       {deptInfo?.label || dept}
-                      <button
-                        type="button"
-                        onClick={() => handleDepartmentToggle(dept)}
-                        className="hover:text-primary-900"
-                      >
-                        ×
-                      </button>
+                      <button type="button" onClick={() => handleDepartmentToggle(dept)} className="hover:text-primary-900">×</button>
                     </span>
                   )
                 })}
@@ -558,21 +411,13 @@ export default function TalentProfileEdit() {
 
           {/* Types de postes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Types de postes recherchés * (sélectionnez au moins 1)
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Types de postes recherchés * (sélectionnez au moins 1)</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {POSITION_TYPES.slice(0, 12).map(position => (
-                <button
-                  key={position.value}
-                  type="button"
-                  onClick={() => handlePositionToggle(position.value)}
+                <button key={position.value} type="button" onClick={() => handlePositionToggle(position.value)}
                   className={`p-2 text-sm rounded-lg border-2 transition-colors ${
-                    formData.position_types.includes(position.value)
-                      ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
+                    formData.position_types.includes(position.value) ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 hover:border-gray-300'
+                  }`}>
                   {position.label}
                 </button>
               ))}
@@ -582,38 +427,26 @@ export default function TalentProfileEdit() {
             )}
           </div>
 
-          {/* Préférence service continu / avec coupure */}
+          {/* Service continu / coupure */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Type de service accepté
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-3">Type de service accepté</label>
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex gap-6">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="accepts_coupure"
-                    checked={formData.accepts_coupure === true}
+                  <input type="radio" name="accepts_coupure" checked={formData.accepts_coupure === true}
                     onChange={() => setFormData(prev => ({ ...prev, accepts_coupure: true }))}
-                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
-                  />
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
                   <span className="text-gray-900">Les deux</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="accepts_coupure"
-                    checked={formData.accepts_coupure === false}
+                  <input type="radio" name="accepts_coupure" checked={formData.accepts_coupure === false}
                     onChange={() => setFormData(prev => ({ ...prev, accepts_coupure: false }))}
-                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
-                  />
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
                   <span className="text-gray-900">Service continu uniquement</span>
                 </label>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {formData.accepts_coupure 
-                  ? 'Vous verrez toutes les missions (avec ou sans coupure)' 
-                  : 'Vous ne verrez que les missions en service continu'}
+                {formData.accepts_coupure ? 'Vous verrez toutes les missions (avec ou sans coupure)' : 'Vous ne verrez que les missions en service continu'}
               </p>
             </div>
           </div>
@@ -621,15 +454,8 @@ export default function TalentProfileEdit() {
           {/* Expérience */}
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Années d'expérience
-              </label>
-              <select
-                name="years_experience"
-                value={formData.years_experience}
-                onChange={handleChange}
-                className="input"
-              >
+              <label className="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
+              <select name="years_experience" value={formData.years_experience} onChange={handleChange} className="input">
                 <option value="0">Débutant</option>
                 <option value="1">1 an</option>
                 <option value="2">2 ans</option>
@@ -638,41 +464,21 @@ export default function TalentProfileEdit() {
                 <option value="10">10 ans et +</option>
               </select>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tarif horaire minimum (€)
-              </label>
-              <input
-                type="number"
-                name="min_hourly_rate"
-                value={formData.min_hourly_rate}
-                onChange={handleChange}
-                placeholder="12.50"
-                step="0.50"
-                min="0"
-                className="input"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tarif horaire minimum (€)</label>
+              <input type="number" name="min_hourly_rate" value={formData.min_hourly_rate} onChange={handleChange} placeholder="12.50" step="0.50" min="0" className="input" />
             </div>
           </div>
 
           {/* Préférences de contrat */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Types de contrats acceptés
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Types de contrats acceptés</label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {CONTRACT_TYPES.slice(0, 4).map(contract => (
-                <button
-                  key={contract.value}
-                  type="button"
-                  onClick={() => handleContractToggle(contract.value)}
+                <button key={contract.value} type="button" onClick={() => handleContractToggle(contract.value)}
                   className={`p-2 text-sm rounded-lg border-2 transition-colors ${
-                    formData.contract_preferences.includes(contract.value)
-                      ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
+                    formData.contract_preferences.includes(contract.value) ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 hover:border-gray-300'
+                  }`}>
                   {contract.label}
                 </button>
               ))}
@@ -681,37 +487,55 @@ export default function TalentProfileEdit() {
 
           {/* Bio */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bio / Présentation (200 caractères max)
-            </label>
-            <textarea
-              name="bio"
-              value={formData.bio}
-              onChange={handleChange}
-              maxLength={200}
-              rows={3}
-              className="input"
-              placeholder="Parlez de vous, vos points forts, votre motivation..."
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {formData.bio.length} / 200 caractères
+            <label className="block text-sm font-medium text-gray-700 mb-1">Bio / Présentation (200 caractères max)</label>
+            <textarea name="bio" value={formData.bio} onChange={handleChange} maxLength={200} rows={3} className="input"
+              placeholder="Parlez de vous, vos points forts, votre motivation..." />
+            <p className="text-xs text-gray-500 mt-1">{formData.bio.length} / 200 caractères</p>
+          </div>
+
+          {/* Préférences de notifications */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">🔔 Notifications</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Comment souhaitez-vous être informé des nouvelles missions et candidatures ?
             </p>
+            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Notifications Push</p>
+                  <p className="text-xs text-gray-500">Alertes en temps réel sur votre mobile</p>
+                </div>
+                <div
+                  onClick={() => setFormData(prev => ({ ...prev, notif_push: !prev.notif_push }))}
+                  className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${formData.notif_push ? 'bg-primary-600' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${formData.notif_push ? 'translate-x-7' : 'translate-x-1'}`} />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200" />
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Notifications Email</p>
+                  <p className="text-xs text-gray-500">Récapitulatif par email des missions et candidatures</p>
+                </div>
+                <div
+                  onClick={() => setFormData(prev => ({ ...prev, notif_email: !prev.notif_email }))}
+                  className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${formData.notif_email ? 'bg-primary-600' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${formData.notif_email ? 'translate-x-7' : 'translate-x-1'}`} />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Boutons */}
           <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => navigate('/talent')}
-              className="btn-secondary flex-1"
-            >
+            <button type="button" onClick={() => navigate('/talent')} className="btn-secondary flex-1">
               Annuler
             </button>
-            <button
-              type="submit"
-              disabled={loading || cvUploading || formData.position_types.length === 0}
-              className="btn-primary flex-1"
-            >
+            <button type="submit" disabled={loading || cvUploading || formData.position_types.length === 0} className="btn-primary flex-1">
               {loading || cvUploading ? 'Enregistrement...' : 'Enregistrer les modifications'}
             </button>
           </div>

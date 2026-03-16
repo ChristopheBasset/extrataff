@@ -139,16 +139,10 @@ export default function TalentProfileForm() {
       }
 
       const { error } = await supabase
-        .from('talents')
-        .insert({
-          user_id: user.id,
-          const { error } = await supabase
   .from('talents')
   .insert({
-    user_id: user.id,
-    email: user.email,   // ← ligne ajoutée
-    first_name: formData.first_name,
-    ...
+          user_id: user.id,
+          email: user.email,
           first_name: formData.first_name,
           last_name: formData.last_name,
           phone: cleanPhone,

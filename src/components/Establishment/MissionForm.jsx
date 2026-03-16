@@ -265,11 +265,17 @@ export default function MissionForm({ onMissionCreated }) {
     try {
       const newMission = await createMission('pending')
       const planType = 'mission'
-      const { data: { session } } = await supabase.auth.refreshSession()
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-checkout-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+for (const talent of talentsAvecEmail) {
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/send-notification-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`
+      },
         body: JSON.stringify({ establishment_id: establishment.id, plan_type: planType, mission_id: newMission.id })
       })
 

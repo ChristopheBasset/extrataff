@@ -16,15 +16,12 @@ export default function MissionForm({ onMissionCreated }) {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { navigate('/login'); return }
-
         const { data: est } = await supabase
           .from('establishments')
           .select('id, name, address, subscription_status, subscription_plan, trial_ends_at')
           .eq('user_id', user.id)
           .single()
-
         if (!est) { navigate('/establishment'); return }
-
         setEstablishment(est)
         setCheckingAccess(false)
       } catch (err) {
@@ -52,10 +49,7 @@ export default function MissionForm({ onMissionCreated }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
   }
 
   const isUrgent = useMemo(() => {
@@ -93,13 +87,9 @@ export default function MissionForm({ onMissionCreated }) {
 
   const paymentInfo = useMemo(() => {
     if (!establishment) return null
-    if (isClubMember) {
-      return { type: 'club', price: 0, label: '🏆 Membre Club ExtraTaff', description: 'Missions illimitées comprises dans votre abonnement', canCreate: true }
-    }
-    if (isTrialActive) {
-      return { type: 'trial', price: 0, label: `🎁 Essai gratuit — ${trialDaysLeft}j restants`, description: 'Missions illimitées pendant votre période d\'essai', canCreate: true }
-    }
-    return { type: 'pay_per_mission', price: 19.90, label: 'Mission ponctuelle', description: 'Publication à 19,90€', canCreate: false, clubSaving: 'Passez au Club à 39€/mois pour des missions illimitées' }
+    if (isClubMember) return { type: 'club', price: 0, label: '🏆 Membre Club ExtraTaff', description: "Missions illimitées comprises dans votre abonnement", canCreate: true }
+    if (isTrialActive) return { type: 'trial', price: 0, label: `🎁 Essai gratuit — ${trialDaysLeft}j restants`, description: "Missions illimitées pendant votre période d'essai", canCreate: true }
+    return { type: 'pay_per_mission', price: 19.90, label: 'Mission ponctuelle', description: 'Publication à 19,90€', canCreate: false, clubSaving: "Passez au Club à 39€/mois pour des missions illimitées" }
   }, [establishment, isClubMember, isTrialActive, trialDaysLeft])
 
   const extractDepartmentFromAddress = (address) => {
@@ -118,7 +108,6 @@ export default function MissionForm({ onMissionCreated }) {
     try {
       const missionDepartment = extractDepartmentFromAddress(establishmentAddress)
 
-      // ── On récupère aussi email et notif_email ──
       const { data: matchingTalents, error: talentsError } = await supabase
         .from('talents')
         .select('id, user_id, first_name, email, notif_email, position_types, preferred_departments')
@@ -136,7 +125,7 @@ export default function MissionForm({ onMissionCreated }) {
       const positionLabel = POSITION_TYPES.find(p => p.value === mission.position)?.label || mission.position
       const urgentPrefix = mission.is_urgent ? '🔴 URGENT — ' : '🎯 '
 
-      // ── Push notifications (existant) ──
+      // Push notifications
       const notifications = talentsInDepartment.map(talent => ({
         user_id: talent.user_id,
         type: 'new_mission',
@@ -147,21 +136,20 @@ export default function MissionForm({ onMissionCreated }) {
       }))
 
       await supabase.from('notifications').insert(notifications)
+      console.log(`${notifications.length} talents notifiés (push)`)
 
-      // ── Emails via Resend (nouveau) ──
+      // Emails via Resend
       const talentsAvecEmail = talentsInDepartment.filter(t => t.notif_email && t.email)
-
       if (talentsAvecEmail.length > 0) {
-        const { data: { session } } = await supabase.auth.getSession()
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
         for (const talent of talentsAvecEmail) {
           try {
             await fetch(`${supabaseUrl}/functions/v1/send-notification-email`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`
+                'Authorization': `Bearer ${supabaseAnonKey}`
               },
               body: JSON.stringify({
                 type: 'new_mission',
@@ -177,27 +165,19 @@ export default function MissionForm({ onMissionCreated }) {
               })
             })
           } catch (emailErr) {
-            console.error('Erreur envoi email talent:', talent.email, emailErr)
+            console.error('Erreur envoi email:', talent.email, emailErr)
           }
         }
         console.log(`${talentsAvecEmail.length} emails envoyés`)
       }
-
-      console.log(`${notifications.length} talents notifiés (push)`)
     } catch (err) {
       console.error('Erreur notification talents:', err)
     }
   }
 
   const createMission = async (status = 'open') => {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!establishment.address) {
-      throw new Error('Adresse de l\'établissement manquante. Veuillez compléter votre profil.')
-    }
-
+    if (!establishment.address) throw new Error("Adresse de l'établissement manquante. Veuillez compléter votre profil.")
     const fuzzyLocation = generateFuzzyLocation(establishment.address)
-
     const { data: newMission, error } = await supabase
       .from('missions')
       .insert({
@@ -227,7 +207,6 @@ export default function MissionForm({ onMissionCreated }) {
       })
       .select()
       .single()
-
     if (error) throw error
     return newMission
   }
@@ -235,10 +214,7 @@ export default function MissionForm({ onMissionCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!paymentInfo) return
-    if (!paymentInfo.canCreate) {
-      setShowPaymentModal(true)
-      return
-    }
+    if (!paymentInfo.canCreate) { setShowPaymentModal(true); return }
     await handleDirectCreate()
   }
 
@@ -264,21 +240,13 @@ export default function MissionForm({ onMissionCreated }) {
     setError(null)
     try {
       const newMission = await createMission('pending')
-      const planType = 'mission'
+      const { data: { session } } = await supabase.auth.refreshSession()
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-for (const talent of talentsAvecEmail) {
-  try {
-    await fetch(`${supabaseUrl}/functions/v1/send-notification-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`
-      },
-        body: JSON.stringify({ establishment_id: establishment.id, plan_type: planType, mission_id: newMission.id })
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ establishment_id: establishment.id, plan_type: 'mission', mission_id: newMission.id })
       })
-
       const data = await response.json()
       if (!response.ok || data.error) {
         await supabase.from('missions').delete().eq('id', newMission.id)
@@ -328,9 +296,7 @@ for (const talent of talentsAvecEmail) {
         </div>
 
         <form onSubmit={handleSubmit} className="card space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>
-          )}
+          {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
 
           {/* Poste recherché */}
           <div>
@@ -339,9 +305,7 @@ for (const talent of talentsAvecEmail) {
               <label className="block text-sm font-medium text-gray-700 mb-1">Type de poste *</label>
               <select name="position" value={formData.position} onChange={handleChange} className="input" required>
                 <option value="">Sélectionner un poste</option>
-                {POSITION_TYPES.map(pos => (
-                  <option key={pos.value} value={pos.value}>{pos.label}</option>
-                ))}
+                {POSITION_TYPES.map(pos => <option key={pos.value} value={pos.value}>{pos.label}</option>)}
               </select>
             </div>
             <div className="mt-4">
@@ -350,9 +314,7 @@ for (const talent of talentsAvecEmail) {
                 <select name="nb_postes" value={formData.nb_postes} onChange={handleChange} className="input w-32" required>
                   {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
-                <span className="text-sm text-gray-500">
-                  {formData.nb_postes > 1 ? `👥 ${formData.nb_postes} personnes recherchées pour ce poste` : '👤 1 personne recherchée'}
-                </span>
+                <span className="text-sm text-gray-500">{formData.nb_postes > 1 ? `👥 ${formData.nb_postes} personnes recherchées` : '👤 1 personne recherchée'}</span>
               </div>
             </div>
           </div>
@@ -372,20 +334,12 @@ for (const talent of talentsAvecEmail) {
                   <p className="text-xs text-gray-500 mt-1">Laissez vide pour une mission d'1 jour</p>
                 </div>
               </div>
-
               {formData.start_date && (
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-sm font-medium px-3 py-1.5 rounded-full">
-                    📅 {durationDays} jour{durationDays > 1 ? 's' : ''}
-                  </span>
-                  {isUrgent && (
-                    <span className="inline-flex items-center gap-1.5 bg-red-100 text-red-700 text-sm font-bold px-3 py-1.5 rounded-full animate-pulse">
-                      ⚡ Mission urgente
-                    </span>
-                  )}
+                  <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-sm font-medium px-3 py-1.5 rounded-full">📅 {durationDays} jour{durationDays > 1 ? 's' : ''}</span>
+                  {isUrgent && <span className="inline-flex items-center gap-1.5 bg-red-100 text-red-700 text-sm font-bold px-3 py-1.5 rounded-full animate-pulse">⚡ Mission urgente</span>}
                 </div>
               )}
-
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Heure de début *</label>
@@ -396,20 +350,15 @@ for (const talent of talentsAvecEmail) {
                   <input type="time" name="shift_end_time" value={formData.shift_end_time} onChange={handleChange} className="input" required />
                 </div>
               </div>
-
               <div className="bg-gray-50 p-4 rounded-lg">
                 <label className="block text-sm font-medium text-gray-700 mb-3">Type de service</label>
                 <div className="flex gap-6">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="service_continu" checked={formData.service_continu === true}
-                      onChange={() => setFormData(prev => ({ ...prev, service_continu: true }))}
-                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
+                    <input type="radio" name="service_continu" checked={formData.service_continu === true} onChange={() => setFormData(prev => ({ ...prev, service_continu: true }))} className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
                     <span className="text-gray-900">Service continu</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="service_continu" checked={formData.service_continu === false}
-                      onChange={() => setFormData(prev => ({ ...prev, service_continu: false }))}
-                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
+                    <input type="radio" name="service_continu" checked={formData.service_continu === false} onChange={() => setFormData(prev => ({ ...prev, service_continu: false }))} className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
                     <span className="text-gray-900">Avec coupure</span>
                   </label>
                 </div>
@@ -420,14 +369,9 @@ for (const talent of talentsAvecEmail) {
           {/* Type de contrat */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Type de contrat</h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contrat *</label>
-              <select name="contract_type" value={formData.contract_type} onChange={handleChange} className="input" required>
-                {CONTRACT_TYPES.map(contract => (
-                  <option key={contract.value} value={contract.value}>{contract.label}</option>
-                ))}
-              </select>
-            </div>
+            <select name="contract_type" value={formData.contract_type} onChange={handleChange} className="input" required>
+              {CONTRACT_TYPES.map(contract => <option key={contract.value} value={contract.value}>{contract.label}</option>)}
+            </select>
           </div>
 
           {/* Rémunération */}
@@ -443,7 +387,6 @@ for (const talent of talentsAvecEmail) {
                 📝 Autre
               </button>
             </div>
-
             {formData.salary_type === 'hourly' ? (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tarif horaire (€)</label>
@@ -453,8 +396,7 @@ for (const talent of talentsAvecEmail) {
             ) : (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Précisez la rémunération *</label>
-                <input type="text" name="salary_text" value={formData.salary_text} onChange={handleChange}
-                  placeholder="Ex : 150€/jour, À négocier, Selon profil, 2000€ brut/mois..." className="input" required />
+                <input type="text" name="salary_text" value={formData.salary_text} onChange={handleChange} placeholder="Ex : 150€/jour, À négocier, Selon profil..." className="input" required />
               </div>
             )}
           </div>
@@ -462,8 +404,7 @@ for (const talent of talentsAvecEmail) {
           {/* Commentaire */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Informations complémentaires (200 caractères max)</label>
-            <textarea name="comment" value={formData.comment} onChange={handleChange} maxLength={200} rows={3} className="input"
-              placeholder="Précisez vos attentes, l'ambiance, les tâches spécifiques..." />
+            <textarea name="comment" value={formData.comment} onChange={handleChange} maxLength={200} rows={3} className="input" placeholder="Précisez vos attentes, l'ambiance, les tâches spécifiques..." />
             <p className="text-xs text-gray-500 mt-1">{formData.comment.length} / 200 caractères</p>
           </div>
 
@@ -475,9 +416,7 @@ for (const talent of talentsAvecEmail) {
                   <p className={`font-semibold ${paymentInfo.price === 0 ? 'text-green-800' : isUrgent ? 'text-red-800' : 'text-blue-800'}`}>{paymentInfo.label}</p>
                   <p className={`text-sm mt-0.5 ${paymentInfo.price === 0 ? 'text-green-600' : isUrgent ? 'text-red-600' : 'text-blue-600'}`}>{paymentInfo.description}</p>
                 </div>
-                {paymentInfo.price > 0 && (
-                  <span className={`text-2xl font-bold ${isUrgent ? 'text-red-700' : 'text-blue-700'}`}>{paymentInfo.price.toFixed(2)}€</span>
-                )}
+                {paymentInfo.price > 0 && <span className={`text-2xl font-bold ${isUrgent ? 'text-red-700' : 'text-blue-700'}`}>{paymentInfo.price.toFixed(2)}€</span>}
               </div>
               {paymentInfo.clubSaving && (
                 <div className="mt-3 pt-3 border-t border-amber-200 bg-amber-50 -mx-4 -mb-4 px-4 py-3 rounded-b-xl">
@@ -541,12 +480,8 @@ for (const talent of talentsAvecEmail) {
               </div>
             )}
             <div className="flex gap-3">
-              <button onClick={() => setShowPaymentModal(false)} disabled={loading}
-                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors">
-                Annuler
-              </button>
-              <button onClick={handlePaidCreate} disabled={loading}
-                className="flex-1 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
+              <button onClick={() => setShowPaymentModal(false)} disabled={loading} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors">Annuler</button>
+              <button onClick={handlePaidCreate} disabled={loading} className="flex-1 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">

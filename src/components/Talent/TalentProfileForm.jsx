@@ -9,7 +9,6 @@ export default function TalentProfileForm() {
   const [error, setError] = useState(null)
   const [deptSearch, setDeptSearch] = useState('')
   
-  // État pour le CV
   const [cvFile, setCvFile] = useState(null)
   const [cvUploading, setCvUploading] = useState(false)
   const [cvFileName, setCvFileName] = useState('')
@@ -30,18 +29,16 @@ export default function TalentProfileForm() {
     contract_preferences: ['extra'],
     min_hourly_rate: '',
     bio: '',
-    accepts_coupure: true // true = accepte les deux, false = service continu uniquement
+    accepts_coupure: true,
+    notif_push: true,
+    notif_email: true,
   })
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  // Gestion de l'adresse avec autocomplete
   const handleAddressChange = (addressData) => {
     setFormData(prev => ({
       ...prev,
@@ -53,16 +50,13 @@ export default function TalentProfileForm() {
     }))
   }
 
-  // Gestion du fichier CV
   const handleCvChange = (e) => {
     const file = e.target.files[0]
     if (file) {
-      // Vérifier le type de fichier
       if (file.type !== 'application/pdf') {
         setError('Seuls les fichiers PDF sont acceptés')
         return
       }
-      // Vérifier la taille (max 5 Mo)
       if (file.size > 5 * 1024 * 1024) {
         setError('Le fichier ne doit pas dépasser 5 Mo')
         return
@@ -73,7 +67,6 @@ export default function TalentProfileForm() {
     }
   }
 
-  // Supprimer le CV sélectionné
   const handleRemoveCv = () => {
     setCvFile(null)
     setCvFileName('')
@@ -111,7 +104,6 @@ export default function TalentProfileForm() {
     setLoading(true)
     setError(null)
 
-    // Validation téléphone mobile FR (06 ou 07)
     const cleanPhone = formData.phone.replace(/[\s\-\.]/g, '').trim()
     if (!/^0[67]\d{8}$/.test(cleanPhone)) {
       setError('Veuillez entrer un numéro de mobile valide (06 ou 07, 10 chiffres)')
@@ -120,23 +112,16 @@ export default function TalentProfileForm() {
     }
 
     try {
-      // Récupérer l'utilisateur connecté
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('Utilisateur non connecté')
-      }
+      if (!user) throw new Error('Utilisateur non connecté')
 
-      // Générer les initiales
       const initials = `${formData.first_name[0]}${formData.last_name[0]}`.toUpperCase()
 
-      // Utiliser les vraies coordonnées si disponibles, sinon Paris par défaut
-      let location = 'POINT(2.3522 48.8566)' // Paris par défaut
+      let location = 'POINT(2.3522 48.8566)'
       if (formData.coordinates && formData.coordinates.length === 2) {
-        // L'API retourne [lng, lat]
         location = `POINT(${formData.coordinates[0]} ${formData.coordinates[1]})`
       }
 
-      // Upload du CV si présent
       let cvUrl = null
       if (cvFile) {
         setCvUploading(true)
@@ -148,16 +133,12 @@ export default function TalentProfileForm() {
           .from('CV')
           .upload(filePath, cvFile)
 
-        if (uploadError) {
-          throw new Error('Erreur lors de l\'upload du CV: ' + uploadError.message)
-        }
-
+        if (uploadError) throw new Error('Erreur lors de l\'upload du CV: ' + uploadError.message)
         cvUrl = filePath
         setCvUploading(false)
       }
 
-      // Créer le profil talent
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('talents')
         .insert({
           user_id: user.id,
@@ -178,14 +159,15 @@ export default function TalentProfileForm() {
           bio: formData.bio || null,
           avatar_initials: initials,
           accepts_coupure: formData.accepts_coupure,
-          cv_url: cvUrl
+          cv_url: cvUrl,
+          notif_push: formData.notif_push,
+          notif_email: formData.notif_email,
         })
         .select()
         .single()
 
       if (error) throw error
 
-      // Rediriger vers le dashboard
       alert('Profil créé avec succès !')
       window.location.href = '/talent'
     } catch (err) {
@@ -217,68 +199,27 @@ export default function TalentProfileForm() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Informations personnelles</h2>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prénom *
-                </label>
-                <input
-                  type="text"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleChange}
-                  className="input"
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prénom *</label>
+                <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} className="input" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nom *
-                </label>
-                <input
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  className="input"
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+                <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} className="input" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Téléphone *
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="06 12 34 56 78"
-                  className="input"
-                  required
-                  maxLength={14}
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
+                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="06 12 34 56 78" className="input" required maxLength={14} />
                 <p className="text-xs text-gray-500 mt-1">Numéro mobile uniquement (06 ou 07)</p>
               </div>
-
               <div>
-                {/* Adresse avec autocomplete */}
-                <AddressAutocomplete
-                  value={formData.address}
-                  onChange={handleAddressChange}
-                  label="Adresse *"
-                  placeholder="Tapez votre adresse..."
-                  required
-                />
+                <AddressAutocomplete value={formData.address} onChange={handleAddressChange} label="Adresse *" placeholder="Tapez votre adresse..." required />
               </div>
             </div>
           </div>
 
           {/* Upload CV */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              CV (optionnel)
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">CV (optionnel)</label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
               {!cvFileName ? (
                 <div className="text-center">
@@ -287,15 +228,8 @@ export default function TalentProfileForm() {
                   </svg>
                   <div className="mt-2">
                     <label className="cursor-pointer">
-                      <span className="text-primary-600 hover:text-primary-500 font-medium">
-                        Choisir un fichier
-                      </span>
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={handleCvChange}
-                        className="hidden"
-                      />
+                      <span className="text-primary-600 hover:text-primary-500 font-medium">Choisir un fichier</span>
+                      <input type="file" accept=".pdf" onChange={handleCvChange} className="hidden" />
                     </label>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">PDF uniquement, 5 Mo max</p>
@@ -313,11 +247,7 @@ export default function TalentProfileForm() {
                       <p className="text-xs text-gray-500">PDF</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveCv}
-                    className="text-red-600 hover:text-red-800"
-                  >
+                  <button type="button" onClick={handleRemoveCv} className="text-red-600 hover:text-red-800">
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -325,9 +255,7 @@ export default function TalentProfileForm() {
                 </div>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Vous pourrez aussi l'envoyer plus tard si un établissement le demande
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Vous pourrez aussi l'envoyer plus tard si un établissement le demande</p>
           </div>
 
           {/* Rayon de recherche */}
@@ -335,16 +263,7 @@ export default function TalentProfileForm() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Rayon de recherche : {formData.search_radius} km
             </label>
-            <input
-              type="range"
-              name="search_radius"
-              min="5"
-              max="50"
-              step="5"
-              value={formData.search_radius}
-              onChange={handleChange}
-              className="w-full"
-            />
+            <input type="range" name="search_radius" min="5" max="50" step="5" value={formData.search_radius} onChange={handleChange} className="w-full" />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>5 km</span>
               <span>50 km</span>
@@ -353,42 +272,22 @@ export default function TalentProfileForm() {
 
           {/* Départements préférés */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Départements de recherche (optionnel)
-            </label>
-            <p className="text-xs text-gray-500 mb-2">
-              Sélectionnez les départements où vous souhaitez trouver des missions
-            </p>
-
-            {/* Départements sélectionnés */}
+            <label className="block text-sm font-medium text-gray-700 mb-2">Départements de recherche (optionnel)</label>
+            <p className="text-xs text-gray-500 mb-2">Sélectionnez les départements où vous souhaitez trouver des missions</p>
             {formData.preferred_departments.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-3">
                 {formData.preferred_departments.map(dept => {
                   const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
                   return (
-                    <button
-                      key={dept}
-                      type="button"
-                      onClick={() => handleDepartmentToggle(dept)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-full text-sm font-medium"
-                    >
+                    <button key={dept} type="button" onClick={() => handleDepartmentToggle(dept)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-full text-sm font-medium">
                       {deptInfo?.label || dept} ×
                     </button>
                   )
                 })}
               </div>
             )}
-
-            {/* Recherche */}
-            <input
-              type="text"
-              placeholder="🔍 Rechercher un département (ex: 33, Gironde...)"
-              value={deptSearch}
-              onChange={(e) => setDeptSearch(e.target.value)}
-              className="input mb-2"
-            />
-
-            {/* Liste filtrée */}
+            <input type="text" placeholder="🔍 Rechercher un département (ex: 33, Gironde...)" value={deptSearch} onChange={(e) => setDeptSearch(e.target.value)} className="input mb-2" />
             <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
               <div className="flex flex-wrap gap-1.5">
                 {FRENCH_DEPARTMENTS
@@ -398,41 +297,26 @@ export default function TalentProfileForm() {
                     return dept.value.includes(search) || dept.label.toLowerCase().includes(search)
                   })
                   .map(dept => (
-                    <button
-                      key={dept.value}
-                      type="button"
-                      onClick={() => handleDepartmentToggle(dept.value)}
+                    <button key={dept.value} type="button" onClick={() => handleDepartmentToggle(dept.value)}
                       className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                        formData.preferred_departments.includes(dept.value)
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
+                        formData.preferred_departments.includes(dept.value) ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}>
                       {dept.label}
                     </button>
-                  ))
-                }
+                  ))}
               </div>
             </div>
           </div>
 
           {/* Types de postes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Types de postes recherchés * (sélectionnez au moins 1)
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Types de postes recherchés * (sélectionnez au moins 1)</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {POSITION_TYPES.map(position => (
-                <button
-                  key={position.value}
-                  type="button"
-                  onClick={() => handlePositionToggle(position.value)}
+                <button key={position.value} type="button" onClick={() => handlePositionToggle(position.value)}
                   className={`p-2 text-sm rounded-lg border-2 transition-colors ${
-                    formData.position_types.includes(position.value)
-                      ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
+                    formData.position_types.includes(position.value) ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 hover:border-gray-300'
+                  }`}>
                   {position.label}
                 </button>
               ))}
@@ -442,38 +326,26 @@ export default function TalentProfileForm() {
             )}
           </div>
 
-          {/* Préférence service continu / avec coupure */}
+          {/* Service continu / coupure */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Type de service accepté
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-3">Type de service accepté</label>
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex gap-6">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="accepts_coupure"
-                    checked={formData.accepts_coupure === true}
+                  <input type="radio" name="accepts_coupure" checked={formData.accepts_coupure === true}
                     onChange={() => setFormData(prev => ({ ...prev, accepts_coupure: true }))}
-                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
-                  />
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
                   <span className="text-gray-900">Les deux</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="accepts_coupure"
-                    checked={formData.accepts_coupure === false}
+                  <input type="radio" name="accepts_coupure" checked={formData.accepts_coupure === false}
                     onChange={() => setFormData(prev => ({ ...prev, accepts_coupure: false }))}
-                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
-                  />
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500" />
                   <span className="text-gray-900">Service continu uniquement</span>
                 </label>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {formData.accepts_coupure 
-                  ? 'Vous verrez toutes les missions (avec ou sans coupure)' 
-                  : 'Vous ne verrez que les missions en service continu'}
+                {formData.accepts_coupure ? 'Vous verrez toutes les missions (avec ou sans coupure)' : 'Vous ne verrez que les missions en service continu'}
               </p>
             </div>
           </div>
@@ -481,15 +353,8 @@ export default function TalentProfileForm() {
           {/* Expérience */}
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Années d'expérience
-              </label>
-              <select
-                name="years_experience"
-                value={formData.years_experience}
-                onChange={handleChange}
-                className="input"
-              >
+              <label className="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
+              <select name="years_experience" value={formData.years_experience} onChange={handleChange} className="input">
                 <option value="0">Débutant</option>
                 <option value="1">1 an</option>
                 <option value="2">2 ans</option>
@@ -498,41 +363,22 @@ export default function TalentProfileForm() {
                 <option value="10">10 ans et +</option>
               </select>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tarif horaire minimum (€)
-              </label>
-              <input
-                type="number"
-                name="min_hourly_rate"
-                value={formData.min_hourly_rate}
-                onChange={handleChange}
-                placeholder="12.50"
-                step="0.50"
-                min="0"
-                className="input"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tarif horaire minimum (€)</label>
+              <input type="number" name="min_hourly_rate" value={formData.min_hourly_rate} onChange={handleChange}
+                placeholder="12.50" step="0.50" min="0" className="input" />
             </div>
           </div>
 
           {/* Préférences de contrat */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Types de contrats acceptés
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Types de contrats acceptés</label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {CONTRACT_TYPES.slice(0, 4).map(contract => (
-                <button
-                  key={contract.value}
-                  type="button"
-                  onClick={() => handleContractToggle(contract.value)}
+                <button key={contract.value} type="button" onClick={() => handleContractToggle(contract.value)}
                   className={`p-2 text-sm rounded-lg border-2 transition-colors ${
-                    formData.contract_preferences.includes(contract.value)
-                      ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
+                    formData.contract_preferences.includes(contract.value) ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 hover:border-gray-300'
+                  }`}>
                   {contract.label}
                 </button>
               ))}
@@ -541,37 +387,57 @@ export default function TalentProfileForm() {
 
           {/* Bio */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bio / Présentation (200 caractères max)
-            </label>
-            <textarea
-              name="bio"
-              value={formData.bio}
-              onChange={handleChange}
-              maxLength={200}
-              rows={3}
-              className="input"
-              placeholder="Parlez de vous, vos points forts, votre motivation..."
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {formData.bio.length} / 200 caractères
+            <label className="block text-sm font-medium text-gray-700 mb-1">Bio / Présentation (200 caractères max)</label>
+            <textarea name="bio" value={formData.bio} onChange={handleChange} maxLength={200} rows={3} className="input"
+              placeholder="Parlez de vous, vos points forts, votre motivation..." />
+            <p className="text-xs text-gray-500 mt-1">{formData.bio.length} / 200 caractères</p>
+          </div>
+
+          {/* Préférences de notifications */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">🔔 Notifications</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Comment souhaitez-vous être informé des nouvelles missions et candidatures ?
             </p>
+            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Notifications Push</p>
+                  <p className="text-xs text-gray-500">Alertes en temps réel sur votre mobile</p>
+                </div>
+                <div
+                  onClick={() => setFormData(prev => ({ ...prev, notif_push: !prev.notif_push }))}
+                  className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${formData.notif_push ? 'bg-primary-600' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${formData.notif_push ? 'translate-x-7' : 'translate-x-1'}`} />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200" />
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Notifications Email</p>
+                  <p className="text-xs text-gray-500">Récapitulatif par email des missions et candidatures</p>
+                </div>
+                <div
+                  onClick={() => setFormData(prev => ({ ...prev, notif_email: !prev.notif_email }))}
+                  className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${formData.notif_email ? 'bg-primary-600' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${formData.notif_email ? 'translate-x-7' : 'translate-x-1'}`} />
+                </div>
+              </div>
+
+            </div>
           </div>
 
           {/* Bouton submit */}
           <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => navigate('/talent')}
-              className="btn-secondary flex-1"
-            >
+            <button type="button" onClick={() => navigate('/talent')} className="btn-secondary flex-1">
               Annuler
             </button>
-            <button
-              type="submit"
-              disabled={loading || cvUploading || formData.position_types.length === 0}
-              className="btn-primary flex-1"
-            >
+            <button type="submit" disabled={loading || cvUploading || formData.position_types.length === 0} className="btn-primary flex-1">
               {loading || cvUploading ? 'Création...' : 'Créer mon profil'}
             </button>
           </div>

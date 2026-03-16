@@ -214,6 +214,7 @@ export default function TalentProfileEdit() {
 
       const updateData = {
         first_name: formData.first_name,
+        email: user.email,
         last_name: formData.last_name,
         phone: cleanPhone,
         address: formData.address,

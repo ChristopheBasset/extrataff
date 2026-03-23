@@ -396,7 +396,7 @@ export default function MissionForm({ onMissionCreated }) {
             ) : (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Précisez la rémunération *</label>
-                <input type="text" name="salary_text" value={formData.salary_text} onChange={handleChange} placeholder="Ex : 150€/jour, À négocier, Selon profil..." className="input" required />
+                <input type="text" name="salary_text" value={formData.salary_text} onChange={handleChange} onInvalid={(e) => e.target.setCustomValidity("Veuillez préciser la rémunération")} onInput={(e) => e.target.setCustomValidity("")} placeholder="Ex : 150€/jour, À négocier, Selon profil..." className="input" required />
               </div>
             )}
           </div>

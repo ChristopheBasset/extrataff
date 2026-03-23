@@ -43,7 +43,7 @@ export default function MissionList() {
     filtered.sort((a, b) => {
       if (a.is_urgent && !b.is_urgent) return -1
       if (!a.is_urgent && b.is_urgent) return 1
-      return 0 // garder l'ordre existant (match score) pour le reste
+      return 0
     })
     
     setFilteredMissions(filtered)
@@ -109,10 +109,18 @@ export default function MissionList() {
 
       if (missionsError) throw missionsError
 
-      // 5. Filtrer les missions où le talent a déjà candidaté OU masquées
-      const availableMissions = (missionsData || []).filter(
-        mission => !appliedMissionIds.includes(mission.id) && !hiddenMissionIds.includes(mission.id)
-      )
+      // 5. Filtrer les missions expirées, déjà candidatées ou masquées
+      const now = new Date()
+      const availableMissions = (missionsData || []).filter(mission => {
+        // Filtre expiration : 48h après start_date si end_date renseignée
+        if (mission.end_date) {
+          const cutoff = new Date(mission.start_date)
+          cutoff.setHours(cutoff.getHours() + 48)
+          if (cutoff <= now) return false
+        }
+        // Filtre candidatures et missions masquées
+        return !appliedMissionIds.includes(mission.id) && !hiddenMissionIds.includes(mission.id)
+      })
 
       // 5.5 Filtrer les missions qui chevauchent des missions déjà confirmées
       const { data: confirmedApps } = await supabase
@@ -211,74 +219,58 @@ export default function MissionList() {
 
   const handleApply = async (missionId) => {
     try {
-      const mission = missions.find(m => m.id === missionId)
-      
-      // Vérifier si déjà candidaté
-      const { data: existingApplication } = await supabase
-        .from('applications')
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: talentData } = await supabase
+        .from('talents')
         .select('id')
-        .eq('mission_id', missionId)
-        .eq('talent_id', talent.id)
+        .eq('user_id', user.id)
         .single()
 
-      if (existingApplication) {
-        alert('Vous avez déjà candidaté à cette mission !')
-        return
-      }
-
-      // Créer la candidature
       const { data: newApplication, error } = await supabase
         .from('applications')
         .insert({
           mission_id: missionId,
-          talent_id: talent.id,
-          match_score: mission.match_score,
-          status: 'interested'
+          talent_id: talentData.id,
+          status: 'pending'
         })
         .select()
         .single()
 
       if (error) throw error
 
-      // Créer une notification in-app pour l'établissement
-      await notifyNewApplication(
-        mission.establishments.user_id,
-        `${talent.first_name} ${talent.last_name}`,
-        mission.position,
-        mission.match_score,
-        missionId
-      )
+      // Notifier l'établissement
+      await notifyNewApplication(missionId, talentData.id)
 
-      // Envoyer un SMS à l'établissement
-      await sendSmsToEstablishment(newApplication.id)
+      // Envoyer SMS
+      if (newApplication?.id) {
+        await sendSmsToEstablishment(newApplication.id)
+      }
 
-      alert('Candidature envoyée avec succès ! 🎉')
-      
-      // Recharger les missions
-      loadMissions()
+      // Retirer la mission de la liste
+      setMissions(prev => prev.filter(m => m.id !== missionId))
+
     } catch (err) {
       console.error('Erreur candidature:', err)
-      alert('Erreur lors de l\'envoi de la candidature')
+      alert('Erreur lors de la candidature : ' + err.message)
     }
   }
 
   const handleHideMission = async (missionId) => {
     try {
-      const { error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: talentData } = await supabase
+        .from('talents')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      await supabase
         .from('hidden_missions')
-        .insert({
-          talent_id: talent.id,
-          mission_id: missionId
-        })
+        .insert({ mission_id: missionId, talent_id: talentData.id })
 
-      if (error) throw error
-
-      // Retirer la mission de la liste localement
       setMissions(prev => prev.filter(m => m.id !== missionId))
-      alert('Mission masquée ✓')
     } catch (err) {
       console.error('Erreur masquage mission:', err)
-      alert('Erreur lors du masquage de la mission')
     }
   }
 
@@ -287,7 +279,7 @@ export default function MissionList() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Recherche de missions...</p>
+          <p className="text-gray-600">Chargement des missions...</p>
         </div>
       </div>
     )
@@ -295,8 +287,7 @@ export default function MissionList() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <nav className="bg-white shadow-sm mb-8">
+      <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <button

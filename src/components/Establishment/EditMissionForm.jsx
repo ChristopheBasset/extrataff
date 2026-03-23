@@ -290,15 +290,18 @@ export default function EditMissionForm() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date de fin
+                    Date de fin *
                   </label>
                   <input
                     type="date"
                     name="end_date"
                     value={formData.end_date}
                     onChange={handleChange}
+                    min={formData.start_date || undefined}
                     className="input"
+                    required
                   />
+                  <p className="text-xs text-gray-500 mt-1">La mission disparaîtra 48h après la date de début</p>
                 </div>
               </div>
 

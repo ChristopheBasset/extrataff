@@ -329,9 +329,9 @@ export default function MissionForm({ onMissionCreated }) {
                   <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="input" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
-                  <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} min={formData.start_date || undefined} className="input" />
-                  <p className="text-xs text-gray-500 mt-1">Laissez vide pour une mission d'1 jour</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin *</label>
+                  <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} min={formData.start_date || undefined} className="input" required />
+                  <p className="text-xs text-gray-500 mt-1">La mission disparaîtra 48h après la date de début</p>
                 </div>
               </div>
               {formData.start_date && (

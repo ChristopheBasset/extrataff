@@ -22,7 +22,6 @@ export default function Register() {
   })
 
   useEffect(() => {
-    // Rediriger si pas de type
     if (!userType || (userType !== 'talent' && userType !== 'establishment')) {
       navigate('/')
     }
@@ -34,7 +33,6 @@ export default function Register() {
     setLoading(true)
     setError(null)
 
-    // Validation
     if (!acceptCGV) {
       setError('Vous devez accepter les Conditions Générales de Vente pour vous inscrire')
       setLoading(false)
@@ -67,17 +65,14 @@ export default function Register() {
 
       console.log('✅ Compte créé avec succès:', data.user.id)
 
-      // Attendre que la session soit active
       if (!data.session) {
         await new Promise(resolve => setTimeout(resolve, 1000))
         await supabase.auth.refreshSession()
       }
 
-      // Stocker le type pour la page profil
       sessionStorage.setItem('registration_type', userType)
       sessionStorage.setItem('registration_success', 'true')
 
-      // Afficher le message de succès puis rediriger
       setSuccess(true)
       setTimeout(() => {
         if (userType === 'talent') {
@@ -105,7 +100,6 @@ export default function Register() {
     setError(null)
 
     try {
-      // Stocker le type et le flag avant la redirection OAuth
       sessionStorage.setItem('registration_type', userType)
       sessionStorage.setItem('registration_success', 'true')
       sessionStorage.setItem('oauth_flow', 'register')
@@ -224,6 +218,41 @@ export default function Register() {
             </div>
           )}
 
+          {/* ========== CGV — EN PREMIER, obligatoire avant tout ========== */}
+          <div className={`flex items-start gap-3 mb-5 p-3 rounded-xl border-2 transition-colors cursor-pointer ${
+            acceptCGV ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'
+          }`} onClick={() => setAcceptCGV(!acceptCGV)}>
+            <input
+              type="checkbox"
+              id="cgv"
+              checked={acceptCGV}
+              onChange={(e) => setAcceptCGV(e.target.checked)}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer flex-shrink-0"
+            />
+            <label htmlFor="cgv" className="text-sm text-gray-700 cursor-pointer leading-relaxed" onClick={(e) => e.stopPropagation()}>
+              {!acceptCGV && (
+                <span className="block font-semibold text-amber-700 mb-1">
+                  ⚠️ Commencez par accepter les conditions ci-dessous
+                </span>
+              )}
+              {acceptCGV && (
+                <span className="block font-semibold text-green-700 mb-1">
+                  ✅ Conditions acceptées
+                </span>
+              )}
+              J'accepte les{' '}
+              <a href="/cgv" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline hover:text-primary-800 font-medium" onClick={(e) => e.stopPropagation()}>
+                Conditions Générales de Vente
+              </a>{' '}
+              et la{' '}
+              <a href="/confidentialite" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline hover:text-primary-800 font-medium" onClick={(e) => e.stopPropagation()}>
+                Politique de Confidentialité
+              </a>
+              {' '}<span className="text-red-500 font-bold">*</span>
+            </label>
+          </div>
+
           {/* ========== Bouton Google ========== */}
           <button
             onClick={handleGoogleSignIn}
@@ -245,12 +274,6 @@ export default function Register() {
             )}
             Continuer avec Google
           </button>
-
-          {!acceptCGV && (
-            <p className="text-xs text-amber-600 text-center -mt-2 mb-2">
-              ⚠️ Veuillez accepter les CGV ci-dessous pour continuer
-            </p>
-          )}
 
           {/* Séparateur */}
           <div className="relative mb-4">
@@ -352,28 +375,6 @@ export default function Register() {
               {loading ? 'Création...' : 'Créer mon compte'}
             </button>
           </form>
-
-          {/* CGV — en dessous des deux méthodes */}
-          <div className="flex items-start gap-3 mt-6 pt-4 border-t border-gray-100">
-            <input
-              type="checkbox"
-              id="cgv"
-              checked={acceptCGV}
-              onChange={(e) => setAcceptCGV(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-            />
-            <label htmlFor="cgv" className="text-sm text-gray-600 cursor-pointer">
-              J'accepte les{' '}
-              <a href="/cgv" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline hover:text-primary-800">
-                Conditions Générales de Vente
-              </a>{' '}
-              et la{' '}
-              <a href="/confidentialite" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline hover:text-primary-800">
-                Politique de Confidentialité
-              </a>
-              {' '}<span className="text-red-500">*</span>
-            </label>
-          </div>
 
           {/* Lien login */}
           <div className="mt-6 text-center text-sm text-gray-600">

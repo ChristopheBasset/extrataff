@@ -68,6 +68,13 @@ export default function EstablishmentProfileForm() {
     setLoading(true)
     setError(null)
 
+    const cleanPhone = formData.phone.replace(/[\s\-\.]/g, '').trim()
+    if (!/^0[67]\d{8}$/.test(cleanPhone)) {
+      setError('Veuillez entrer un numéro de mobile valide (06 ou 07, 10 chiffres)')
+      setLoading(false)
+      return
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non connecté')
@@ -170,8 +177,8 @@ export default function EstablishmentProfileForm() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
-                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="01 42 60 12 34" className="input" required />
-                <p className="text-xs text-gray-500 mt-1">Ce numéro sera utilisé pour identifier votre établissement de manière unique</p>
+                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="06 12 34 56 78" className="input" required />
+                <p className="text-xs text-gray-500 mt-1">Numéro de mobile obligatoire (06 ou 07) — utilisé pour les notifications SMS</p>
               </div>
 
               <div>

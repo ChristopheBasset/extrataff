@@ -116,7 +116,7 @@ export default function ChatWindow({ userType }) {
             id, position, start_date,
             establishments ( name, user_id, address )
           ),
-          talents!talent_id ( first_name, last_name, user_id, cv_url )
+          talents!talent_id ( first_name, last_name, user_id, cv_url, phone, email )
         `)
         .eq('id', applicationId)
         .single()
@@ -342,11 +342,47 @@ export default function ChatWindow({ userType }) {
 
       setRdvDate(null); setRdvTime(null); setRdvNote('')
 
+      // Notification in-app
       await supabase.from('notifications').insert({
         user_id: receiverId, type: 'rdv_proposed', title: 'Rendez-vous proposé',
         content: `${application.missions.establishments.name} vous propose un RDV le ${rdvDate.d} ${MONTHS[rdvDate.m]} à ${rdvTime}`,
         link: `/talent/chat/${applicationId}`
       })
+
+      // SMS au talent
+      const talentPhone = application.talents?.phone
+      if (talentPhone) {
+        const rdvDateLabel = `${rdvDate.d} ${MONTHS[rdvDate.m]}`
+        supabase.functions.invoke('sms-rdv-proposed', {
+          body: {
+            talent_phone: talentPhone,
+            talent_name: application.talents.first_name,
+            establishment_name: application.missions.establishments.name,
+            rdv_date: rdvDateLabel,
+            rdv_time: rdvTime,
+            app_link: `https://extrataff.fr/talent/chat/${applicationId}`
+          }
+        }).catch(err => console.error('Erreur SMS RDV:', err))
+      }
+
+      // Email au talent
+      const talentEmail = application.talents?.email
+      if (talentEmail) {
+        const rdvDateLabel = `${rdvDate.d} ${MONTHS[rdvDate.m]}`
+        supabase.functions.invoke('email-rdv-proposed', {
+          body: {
+            talent_email: talentEmail,
+            talent_name: application.talents.first_name,
+            establishment_name: application.missions.establishments.name,
+            establishment_address: address,
+            rdv_date: rdvDateLabel,
+            rdv_time: rdvTime,
+            note: rdvNote || null,
+            app_link: `https://extrataff.fr/talent/chat/${applicationId}`
+          }
+        }).catch(err => console.error('Erreur email RDV:', err))
+      }
+
     } catch (err) {
       console.error('Erreur proposition RDV:', err)
       alert('Erreur : ' + (err.message || 'impossible de proposer le RDV'))

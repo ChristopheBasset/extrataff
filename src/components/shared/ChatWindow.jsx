@@ -365,20 +365,23 @@ export default function ChatWindow({ userType }) {
         }).catch(err => console.error('Erreur SMS RDV:', err))
       }
 
-      // Email au talent
+      // Email au talent via send-notification-email
       const talentEmail = application.talents?.email
       if (talentEmail) {
         const rdvDateLabel = `${rdvDate.d} ${MONTHS[rdvDate.m]}`
-        supabase.functions.invoke('email-rdv-proposed', {
+        supabase.functions.invoke('send-notification-email', {
           body: {
-            talent_email: talentEmail,
-            talent_name: application.talents.first_name,
-            establishment_name: application.missions.establishments.name,
-            establishment_address: address,
-            rdv_date: rdvDateLabel,
-            rdv_time: rdvTime,
-            note: rdvNote || null,
-            app_link: `https://extrataff.fr/talent/chat/${applicationId}`
+            type: 'rdv_proposed',
+            to: talentEmail,
+            data: {
+              talent_name: application.talents.first_name,
+              establishment_name: application.missions.establishments.name,
+              address,
+              rdv_date: rdvDateLabel,
+              rdv_time: rdvTime,
+              note: rdvNote || null,
+              application_id: applicationId
+            }
           }
         }).catch(err => console.error('Erreur email RDV:', err))
       }
@@ -425,6 +428,36 @@ export default function ChatWindow({ userType }) {
           : `${talentName} a refusé le rendez-vous`,
         link: `/establishment/chat/${applicationId}`
       })
+
+      // Email à l'établissement
+      const appt = appointments.find(a => a.id === appointmentId)
+      const { data: estabData } = await supabase
+        .from('establishments')
+        .select('email, user_id')
+        .eq('user_id', receiverId)
+        .maybeSingle()
+
+      const estabEmail = estabData?.email
+      if (estabEmail && appt) {
+        const rdvDate = new Date(appt.scheduled_at)
+        const rdvDateLabel = rdvDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+        const rdvTimeLabel = rdvDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+        supabase.functions.invoke('send-notification-email', {
+          body: {
+            type: 'rdv_response',
+            to: estabEmail,
+            data: {
+              talent_name: talentName,
+              position: application.missions.position,
+              rdv_date: rdvDateLabel,
+              rdv_time: rdvTimeLabel,
+              response,
+              application_id: applicationId
+            }
+          }
+        }).catch(err => console.error('Erreur email réponse RDV:', err))
+      }
+
     } catch (err) {
       console.error('Erreur réponse RDV:', err)
       alert('Erreur lors de la réponse')

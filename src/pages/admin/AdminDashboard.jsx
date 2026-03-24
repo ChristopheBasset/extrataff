@@ -13,6 +13,8 @@ const TABS_BASE = [
   { id: 'establishments', label: '🏪 Établissements' },
   { id: 'missions', label: '📋 Missions' },
   { id: 'applications', label: '📩 Candidatures' },
+  { id: 'rdv', label: '🗓 RDV' },
+  { id: 'hires', label: '🎉 Embauches' },
   { id: 'subscriptions', label: '💳 Abonnements' },
   { id: 'admins', label: '🛡️ Admins' },
 ];
@@ -374,6 +376,10 @@ export default function AdminDashboard() {
   const [detailItem, setDetailItem] = useState(null);
   const [detailType, setDetailType] = useState(null);
 
+  // RDV & Embauches
+  const [appointments, setAppointments] = useState([]);
+  const [hires, setHires] = useState([]);
+
   // Admins
   const [admins, setAdmins] = useState([]);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -387,6 +393,8 @@ export default function AdminDashboard() {
       establishments: establishments.length,
       missions: missions.length,
       applications: applications.length,
+      rdv: appointments.length,
+      hires: hires.length,
       admins: admins.length,
     };
     return counts[tab.id] !== undefined
@@ -470,6 +478,33 @@ export default function AdminDashboard() {
         .select('*')
         .order('created_at', { ascending: false });
       setAdmins(adminsData || []);
+
+      // Charger RDV
+      const { data: apptData } = await supabase
+        .from('appointments')
+        .select(`
+          id, scheduled_at, address, note, status, created_at,
+          applications (
+            id,
+            talents!talent_id ( first_name, last_name ),
+            missions ( position, establishments ( name ) )
+          )
+        `)
+        .order('scheduled_at', { ascending: false });
+      setAppointments(apptData || []);
+
+      // Charger embauches
+      const { data: hiresData } = await supabase
+        .from('applications')
+        .select(`
+          id, confirmed_at, created_at, hire_status,
+          talents!talent_id ( first_name, last_name ),
+          missions ( position, start_date, establishments ( name ) )
+        `)
+        .eq('hire_status', 'hired')
+        .order('confirmed_at', { ascending: false });
+      setHires(hiresData || []);
+
     } catch (err) {
       console.error('Erreur chargement admin:', err);
       setError('Erreur de chargement des données');
@@ -1362,6 +1397,227 @@ export default function AdminDashboard() {
   }
 };
 
+  // ============================================================
+  // ONGLET : RDV
+  // ============================================================
+  const renderRdv = () => {
+    const getRdvBadge = (status) => {
+      if (status === 'pending') return { text: '⏳ En attente', color: 'bg-amber-100 text-amber-800' };
+      if (status === 'confirmed') return { text: '✅ Confirmé', color: 'bg-green-100 text-green-800' };
+      if (status === 'refused') return { text: '❌ Refusé', color: 'bg-red-100 text-red-800' };
+      if (status === 'done') return { text: '✅ Effectué', color: 'bg-blue-100 text-blue-800' };
+      return { text: status, color: 'bg-gray-100 text-gray-600' };
+    };
+
+    const filtered = appointments.filter(a => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      const talent = a.applications?.talents;
+      const mission = a.applications?.missions;
+      return (
+        (talent?.first_name || '').toLowerCase().includes(q) ||
+        (talent?.last_name || '').toLowerCase().includes(q) ||
+        (mission?.establishments?.name || '').toLowerCase().includes(q) ||
+        (mission?.position || '').toLowerCase().includes(q) ||
+        (a.status || '').toLowerCase().includes(q)
+      );
+    });
+
+    const pending = appointments.filter(a => a.status === 'pending').length;
+    const confirmed = appointments.filter(a => a.status === 'confirmed').length;
+    const refused = appointments.filter(a => a.status === 'refused').length;
+    const done = appointments.filter(a => a.status === 'done').length;
+
+    return (
+      <div className="space-y-6">
+        {/* Stats RDV */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'En attente', value: pending, color: 'text-amber-600', bg: 'bg-amber-50' },
+            { label: 'Confirmés', value: confirmed, color: 'text-green-600', bg: 'bg-green-50' },
+            { label: 'Refusés', value: refused, color: 'text-red-600', bg: 'bg-red-50' },
+            { label: 'Effectués', value: done, color: 'text-blue-600', bg: 'bg-blue-50' },
+          ].map((s, i) => (
+            <div key={i} className={`${s.bg} rounded-xl border p-4`}>
+              <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+              <div className="text-sm text-gray-500">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Barre de recherche + export */}
+        <div className="flex gap-3 items-center">
+          <div className="flex-1"><SearchBar value={search} onChange={setSearch} placeholder="Rechercher par talent, établissement..." /></div>
+          <button
+            onClick={() => exportCSV(filtered, 'rdv', [
+              { label: 'Date RDV', accessor: r => r.scheduled_at ? new Date(r.scheduled_at).toLocaleString('fr-FR') : '—' },
+              { label: 'Talent', accessor: r => `${r.applications?.talents?.first_name || ''} ${r.applications?.talents?.last_name || ''}` },
+              { label: 'Établissement', accessor: r => r.applications?.missions?.establishments?.name || '—' },
+              { label: 'Poste', accessor: r => getPositionLabel(r.applications?.missions?.position) },
+              { label: 'Adresse', accessor: r => r.address || '—' },
+              { label: 'Statut', accessor: r => r.status },
+              { label: 'Note', accessor: r => r.note || '' },
+              { label: 'Créé le', accessor: r => formatDateTime(r.created_at) },
+            ])}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+          >📥 Export CSV</button>
+        </div>
+
+        {/* Tableau */}
+        <div className="overflow-x-auto rounded-xl border shadow-sm">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date RDV</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talent</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Établissement</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Poste</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Adresse</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Note</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {paginate(filtered).map(a => {
+                const badge = getRdvBadge(a.status);
+                const talent = a.applications?.talents;
+                const mission = a.applications?.missions;
+                return (
+                  <tr key={a.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
+                      {a.scheduled_at ? new Date(a.scheduled_at).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {talent ? `${talent.first_name} ${talent.last_name}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{mission?.establishments?.name || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{getPositionLabel(mission?.position)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{a.address || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${badge.color}`}>{badge.text}</span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 italic max-w-xs truncate">{a.note || '—'}</td>
+                  </tr>
+                );
+              })}
+              {filtered.length === 0 && (
+                <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-400">Aucun rendez-vous</td></tr>
+              )}
+            </tbody>
+          </table>
+          <Pagination currentPage={currentPage} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
+  // ONGLET : Embauches
+  // ============================================================
+  const renderHires = () => {
+    const filtered = hires.filter(h => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      const talent = h.talents;
+      const mission = h.missions;
+      return (
+        (talent?.first_name || '').toLowerCase().includes(q) ||
+        (talent?.last_name || '').toLowerCase().includes(q) ||
+        (mission?.establishments?.name || '').toLowerCase().includes(q) ||
+        (mission?.position || '').toLowerCase().includes(q)
+      );
+    });
+
+    return (
+      <div className="space-y-6">
+        {/* Stats embauches */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="bg-green-50 rounded-xl border p-4">
+            <div className="text-2xl font-bold text-green-600">{hires.length}</div>
+            <div className="text-sm text-gray-500">Total embauches confirmées</div>
+          </div>
+          <div className="bg-blue-50 rounded-xl border p-4">
+            <div className="text-2xl font-bold text-blue-600">
+              {hires.filter(h => {
+                const d = new Date(h.confirmed_at);
+                const now = new Date();
+                return now - d < 7 * 24 * 60 * 60 * 1000;
+              }).length}
+            </div>
+            <div className="text-sm text-gray-500">Embauches cette semaine</div>
+          </div>
+          <div className="bg-purple-50 rounded-xl border p-4">
+            <div className="text-2xl font-bold text-purple-600">
+              {Math.round(hires.length / Math.max(establishments.filter(e => e.subscription_plan === 'club').length, 1) * 10) / 10}
+            </div>
+            <div className="text-sm text-gray-500">Embauches / établissement Club</div>
+          </div>
+        </div>
+
+        {/* Barre de recherche + export */}
+        <div className="flex gap-3 items-center">
+          <div className="flex-1"><SearchBar value={search} onChange={setSearch} placeholder="Rechercher par talent, établissement..." /></div>
+          <button
+            onClick={() => exportCSV(filtered, 'embauches', [
+              { label: 'Talent', accessor: h => `${h.talents?.first_name || ''} ${h.talents?.last_name || ''}` },
+              { label: 'Établissement', accessor: h => h.missions?.establishments?.name || '—' },
+              { label: 'Poste', accessor: h => getPositionLabel(h.missions?.position) },
+              { label: 'Date mission', accessor: h => formatDate(h.missions?.start_date) },
+              { label: 'Date confirmation', accessor: h => formatDateTime(h.confirmed_at) },
+              { label: 'Candidature créée', accessor: h => formatDateTime(h.created_at) },
+            ])}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+          >📥 Export CSV</button>
+        </div>
+
+        {/* Tableau */}
+        <div className="overflow-x-auto rounded-xl border shadow-sm">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talent</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Établissement</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Poste</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date mission</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Confirmé le</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Délai</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {paginate(filtered).map(h => {
+                const delai = h.confirmed_at && h.created_at
+                  ? Math.round((new Date(h.confirmed_at) - new Date(h.created_at)) / (1000 * 60 * 60 * 24))
+                  : null;
+                return (
+                  <tr key={h.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      {h.talents ? `${h.talents.first_name} ${h.talents.last_name}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{h.missions?.establishments?.name || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{getPositionLabel(h.missions?.position)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{formatDate(h.missions?.start_date)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{formatDateTime(h.confirmed_at)}</td>
+                    <td className="px-4 py-3">
+                      {delai !== null ? (
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${delai <= 2 ? 'bg-green-100 text-green-800' : delai <= 7 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>
+                          {delai}j
+                        </span>
+                      ) : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filtered.length === 0 && (
+                <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">Aucune embauche confirmée</td></tr>
+              )}
+            </tbody>
+          </table>
+          <Pagination currentPage={currentPage} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
+        </div>
+      </div>
+    );
+  };
+
   const renderAdmins = () => {
     return (
       <div className="space-y-6">
@@ -1518,6 +1774,8 @@ export default function AdminDashboard() {
         {activeTab === 'establishments' && renderEstablishments()}
         {activeTab === 'missions' && renderMissions()}
         {activeTab === 'applications' && renderApplications()}
+        {activeTab === 'rdv' && renderRdv()}
+        {activeTab === 'hires' && renderHires()}
         {activeTab === 'subscriptions' && renderSubscriptions()}
         {activeTab === 'admins' && renderAdmins()}
       </div>

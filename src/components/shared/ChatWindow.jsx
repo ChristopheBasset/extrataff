@@ -56,7 +56,7 @@ export default function ChatWindow({ userType }) {
           setMessages(prev => [...prev, payload.new])
           checkCvStatus([payload.new])
           // Si c'est une réponse RDV, mettre à jour le statut appointment local
-          if (payload.new.event === 'rdv_response' && payload.new.payload?.response) {
+          if (payload.new.topic === 'rdv_response' && payload.new.payload?.response) {
             setAppointment(prev => prev ? { ...prev, status: payload.new.payload.response } : prev)
           }
           scrollToBottom()
@@ -368,7 +368,7 @@ export default function ChatWindow({ userType }) {
           sender_id: currentUserId,
           receiver_id: receiverId,
           topic: 'rdv_proposal',
-          event: 'rdv_proposal',
+          
           payload: msgPayload,
           content: `RDV proposé le ${rdvDate.d} ${MONTHS[rdvDate.m]} à ${rdvTime}`
         })
@@ -384,7 +384,7 @@ export default function ChatWindow({ userType }) {
           mission_id: application.missions.id,
           sender_id: currentUserId,
           receiver_id: receiverId,
-          event: 'rdv_proposal',
+          
           payload: msgPayload,
           content: `RDV proposé le ${rdvDate.d} ${MONTHS[rdvDate.m]} à ${rdvTime}`,
           created_at: new Date().toISOString()
@@ -440,7 +440,7 @@ export default function ChatWindow({ userType }) {
           sender_id: currentUserId,
           receiver_id: receiverId,
           topic: 'rdv_response',
-          event: 'rdv_response',
+          
           payload: { response, appointment_id: appointment.id },
           content: response === 'confirmed'
             ? `${talentName} a confirmé le rendez-vous`
@@ -507,7 +507,7 @@ export default function ChatWindow({ userType }) {
           sender_id: currentUserId,
           receiver_id: receiverId,
           topic: 'hire_decision',
-          event: 'hire_decision',
+          
           payload: { decision, talent_name: talentName },
           content: decision === 'hired'
             ? `Embauche confirmée pour ${talentName}`
@@ -574,11 +574,11 @@ export default function ChatWindow({ userType }) {
   const renderMessage = (message) => {
     const isMe = message.sender_id === currentUserId
     const content = message.content || ''
-    const event = message.event
+    const topic = message.topic
     const payload = message.payload || {}
 
     // ── Carte RDV proposé ──
-    if (event === 'rdv_proposal') {
+    if (topic === 'rdv_proposal') {
       const date = new Date(payload.scheduled_at)
       const dateLabel = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
       const timeLabel = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -681,10 +681,10 @@ export default function ChatWindow({ userType }) {
     }
 
     // ── Réponse RDV (ne pas afficher séparément, déjà géré dans la carte ci-dessus) ──
-    if (event === 'rdv_response') return null
+    if (topic === 'rdv_response') return null
 
     // ── Carte décision embauche ──
-    if (event === 'hire_decision') {
+    if (topic === 'hire_decision') {
       const isHired = payload.decision === 'hired'
       return (
         <div key={message.id} className="flex justify-center my-4">

@@ -858,7 +858,7 @@ export default function ChatWindow({ userType }) {
                 <span className="text-xs text-amber-600">CV demandé ⏳</span>
               )}
               {cvShared && <span className="text-xs text-green-600">CV reçu ✓</span>}
-              {userType === 'establishment' && !appointment && !application.hire_status && (
+              {userType === 'establishment' && (!appointment || appointment.status === 'refused') && !application.hire_status && (
                 <button onClick={() => setShowRdvModal(true)}
                   className="flex items-center gap-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-medium py-1.5 px-3 rounded-full transition-colors">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -429,15 +429,11 @@ export default function ChatWindow({ userType }) {
         link: `/establishment/chat/${applicationId}`
       })
 
-      // Email à l'établissement
+      // Email à l'établissement via auth.users (RPC)
       const appt = appointments.find(a => a.id === appointmentId)
-      const { data: estabData } = await supabase
-        .from('establishments')
-        .select('email, user_id')
-        .eq('user_id', receiverId)
-        .maybeSingle()
+      const { data: estabEmail } = await supabase
+        .rpc('get_establishment_email', { estab_user_id: receiverId })
 
-      const estabEmail = estabData?.email
       if (estabEmail && appt) {
         const rdvDate = new Date(appt.scheduled_at)
         const rdvDateLabel = rdvDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })

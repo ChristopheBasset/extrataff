@@ -29,8 +29,9 @@ export default function ChatWindow({ userType }) {
   const [downloadingCv, setDownloadingCv] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
+  // Tableau de tous les appointments (pas juste le dernier)
+  const [appointments, setAppointments] = useState([])
   const [showRdvModal, setShowRdvModal] = useState(false)
-  const [appointment, setAppointment] = useState(null)
   const [rdvDate, setRdvDate] = useState(null)
   const [rdvTime, setRdvTime] = useState(null)
   const [rdvNote, setRdvNote] = useState('')
@@ -39,6 +40,13 @@ export default function ChatWindow({ userType }) {
   const [calYear, setCalYear] = useState(new Date().getFullYear())
 
   const messagesEndRef = useRef(null)
+
+  // Appointment le plus récent (pour les décisions globales)
+  const latestAppointment = appointments.length > 0
+    ? appointments[appointments.length - 1]
+    : null
+
+  const getAppointmentById = (id) => appointments.find(a => a.id === id) || null
 
   useEffect(() => {
     loadChat()
@@ -57,7 +65,13 @@ export default function ChatWindow({ userType }) {
           if (c.startsWith(CV_SHARED_PREFIX)) setCvShared(true)
           if (c.startsWith(RDV_RESPONSE_PREFIX)) {
             const data = JSON.parse(c.replace(RDV_RESPONSE_PREFIX, ''))
-            setAppointment(prev => prev ? { ...prev, status: data.response } : prev)
+            setAppointments(prev => prev.map(a =>
+              a.id === data.appointment_id ? { ...a, status: data.response } : a
+            ))
+          }
+          if (c.startsWith(RDV_PROPOSAL_PREFIX)) {
+            // Recharger les appointments pour avoir le nouveau
+            loadAppointments()
           }
           scrollToBottom()
         }
@@ -80,14 +94,13 @@ export default function ChatWindow({ userType }) {
     })
   }
 
-  const checkRdvStatus = (msgs) => {
-    msgs.forEach(msg => {
-      const c = msg.content || ''
-      if (c.startsWith(RDV_RESPONSE_PREFIX)) {
-        const data = JSON.parse(c.replace(RDV_RESPONSE_PREFIX, ''))
-        setAppointment(prev => prev ? { ...prev, status: data.response } : prev)
-      }
-    })
+  const loadAppointments = async () => {
+    const { data } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: true })
+    if (data) setAppointments(data)
   }
 
   const loadChat = async () => {
@@ -123,18 +136,14 @@ export default function ChatWindow({ userType }) {
       setMessages(msgs)
       checkCvStatus(msgs)
 
+      // Charger TOUS les appointments de cette candidature
       const { data: apptData } = await supabase
         .from('appointments')
         .select('*')
         .eq('application_id', applicationId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+        .order('created_at', { ascending: true })
 
-      if (apptData) {
-        setAppointment(apptData)
-        checkRdvStatus(msgs)
-      }
+      if (apptData) setAppointments(apptData)
 
     } catch (err) {
       console.error('Erreur chargement chat:', err)
@@ -296,7 +305,7 @@ export default function ChatWindow({ userType }) {
         .select().single()
 
       if (apptError) throw apptError
-      setAppointment(apptData)
+      setAppointments(prev => [...prev, apptData])
 
       const receiverId = application.talents.user_id
       const rdvPayload = JSON.stringify({
@@ -346,16 +355,16 @@ export default function ChatWindow({ userType }) {
     }
   }
 
-  const handleRdvResponse = async (response) => {
-    if (!appointment || sendingRdv) return
+  const handleRdvResponse = async (response, appointmentId) => {
+    if (sendingRdv) return
     setSendingRdv(true)
     try {
-      await supabase.from('appointments').update({ status: response }).eq('id', appointment.id)
-      setAppointment(prev => ({ ...prev, status: response }))
+      await supabase.from('appointments').update({ status: response }).eq('id', appointmentId)
+      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: response } : a))
 
       const receiverId = application.missions.establishments.user_id
       const talentName = `${application.talents.first_name} ${application.talents.last_name}`
-      const responsePayload = JSON.stringify({ response, appointment_id: appointment.id })
+      const responsePayload = JSON.stringify({ response, appointment_id: appointmentId })
 
       const { data: insertedMsg, error: msgError } = await supabase
         .from('messages')
@@ -369,11 +378,7 @@ export default function ChatWindow({ userType }) {
         })
         .select().single()
 
-      if (msgError) {
-        console.error('Erreur insert réponse RDV:', msgError)
-      } else {
-        setMessages(prev => [...prev, insertedMsg])
-      }
+      if (!msgError && insertedMsg) setMessages(prev => [...prev, insertedMsg])
 
       await supabase.from('notifications').insert({
         user_id: receiverId,
@@ -405,9 +410,11 @@ export default function ChatWindow({ userType }) {
 
       setApplication(prev => ({ ...prev, status: newStatus, hire_status: decision }))
 
-      if (appointment && decision === 'hired') {
-        await supabase.from('appointments').update({ status: 'done' }).eq('id', appointment.id)
-        setAppointment(prev => ({ ...prev, status: 'done' }))
+      if (latestAppointment && decision === 'hired') {
+        await supabase.from('appointments').update({ status: 'done' }).eq('id', latestAppointment.id)
+        setAppointments(prev => prev.map(a =>
+          a.id === latestAppointment.id ? { ...a, status: 'done' } : a
+        ))
       }
 
       const receiverId = application.talents.user_id
@@ -481,7 +488,10 @@ export default function ChatWindow({ userType }) {
       const date = new Date(data.scheduled_at)
       const dateLabel = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
       const timeLabel = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-      const apptStatus = appointment?.status
+
+      // Chaque carte cherche SON appointment par appointment_id
+      const appt = getAppointmentById(data.appointment_id)
+      const apptStatus = appt?.status || 'pending'
 
       return (
         <div key={message.id} className="flex justify-center my-4">
@@ -523,11 +533,11 @@ export default function ChatWindow({ userType }) {
 
             {userType === 'talent' && apptStatus === 'pending' && (
               <div className="flex gap-2">
-                <button onClick={() => handleRdvResponse('confirmed')} disabled={sendingRdv}
+                <button onClick={() => handleRdvResponse('confirmed', data.appointment_id)} disabled={sendingRdv}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-3 rounded-lg disabled:opacity-50">
                   {sendingRdv ? '...' : 'Confirmer'}
                 </button>
-                <button onClick={() => handleRdvResponse('refused')} disabled={sendingRdv}
+                <button onClick={() => handleRdvResponse('refused', data.appointment_id)} disabled={sendingRdv}
                   className="flex-1 border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm py-2 px-3 rounded-lg disabled:opacity-50">
                   Refuser
                 </button>
@@ -563,10 +573,8 @@ export default function ChatWindow({ userType }) {
       )
     }
 
-    // ── Réponse RDV — ne pas afficher séparément ──
     if (content.startsWith(RDV_RESPONSE_PREFIX)) return null
 
-    // ── Carte décision embauche ──
     if (content.startsWith(HIRE_DECISION_PREFIX)) {
       const data = JSON.parse(content.replace(HIRE_DECISION_PREFIX, ''))
       const isHired = data.decision === 'hired'
@@ -587,18 +595,12 @@ export default function ChatWindow({ userType }) {
               </div>
               <div>
                 <p className={`text-sm font-semibold ${isHired ? 'text-purple-800' : 'text-gray-700'}`}>
-                  {isHired
-                    ? (userType === 'establishment' ? 'Embauche confirmée' : '🎉 Félicitations !')
-                    : 'Candidature non retenue'}
+                  {isHired ? (userType === 'establishment' ? 'Embauche confirmée' : '🎉 Félicitations !') : 'Candidature non retenue'}
                 </p>
                 <p className={`text-xs ${isHired ? 'text-purple-600' : 'text-gray-500'}`}>
                   {isHired
-                    ? (userType === 'establishment'
-                        ? `${data.talent_name} est embauché(e) pour cette mission`
-                        : 'Votre embauche a été confirmée')
-                    : (userType === 'establishment'
-                        ? 'Vous n\'avez pas retenu ce candidat'
-                        : 'L\'établissement n\'a pas donné suite')}
+                    ? (userType === 'establishment' ? `${data.talent_name} est embauché(e)` : 'Votre embauche a été confirmée')
+                    : (userType === 'establishment' ? 'Vous n\'avez pas retenu ce candidat' : 'L\'établissement n\'a pas donné suite')}
                 </p>
               </div>
             </div>
@@ -608,7 +610,6 @@ export default function ChatWindow({ userType }) {
       )
     }
 
-    // ── Demande de CV ──
     if (content.startsWith(CV_REQUEST_PREFIX)) {
       return (
         <div key={message.id} className="flex justify-center my-4">
@@ -639,7 +640,6 @@ export default function ChatWindow({ userType }) {
       )
     }
 
-    // ── CV partagé ──
     if (content.startsWith(CV_SHARED_PREFIX)) {
       const cvPath = content.replace(CV_SHARED_PREFIX, '')
       return (
@@ -666,7 +666,6 @@ export default function ChatWindow({ userType }) {
       )
     }
 
-    // ── Message normal ──
     return (
       <div key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
         <div className={`max-w-xs md:max-w-md px-4 py-2 rounded-lg ${isMe ? 'bg-primary-600 text-white' : 'bg-white border border-gray-200 text-gray-900'}`}>
@@ -761,7 +760,7 @@ export default function ChatWindow({ userType }) {
 
   const renderHireValidationCard = () => {
     if (userType !== 'establishment') return null
-    if (!appointment || appointment.status !== 'confirmed') return null
+    if (!latestAppointment || latestAppointment.status !== 'confirmed') return null
     if (application?.hire_status) return null
     return (
       <div className="bg-purple-50 border-t-2 border-purple-200 px-4 py-3">
@@ -812,6 +811,9 @@ export default function ChatWindow({ userType }) {
     ? application.missions.establishments.name
     : `${application.talents.first_name} ${application.talents.last_name}`
 
+  // Bouton + RDV visible si : pas de RDV en cours (pending) et pas encore embauché
+  const hasActiveRdv = appointments.some(a => a.status === 'pending' || a.status === 'confirmed')
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {renderRdvModal()}
@@ -858,7 +860,9 @@ export default function ChatWindow({ userType }) {
                 <span className="text-xs text-amber-600">CV demandé ⏳</span>
               )}
               {cvShared && <span className="text-xs text-green-600">CV reçu ✓</span>}
-              {userType === 'establishment' && (!appointment || appointment.status === 'refused') && !application.hire_status && (
+
+              {/* Bouton + RDV : visible si pas de RDV actif et pas encore embauché */}
+              {userType === 'establishment' && !hasActiveRdv && !application.hire_status && (
                 <button onClick={() => setShowRdvModal(true)}
                   className="flex items-center gap-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-medium py-1.5 px-3 rounded-full transition-colors">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

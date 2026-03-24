@@ -367,6 +367,7 @@ export default function ChatWindow({ userType }) {
           mission_id: application.missions.id,
           sender_id: currentUserId,
           receiver_id: receiverId,
+          topic: 'rdv_proposal',
           event: 'rdv_proposal',
           payload: msgPayload,
           content: `RDV proposé le ${rdvDate.d} ${MONTHS[rdvDate.m]} à ${rdvTime}`
@@ -438,6 +439,7 @@ export default function ChatWindow({ userType }) {
           mission_id: application.missions.id,
           sender_id: currentUserId,
           receiver_id: receiverId,
+          topic: 'rdv_response',
           event: 'rdv_response',
           payload: { response, appointment_id: appointment.id },
           content: response === 'confirmed'
@@ -504,6 +506,7 @@ export default function ChatWindow({ userType }) {
           mission_id: application.missions.id,
           sender_id: currentUserId,
           receiver_id: receiverId,
+          topic: 'hire_decision',
           event: 'hire_decision',
           payload: { decision, talent_name: talentName },
           content: decision === 'hired'

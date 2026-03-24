@@ -331,7 +331,10 @@ export default function ChatWindow({ userType }) {
       const scheduledAt = new Date(rdvDate.y, rdvDate.m, rdvDate.d, hour, 0, 0).toISOString()
       const address = application.missions.establishments.address || ''
 
-      // Créer le rendez-vous
+      // 1. Fermer la modale immédiatement (meilleure UX)
+      setShowRdvModal(false)
+
+      // 2. Créer le rendez-vous en base
       const { data: apptData, error: apptError } = await supabase
         .from('appointments')
         .insert({
@@ -348,16 +351,16 @@ export default function ChatWindow({ userType }) {
       if (apptError) throw apptError
       setAppointment(apptData)
 
-      // Message dans le chat
+      // 3. Insérer le message dans le chat
       const receiverId = application.talents.user_id
-      const payload = {
+      const msgPayload = {
         appointment_id: apptData.id,
         scheduled_at: scheduledAt,
         address,
         note: rdvNote || null
       }
 
-      const { data: insertedMsg } = await supabase
+      const { data: insertedMsg, error: msgError } = await supabase
         .from('messages')
         .insert({
           application_id: applicationId,
@@ -365,15 +368,37 @@ export default function ChatWindow({ userType }) {
           sender_id: currentUserId,
           receiver_id: receiverId,
           event: 'rdv_proposal',
-          payload,
+          payload: msgPayload,
           content: `RDV proposé le ${rdvDate.d} ${MONTHS[rdvDate.m]} à ${rdvTime}`
         })
         .select()
         .single()
 
-      if (insertedMsg) setMessages(prev => [...prev, insertedMsg])
+      if (msgError) {
+        console.error('Erreur insert message RDV:', msgError)
+        // Fallback : construire le message manuellement pour l'affichage immédiat
+        const fallbackMsg = {
+          id: `rdv-${Date.now()}`,
+          application_id: applicationId,
+          mission_id: application.missions.id,
+          sender_id: currentUserId,
+          receiver_id: receiverId,
+          event: 'rdv_proposal',
+          payload: msgPayload,
+          content: `RDV proposé le ${rdvDate.d} ${MONTHS[rdvDate.m]} à ${rdvTime}`,
+          created_at: new Date().toISOString()
+        }
+        setMessages(prev => [...prev, fallbackMsg])
+      } else {
+        setMessages(prev => [...prev, insertedMsg])
+      }
 
-      // Notification talent
+      // 4. Réinitialiser les champs
+      setRdvDate(null)
+      setRdvTime(null)
+      setRdvNote('')
+
+      // 5. Notification talent
       await supabase.from('notifications').insert({
         user_id: receiverId,
         type: 'rdv_proposed',
@@ -382,15 +407,9 @@ export default function ChatWindow({ userType }) {
         link: `/talent/chat/${applicationId}`
       })
 
-      // Fermer et réinitialiser la modale
-      setShowRdvModal(false)
-      setRdvDate(null)
-      setRdvTime(null)
-      setRdvNote('')
-
     } catch (err) {
       console.error('Erreur proposition RDV:', err)
-      alert('Erreur lors de la proposition de RDV')
+      alert('Erreur : ' + (err.message || 'impossible de proposer le RDV'))
     } finally {
       setSendingRdv(false)
     }

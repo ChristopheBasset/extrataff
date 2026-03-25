@@ -48,6 +48,30 @@ import MentionsLegales from './pages/MentionsLegales'
 import CGV from './pages/CGV'
 import Confidentialite from './pages/Confidentialite'
 
+// Redirige vers le bon dashboard si déjà connecté
+function AuthGuard({ session, children }) {
+  const [userRole, setUserRole] = useState(null)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    if (!session) { setChecking(false); return }
+    const checkRole = async () => {
+      const { data: est } = await supabase.from('establishments').select('id').eq('user_id', session.user.id).maybeSingle()
+      if (est) { setUserRole('establishment'); setChecking(false); return }
+      const { data: tal } = await supabase.from('talents').select('id').eq('user_id', session.user.id).maybeSingle()
+      if (tal) { setUserRole('talent'); setChecking(false); return }
+      setChecking(false)
+    }
+    checkRole()
+  }, [session])
+
+  if (!session) return children
+  if (checking) return null
+  if (userRole === 'establishment') return <Navigate to="/establishment/dashboard" replace />
+  if (userRole === 'talent') return <Navigate to="/talent/dashboard" replace />
+  return children
+}
+
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -83,9 +107,9 @@ function App() {
       <Routes>
         {/* Routes publiques */}
         <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<AuthGuard session={session}><Login /></AuthGuard>} />
+        <Route path="/signup" element={<AuthGuard session={session}><Signup /></AuthGuard>} />
+        <Route path="/register" element={<AuthGuard session={session}><Register /></AuthGuard>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/mentions-legales" element={<MentionsLegales />} />

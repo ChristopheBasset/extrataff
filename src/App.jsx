@@ -12,6 +12,10 @@ import Register from './pages/Register'
 import EstablishmentDashboard from './pages/establishment/Dashboard'
 import TalentDashboard from './pages/talent/DashboardTalent'
 
+// Auth OAuth
+import AuthCallback from './pages/auth/AuthCallback'
+import ChooseRole from './pages/auth/ChooseRole'
+
 // Formulaires de profil
 import TalentProfileForm from './components/Talent/TalentProfileForm'
 import EstablishmentProfileForm from './components/Establishment/EstablishmentProfileForm'
@@ -49,13 +53,11 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Récupérer la session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
     })
 
-    // Écouter les changements d'auth
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -90,6 +92,10 @@ function App() {
         <Route path="/cgv" element={<CGV />} />
         <Route path="/confidentialite" element={<Confidentialite />} />
 
+        {/* Routes OAuth Google */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/auth/choose-role" element={<ChooseRole />} />
+
         {/* Routes Groupe */}
         <Route path="/groupe" element={<GroupLanding />} />
         <Route path="/groupe/register" element={<GroupRegister />} />
@@ -105,7 +111,7 @@ function App() {
           element={session ? <AdminDashboard /> : <Navigate to="/admin" />} 
         />
 
-        {/* Routes formulaires profil (après création compte) */}
+        {/* Routes formulaires profil */}
         <Route 
           path="/talent/profile-form" 
           element={session ? <TalentProfileForm /> : <Navigate to="/login" />} 
@@ -126,8 +132,6 @@ function App() {
         />
 
         {/* ========== ROUTES ÉTABLISSEMENT ========== */}
-        
-        {/* Dashboard Établissement */}
         <Route 
           path="/establishment" 
           element={session ? <EstablishmentDashboard /> : <Navigate to="/login" />} 
@@ -136,53 +140,35 @@ function App() {
           path="/establishment/dashboard" 
           element={session ? <EstablishmentDashboard /> : <Navigate to="/login" />} 
         />
-
-        {/* Mission - Créer une nouvelle mission */}
         <Route 
           path="/establishment/create-mission" 
           element={session ? <MissionForm /> : <Navigate to="/login" />} 
         />
-
-        {/* Mission - Éditer une mission existante */}
         <Route 
           path="/establishment/edit-mission/:missionId" 
           element={session ? <EditMissionForm /> : <Navigate to="/login" />} 
         />
-
-        {/* Chat - Conversation avec un candidat/talent */}
         <Route 
           path="/establishment/chat/:applicationId" 
           element={session ? <ChatWindow userType="establishment" /> : <Navigate to="/login" />} 
         />
-
-        {/* Routes protégées Établissement (wildcard - doit rester à la fin des routes établissement) */}
         <Route
           path="/establishment/*"
-          element={
-            session ? <EstablishmentDashboard /> : <Navigate to="/login" />
-          }
+          element={session ? <EstablishmentDashboard /> : <Navigate to="/login" />}
         />
 
         {/* ========== ROUTES TALENT ========== */}
-
-        {/* Dashboard Talent */}
         <Route 
           path="/talent/dashboard" 
           element={session ? <TalentDashboard /> : <Navigate to="/login" />} 
         />
-
-        {/* Chat Talent */}
         <Route 
           path="/talent/chat/:applicationId" 
           element={session ? <ChatWindow userType="talent" /> : <Navigate to="/login" />} 
         />
-
-        {/* Routes protégées Talent */}
         <Route
           path="/talent/*"
-          element={
-            session ? <TalentDashboard /> : <Navigate to="/login" />
-          }
+          element={session ? <TalentDashboard /> : <Navigate to="/login" />}
         />
 
         {/* 404 */}

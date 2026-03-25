@@ -10,7 +10,7 @@ import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
 import Register from './pages/Register'
 import EstablishmentDashboard from './pages/establishment/Dashboard'
-import TalentDashboard from './pages/talent/TDashboardtalent'
+import TalentDashboard from './pages/talent/DashboardTalent'
 
 // Formulaires de profil
 import TalentProfileForm from './components/Talent/TalentProfileForm'

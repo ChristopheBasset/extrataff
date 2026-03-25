@@ -8,7 +8,7 @@ import TalentConfirmed from '../../components/Talent/TalentConfirmed'
 import TalentPlanning from '../../components/Talent/TalentPlanning'
 import HelpBubble from '../../components/HelpBubble'
 
-export default function TalentDashboard() {
+export default function DashboardTalent() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [view, setView] = useState('home')
@@ -43,13 +43,18 @@ export default function TalentDashboard() {
   }, [])
 
   useEffect(() => {
-    // Initialiser l'état historique pour la page home
+    // Initialiser l'état historique + bloquer la sortie de l'app
     window.history.replaceState({ view: 'home' }, '')
+    window.history.pushState({ view: 'home' }, '')
 
     const onPopState = (event) => {
       const newView = event.state?.view || 'home'
       setView(newView)
       setEditProfile(false)
+      // Si on revient à home, repousse une entrée pour ne jamais quitter l'app
+      if (newView === 'home') {
+        window.history.pushState({ view: 'home' }, '')
+      }
     }
 
     window.addEventListener('popstate', onPopState)

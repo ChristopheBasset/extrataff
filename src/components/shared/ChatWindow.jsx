@@ -511,12 +511,47 @@ export default function ChatWindow({ userType }) {
           content: `Vous avez confirmé ${talentName} pour "${application.missions.position}"`,
           link: `/establishment/chat/${applicationId}`
         })
+
+        // Email au talent — embauche confirmée
+        const talentEmail = application.talents?.email
+        if (talentEmail) {
+          supabase.functions.invoke('send-notification-email', {
+            body: {
+              type: 'hire_confirmed',
+              to: talentEmail,
+              data: {
+                talent_name: application.talents.first_name,
+                establishment_name: application.missions.establishments.name,
+                position: application.missions.position,
+                application_id: applicationId
+              }
+            }
+          }).catch(err => console.error('Erreur email embauche:', err))
+        }
+
       } else {
         await supabase.from('notifications').insert({
           user_id: receiverId, type: 'hire_rejected', title: 'Candidature non retenue',
           content: `${application.missions.establishments.name} n'a pas retenu votre candidature`,
           link: `/talent/chat/${applicationId}`
         })
+
+        // Email au talent — non retenu
+        const talentEmail = application.talents?.email
+        if (talentEmail) {
+          supabase.functions.invoke('send-notification-email', {
+            body: {
+              type: 'hire_rejected',
+              to: talentEmail,
+              data: {
+                talent_name: application.talents.first_name,
+                establishment_name: application.missions.establishments.name,
+                position: application.missions.position,
+                application_id: applicationId
+              }
+            }
+          }).catch(err => console.error('Erreur email non retenu:', err))
+        }
       }
     } catch (err) {
       console.error('Erreur validation embauche:', err)

@@ -77,15 +77,20 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Lire la session existante IMMÉDIATEMENT depuis le localStorage
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
     })
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
+    // Écouter les changements (refresh token, déconnexion, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setSession(null)
+      } else if (session) {
+        setSession(session)
+      }
+      // Ne pas mettre loading=false ici pour éviter le flash
     })
 
     return () => subscription.unsubscribe()

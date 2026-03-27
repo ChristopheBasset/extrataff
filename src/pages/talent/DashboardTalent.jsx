@@ -484,6 +484,25 @@ export default function DashboardTalent() {
 
         {/* ========== HOME ========== */}
         {view === 'home' && (
+          <div>
+            {/* Bandeau CV manquant */}
+            {!profile?.cv_url && (
+              <div className="mb-6 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">📄</span>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Téléchargez votre CV pour augmenter vos chances !</p>
+                    <p className="text-xs text-amber-700 mt-0.5">Certaines missions exigent un CV. Les candidats avec CV sont mis en avant par les établissements.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => changeView('profile')}
+                  className="shrink-0 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                >
+                  Modifier mon profil →
+                </button>
+              </div>
+            )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Missions Matchées */}
             <div
@@ -543,7 +562,8 @@ export default function DashboardTalent() {
                 <span className="text-sm text-gray-500">Vue par mois</span>
               </div>
             </div>
-          </div>
+          </div>{/* fin grid */}
+          </div>{/* fin home wrapper */}
         )}
 
         {/* ========== MISSIONS MATCHÉES ========== */}

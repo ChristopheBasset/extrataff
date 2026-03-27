@@ -184,13 +184,16 @@ function App() {
     }
   }, [])
 
-  // Spinner pendant le chargement initial OU pendant la redirection
-  if (loading || redirecting) return <Spinner />
+  // Spinner uniquement pendant le chargement initial
+  if (loading) return <Spinner />
 
   return (
     <BrowserRouter>
-      {/* SessionRedirect éteint le spinner (redirecting=false) une fois la nav effectuée */}
+      {/* SessionRedirect : redirige vers le dashboard et éteint le spinner */}
       <SessionRedirect session={session} onDone={() => setRedirecting(false)} />
+
+      {/* Spinner de redirection DANS le router pour ne pas bloquer SessionRedirect */}
+      {redirecting && <Spinner />}
 
       <Routes>
         {/* Routes publiques */}

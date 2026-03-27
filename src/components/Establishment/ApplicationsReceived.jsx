@@ -67,6 +67,19 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
     }
   }
 
+  const handleDownloadCv = async (cvPath, talentName) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('CV')
+        .createSignedUrl(cvPath, 60) // URL valide 60 secondes
+      if (error) throw error
+      window.open(data.signedUrl, '_blank')
+    } catch (err) {
+      console.error('Erreur téléchargement CV:', err)
+      alert('Impossible de télécharger le CV')
+    }
+  }
+
   const handleAccept = async (applicationId) => {
     try {
       const { error } = await supabase
@@ -247,14 +260,12 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
                       <p className="text-sm text-gray-500">📞 {app.talent.phone}</p>
                     )}
                   {app.talent?.cv_url && (
-                    <a
-                      href={app.talent.cv_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => handleDownloadCv(app.talent.cv_url, app.talent.first_name)}
                       className="inline-flex items-center gap-1.5 mt-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition-colors"
                     >
                       📄 Télécharger le CV
-                    </a>
+                    </button>
                   )}
                   </div>
                   {/* Badge expérience */}

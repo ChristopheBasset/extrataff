@@ -90,10 +90,31 @@ function App() {
       } else if (session) {
         setSession(session)
       }
-      // Ne pas mettre loading=false ici pour éviter le flash
     })
 
-    return () => subscription.unsubscribe()
+    // ─────────────────────────────────────────────────────────────
+    // MAINTIEN DE SESSION PERMANENT
+    // Rafraîchit le token quand l'app revient au premier plan
+    // (après mise en arrière-plan sur Android / iOS)
+    // ─────────────────────────────────────────────────────────────
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.refreshSession()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Refresh toutes les 10 minutes pour maintenir le token actif
+    // même si l'app reste longtemps ouverte sans interaction
+    const refreshInterval = setInterval(() => {
+      supabase.auth.refreshSession()
+    }, 10 * 60 * 1000)
+
+    return () => {
+      subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      clearInterval(refreshInterval)
+    }
   }, [])
 
   if (loading) {

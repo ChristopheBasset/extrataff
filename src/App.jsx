@@ -77,11 +77,29 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Lire la session existante IMMÉDIATEMENT depuis le localStorage
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
+    // ─────────────────────────────────────────────────────────────
+    // RESTAURATION DE SESSION ROBUSTE
+    // 1. On tente getSession() depuis le localStorage
+    // 2. Si null (token expiré), on tente refreshSession()
+    //    Le refresh token est valide 7 jours → session restaurée
+    //    sans repasser par le login
+    // ─────────────────────────────────────────────────────────────
+    const restoreSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (session) {
+        setSession(session)
+      } else {
+        // Tenter de restaurer via le refresh token
+        const { data: refreshData } = await supabase.auth.refreshSession()
+        if (refreshData?.session) {
+          setSession(refreshData.session)
+        }
+      }
       setLoading(false)
-    })
+    }
+
+    restoreSession()
 
     // Écouter les changements (refresh token, déconnexion, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -95,7 +113,6 @@ function App() {
     // ─────────────────────────────────────────────────────────────
     // MAINTIEN DE SESSION PERMANENT
     // Rafraîchit le token quand l'app revient au premier plan
-    // (après mise en arrière-plan sur Android / iOS)
     // ─────────────────────────────────────────────────────────────
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -105,7 +122,6 @@ function App() {
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     // Refresh toutes les 10 minutes pour maintenir le token actif
-    // même si l'app reste longtemps ouverte sans interaction
     const refreshInterval = setInterval(() => {
       supabase.auth.refreshSession()
     }, 10 * 60 * 1000)

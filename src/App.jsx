@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import Landing from './pages/Landing';
@@ -48,6 +48,45 @@ import MentionsLegales from './pages/MentionsLegales'
 import CGV from './pages/CGV'
 import Confidentialite from './pages/Confidentialite'
 
+// ─────────────────────────────────────────────────────────────
+// COMPOSANT : redirige vers le bon dashboard après restauration
+// de session — sans jamais afficher le login
+// ─────────────────────────────────────────────────────────────
+function SessionRedirect({ session }) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!session) return
+
+    const redirect = async () => {
+      const { data: est } = await supabase
+        .from('establishments')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
+
+      if (est) {
+        navigate('/establishment/dashboard', { replace: true })
+        return
+      }
+
+      const { data: tal } = await supabase
+        .from('talents')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
+
+      if (tal) {
+        navigate('/talent/dashboard', { replace: true })
+      }
+    }
+
+    redirect()
+  }, [session])
+
+  return null
+}
+
 // Redirige vers le bon dashboard si déjà connecté
 function AuthGuard({ session, children }) {
   const [userRole, setUserRole] = useState(null)
@@ -79,23 +118,24 @@ function App() {
   useEffect(() => {
     // ─────────────────────────────────────────────────────────────
     // RESTAURATION DE SESSION ROBUSTE
-    // 1. On tente getSession() depuis le localStorage
-    // 2. Si null (token expiré), on tente refreshSession()
-    //    Le refresh token est valide 7 jours → session restaurée
-    //    sans repasser par le login
+    // On reste sur le spinner jusqu'à avoir la réponse définitive.
+    // Jamais de flash login.
     // ─────────────────────────────────────────────────────────────
     const restoreSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
 
       if (session) {
         setSession(session)
-      } else {
-        // Tenter de restaurer via le refresh token
-        const { data: refreshData } = await supabase.auth.refreshSession()
-        if (refreshData?.session) {
-          setSession(refreshData.session)
-        }
+        setLoading(false)
+        return
       }
+
+      // Pas de session dans le localStorage → tenter le refresh token
+      const { data: refreshData } = await supabase.auth.refreshSession()
+      if (refreshData?.session) {
+        setSession(refreshData.session)
+      }
+
       setLoading(false)
     }
 
@@ -110,10 +150,7 @@ function App() {
       }
     })
 
-    // ─────────────────────────────────────────────────────────────
-    // MAINTIEN DE SESSION PERMANENT
     // Rafraîchit le token quand l'app revient au premier plan
-    // ─────────────────────────────────────────────────────────────
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         supabase.auth.refreshSession()
@@ -121,7 +158,7 @@ function App() {
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // Refresh toutes les 10 minutes pour maintenir le token actif
+    // Refresh toutes les 10 minutes
     const refreshInterval = setInterval(() => {
       supabase.auth.refreshSession()
     }, 10 * 60 * 1000)
@@ -133,6 +170,10 @@ function App() {
     }
   }, [])
 
+  // ─────────────────────────────────────────────────────────────
+  // SPINNER pendant toute la durée de la vérification de session
+  // L'utilisateur ne voit JAMAIS le login pendant ce temps
+  // ─────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -146,6 +187,9 @@ function App() {
 
   return (
     <BrowserRouter>
+      {/* Redirige vers le dashboard dès qu'une session est restaurée */}
+      <SessionRedirect session={session} />
+
       <Routes>
         {/* Routes publiques */}
         <Route path="/" element={<Landing />} />

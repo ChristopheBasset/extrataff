@@ -12,10 +12,17 @@ export default function Landing() {
 
   useEffect(() => {
     const fetchTalentCount = async () => {
-      const { count } = await supabase
-        .from('talents')
-        .select('*', { count: 'exact', head: true })
-      if (count !== null) setTalentCount(count)
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+        const res = await fetch(`${supabaseUrl}/functions/v1/get-talent-count`, {
+          headers: { 'apikey': supabaseAnonKey }
+        })
+        const data = await res.json()
+        if (data.count > 0) setTalentCount(data.count)
+      } catch (e) {
+        console.error('Erreur compteur talents:', e)
+      }
     }
     fetchTalentCount()
   }, []);

@@ -211,8 +211,8 @@ export default function Register() {
               <div className="flex items-center gap-3">
                 <span className="text-2xl">🎁</span>
                 <div>
-                  <p className="font-semibold text-green-900">1ère mission offerte</p>
-                  <p className="text-sm text-green-700">Puis rejoignez le Club ExtraTaff avec 30 jours d'essai gratuit</p>
+                  <p className="font-semibold text-green-900">1er mois offert — jusqu'au 15 avril</p>
+                  <p className="text-sm text-green-700">Missions illimitées, sans carte bleue requise</p>
                 </div>
               </div>
             </div>

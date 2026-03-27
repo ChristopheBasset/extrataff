@@ -44,7 +44,7 @@ export default function Landing() {
     },
     {
       question: "Qu'est-ce que le Club ExtraTaff ?",
-      answer: "Le Club ExtraTaff est notre abonnement mensuel à 39€/mois pour les établissements. En devenant membre, vous publiez des missions en illimité, accédez à tous les talents et profitez de la messagerie instantanée. Sans engagement, résiliable à tout moment. Pour les inscriptions avant fin mars 2026, le premier mois est offert !"
+      answer: "Le Club ExtraTaff est notre abonnement mensuel à 39€/mois pour les établissements. En devenant membre, vous publiez des missions en illimité, accédez à tous les talents et profitez de la messagerie instantanée. Sans engagement, résiliable à tout moment. Pour les inscriptions avant fin mars 2026, le premier mois est offert pour toute inscription avant le 15 avril 2026 !"
     },
     {
       question: "Qu'est-ce qu'une mission urgente ?",
@@ -135,6 +135,16 @@ export default function Landing() {
           </p>
         </div>
 
+        {/* Bandeau offre lancement + gratuit talents */}
+        <div className="w-full max-w-md mb-4 space-y-2">
+          <div className="bg-yellow-400/20 border border-yellow-300/40 rounded-xl px-4 py-3 text-center">
+            <p className="text-yellow-200 text-sm font-semibold">🚀 Offre de lancement — 1er mois offert pour toute inscription avant le 15 avril !</p>
+          </div>
+          <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-center">
+            <p className="text-blue-100 text-sm">🎯 Pour les candidats, c'est <strong className="text-white">100% gratuit</strong></p>
+          </div>
+        </div>
+
         {/* CTA Buttons */}
         <div className="w-full max-w-md space-y-4 mb-6">
           
@@ -217,7 +227,7 @@ export default function Landing() {
                 <p className="text-blue-200 text-sm mt-1">Par mission, sans abonnement</p>
               </div>
             </div>
-            <p className="text-yellow-300 text-sm mt-4 font-semibold">🚀 Offre de lancement : 1er mois offert avant fin mars 2026 !</p>
+            <p className="text-yellow-300 text-sm mt-4 font-semibold">🚀 Offre de lancement : 1er mois offert pour toute inscription avant le 15 avril !</p>
           </div>
         </div>
       </section>

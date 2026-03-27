@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import Landing from './pages/Landing';
@@ -67,9 +67,11 @@ function Spinner() {
 // ─────────────────────────────────────────────────────────────
 function SessionRedirect({ session, onDone }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   useEffect(() => {
-    if (!session) { onDone(); return }
+    // Ne pas rediriger sur les routes admin
+    if (!session || pathname.startsWith('/admin') || pathname.startsWith('/auth')) { onDone(); return }
 
     const redirect = async () => {
       const { data: est } = await supabase

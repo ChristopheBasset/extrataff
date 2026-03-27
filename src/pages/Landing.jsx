@@ -2,11 +2,26 @@ import { ArrowRightIcon } from '@heroicons/react/24/solid';
 import { useNavigate, Link } from 'react-router-dom';
 import lightningSvg from '../assets/lightning.svg';
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 export default function Landing() {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState(null);
   const [scrolled, setScrolled] = useState(false);
+  const [talentCount, setTalentCount] = useState(null);
+
+  useEffect(() => {
+    const fetchTalentCount = async () => {
+      // Talents IDF = départements 75, 77, 78, 91, 92, 93, 94, 95
+      const idfDepts = ['75', '77', '78', '91', '92', '93', '94', '95']
+      const { count } = await supabase
+        .from('talents')
+        .select('*', { count: 'exact', head: true })
+        .overlaps('preferred_departments', idfDepts)
+      if (count !== null) setTalentCount(count)
+    }
+    fetchTalentCount()
+  }, []);
 
   // Header change on scroll
   useEffect(() => {
@@ -127,6 +142,14 @@ export default function Landing() {
         <p className="text-lg mb-10 max-w-lg opacity-90 leading-relaxed">
           La plateforme qui connecte en instantané les établissements CHR et les Talents !
         </p>
+
+        {/* Compteur talents IDF */}
+        {talentCount !== null && talentCount > 0 && (
+          <div className="mb-6 flex items-center gap-3 bg-white/15 backdrop-blur-sm border border-white/25 rounded-2xl px-5 py-3">
+            <span className="text-3xl font-extrabold text-white">{talentCount}</span>
+            <span className="text-blue-100 text-sm leading-tight">candidats disponibles<br/>en Île-de-France</span>
+          </div>
+        )}
 
         {/* Bandeau matching */}
         <div className="max-w-lg mb-8 bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 border border-white/20">

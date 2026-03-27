@@ -48,15 +48,28 @@ import MentionsLegales from './pages/MentionsLegales'
 import CGV from './pages/CGV'
 import Confidentialite from './pages/Confidentialite'
 
+// Spinner réutilisable
+function Spinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Chargement...</p>
+      </div>
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────
-// COMPOSANT : redirige vers le bon dashboard après restauration
-// de session — sans jamais afficher le login
+// Redirige vers le bon dashboard dès que la session est connue
+// Appelle onDone() une fois la redirection effectuée
+// → le spinner reste affiché jusqu'au bout, zéro flash
 // ─────────────────────────────────────────────────────────────
-function SessionRedirect({ session }) {
+function SessionRedirect({ session, onDone }) {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!session) return
+    if (!session) { onDone(); return }
 
     const redirect = async () => {
       const { data: est } = await supabase
@@ -67,6 +80,7 @@ function SessionRedirect({ session }) {
 
       if (est) {
         navigate('/establishment/dashboard', { replace: true })
+        onDone()
         return
       }
 
@@ -79,6 +93,8 @@ function SessionRedirect({ session }) {
       if (tal) {
         navigate('/talent/dashboard', { replace: true })
       }
+
+      onDone()
     }
 
     redirect()
@@ -114,34 +130,34 @@ function AuthGuard({ session, children }) {
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [redirecting, setRedirecting] = useState(false)
 
   useEffect(() => {
-    // ─────────────────────────────────────────────────────────────
-    // RESTAURATION DE SESSION ROBUSTE
-    // On reste sur le spinner jusqu'à avoir la réponse définitive.
-    // Jamais de flash login.
-    // ─────────────────────────────────────────────────────────────
     const restoreSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
 
       if (session) {
         setSession(session)
+        setRedirecting(true) // garde le spinner pendant que SessionRedirect navigue
         setLoading(false)
         return
       }
 
-      // Pas de session dans le localStorage → tenter le refresh token
+      // Tenter le refresh token
       const { data: refreshData } = await supabase.auth.refreshSession()
       if (refreshData?.session) {
         setSession(refreshData.session)
+        setRedirecting(true)
+        setLoading(false)
+        return
       }
 
+      // Aucune session → on affiche les routes normalement
       setLoading(false)
     }
 
     restoreSession()
 
-    // Écouter les changements (refresh token, déconnexion, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setSession(null)
@@ -150,7 +166,6 @@ function App() {
       }
     })
 
-    // Rafraîchit le token quand l'app revient au premier plan
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         supabase.auth.refreshSession()
@@ -158,7 +173,6 @@ function App() {
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // Refresh toutes les 10 minutes
     const refreshInterval = setInterval(() => {
       supabase.auth.refreshSession()
     }, 10 * 60 * 1000)
@@ -170,25 +184,13 @@ function App() {
     }
   }, [])
 
-  // ─────────────────────────────────────────────────────────────
-  // SPINNER pendant toute la durée de la vérification de session
-  // L'utilisateur ne voit JAMAIS le login pendant ce temps
-  // ─────────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
-        </div>
-      </div>
-    )
-  }
+  // Spinner pendant le chargement initial OU pendant la redirection
+  if (loading || redirecting) return <Spinner />
 
   return (
     <BrowserRouter>
-      {/* Redirige vers le dashboard dès qu'une session est restaurée */}
-      <SessionRedirect session={session} />
+      {/* SessionRedirect éteint le spinner (redirecting=false) une fois la nav effectuée */}
+      <SessionRedirect session={session} onDone={() => setRedirecting(false)} />
 
       <Routes>
         {/* Routes publiques */}

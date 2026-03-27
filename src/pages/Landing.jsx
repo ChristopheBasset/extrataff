@@ -63,7 +63,7 @@ export default function Landing() {
     },
     {
       question: "Qu'est-ce que le Club ExtraTaff ?",
-      answer: "Le Club ExtraTaff est notre abonnement mensuel à 39€/mois pour les établissements. En devenant membre, vous publiez des missions en illimité, accédez à tous les talents et profitez de la messagerie instantanée. Sans engagement, résiliable à tout moment. Pour les inscriptions avant fin mars 2026, le premier mois est offert pour toute inscription avant le 15 avril 2026 !"
+      answer: "Le Club ExtraTaff est notre abonnement mensuel à 39€/mois pour les établissements. En devenant membre, vous publiez des missions en illimité, accédez à tous les talents et profitez de la messagerie instantanée. Sans engagement, résiliable à tout moment. Offre de lancement : pour toute inscription avant le 15 avril 2026, le premier mois est offert !"
     },
     {
       question: "Qu'est-ce qu'une mission urgente ?",
@@ -302,7 +302,7 @@ export default function Landing() {
           <div className="mt-10 text-center">
             <p className="text-gray-600 mb-2">Vous avez d'autres questions ?</p>
             <a 
-              href="mailto:christophe@comunecom.fr" 
+              href="mailto:contact@extrataff.fr" 
               className="inline-flex items-center text-blue-600 font-semibold hover:text-blue-700"
             >
               Contactez-nous
@@ -359,8 +359,8 @@ export default function Landing() {
                 <p>CVBN CONSULTING</p>
                 <p>1, sente aux Pruniers</p>
                 <p>27120 Gadencourt</p>
-                <a href="mailto:christophe@comunecom.fr" className="block hover:text-white transition-colors mt-2">
-                  christophe@comunecom.fr
+                <a href="mailto:contact@extrataff.fr" className="block hover:text-white transition-colors mt-2">
+                  contact@extrataff.fr
                 </a>
               </div>
             </div>

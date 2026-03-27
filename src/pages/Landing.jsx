@@ -12,12 +12,9 @@ export default function Landing() {
 
   useEffect(() => {
     const fetchTalentCount = async () => {
-      // Talents IDF = départements 75, 77, 78, 91, 92, 93, 94, 95
-      const idfDepts = ['75', '77', '78', '91', '92', '93', '94', '95']
       const { count } = await supabase
         .from('talents')
         .select('*', { count: 'exact', head: true })
-        .overlaps('preferred_departments', idfDepts)
       if (count !== null) setTalentCount(count)
     }
     fetchTalentCount()
@@ -147,7 +144,7 @@ export default function Landing() {
         {talentCount !== null && talentCount > 0 && (
           <div className="mb-6 flex items-center gap-3 bg-white/15 backdrop-blur-sm border border-white/25 rounded-2xl px-5 py-3">
             <span className="text-3xl font-extrabold text-white">{talentCount}</span>
-            <span className="text-blue-100 text-sm leading-tight">candidats disponibles<br/>en Île-de-France</span>
+            <span className="text-blue-100 text-sm leading-tight">talents CHR<br/>déjà inscrits</span>
           </div>
         )}
 

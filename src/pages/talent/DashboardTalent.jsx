@@ -503,7 +503,7 @@ export default function DashboardTalent() {
                 </button>
               </div>
             )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Missions Matchées */}
             <div
               onClick={() => changeView('matched')}
@@ -562,7 +562,7 @@ export default function DashboardTalent() {
                 <span className="text-sm text-gray-500">Vue par mois</span>
               </div>
             </div>
-          </div>{/* fin grid */}
+            </div>{/* fin grid */}
           </div>{/* fin home wrapper */}
         )}
 

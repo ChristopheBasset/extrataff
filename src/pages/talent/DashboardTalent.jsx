@@ -562,8 +562,8 @@ export default function DashboardTalent() {
                 <span className="text-sm text-gray-500">Vue par mois</span>
               </div>
             </div>
-            </div>{/* fin grid */}
-          </div>{/* fin home wrapper */}
+            </div>
+          </div>
         )}
 
         {/* ========== MISSIONS MATCHÉES ========== */}

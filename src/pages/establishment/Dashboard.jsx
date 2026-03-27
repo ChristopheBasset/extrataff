@@ -276,7 +276,7 @@ export default function EstablishmentDashboard() {
     }
     if (isTrialActive()) {
       const days = getTrialDaysLeft()
-      return { label: `🎁 Offre de lancement gratuite — jusqu'au 15 avril`, color: 'bg-blue-100 text-blue-800' }
+      return { label: `🎁 Essai gratuit — ${days}j restants`, color: 'bg-blue-100 text-blue-800' }
     }
     if (status === 'expired') {
       return { label: '🔴 Expiré', color: 'bg-red-100 text-red-800' }
@@ -342,9 +342,6 @@ export default function EstablishmentDashboard() {
           {/* Ligne 3 : Infos freemium — essai gratuit en cours */}
           {!isClubMember() && isTrialActive() && (
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-blue-600 font-medium">
-                🎁 Offre de lancement gratuite — jusqu'au 15 avril • Missions illimitées
-              </span>
               <button
                 onClick={() => navigate('/establishment/subscribe')}
                 className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
@@ -586,7 +583,7 @@ export default function EstablishmentDashboard() {
                     {!isClubMember() && isTrialActive() && (
                       <div className="mt-2">
                         <p className="text-sm text-blue-600 font-medium">
-                          🎁 Offre de lancement gratuite — jusqu'au 15 avril • Missions illimitées
+                          🎁 Essai gratuit — {trialDays} jours restants • Missions illimitées
                         </p>
                       </div>
                     )}

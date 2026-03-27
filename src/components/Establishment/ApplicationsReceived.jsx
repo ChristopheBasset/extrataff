@@ -48,7 +48,7 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
       const talentIds = [...new Set(apps.map(a => a.talent_id))]
       const { data: talents } = await supabase
         .from('talents')
-        .select('id, user_id, first_name, last_name, phone, position_types, years_experience')
+        .select('id, user_id, first_name, last_name, phone, position_types, years_experience, cv_url')
         .in('id', talentIds)
 
       // Enrichir les candidatures
@@ -246,6 +246,16 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
                     {app.talent?.phone && (
                       <p className="text-sm text-gray-500">📞 {app.talent.phone}</p>
                     )}
+                  {app.talent?.cv_url && (
+                    <a
+                      href={app.talent.cv_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      📄 Télécharger le CV
+                    </a>
+                  )}
                   </div>
                   {/* Badge expérience */}
                   {app.talent?.years_experience > 0 && (

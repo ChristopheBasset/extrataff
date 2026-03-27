@@ -76,6 +76,12 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         })
       }
 
+      // Filtrage CV requis : masquer les missions cv_required si le talent n'a pas de CV
+      const hasCv = !!(talentProfile?.cv_url)
+      const cvRequiredMissions = matched.filter(m => m.cv_required && !hasCv)
+      const cvRequiredIds = new Set(cvRequiredMissions.map(m => m.id))
+      matched = matched.filter(m => !cvRequiredIds.has(m.id))
+
       // Anti-chevauchement : exclure les missions qui chevauchent des missions confirmées/acceptées
       const { data: bookedApps } = await supabase
         .from('applications')
@@ -221,6 +227,17 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         </button>
       </div>
 
+      {/* Bandeau incitation CV si talent sans CV */}
+      {!talentProfile?.cv_url && (
+        <div className="mb-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <span className="text-2xl">📄</span>
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Ajoutez votre CV pour être priorisé !</p>
+            <p className="text-xs text-amber-700 mt-0.5">Certaines missions exigent un CV. Les candidats avec CV sont mis en avant par les établissements.</p>
+          </div>
+        </div>
+      )}
+
       {/* Liste vide */}
       {missions.length === 0 && (
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
@@ -255,6 +272,11 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
                 <h3 className="text-xl font-bold text-gray-900">
                   {getPositionLabel(mission.position)}
                 </h3>
+                {mission.cv_required && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1">
+                    📄 CV requis
+                  </span>
+                )}
 
                 {/* Établissement */}
                 {mission.establishments && (

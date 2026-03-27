@@ -89,7 +89,7 @@ export default function MissionForm({ onMissionCreated }) {
   const paymentInfo = useMemo(() => {
     if (!establishment) return null
     if (isClubMember) return { type: 'club', price: 0, label: '🏆 Membre Club ExtraTaff', description: "Missions illimitées comprises dans votre abonnement", canCreate: true }
-    if (isTrialActive) return { type: 'trial', price: 0, label: `🎁 Essai gratuit — ${trialDaysLeft}j restants`, description: "Missions illimitées pendant votre période d'essai", canCreate: true }
+    if (isTrialActive) return { type: 'trial', price: 0, label: `🎁 Offre de lancement gratuite — jusqu'au 15 avril`, description: "Missions illimitées pendant votre période d'essai", canCreate: true }
     return { type: 'pay_per_mission', price: 19.90, label: 'Mission ponctuelle', description: 'Publication à 19,90€', canCreate: false, clubSaving: "Passez au Club à 39€/mois pour des missions illimitées" }
   }, [establishment, isClubMember, isTrialActive, trialDaysLeft])
 

@@ -44,7 +44,8 @@ export default function MissionForm({ onMissionCreated }) {
     salary_text: '',
     comment: '',
     service_continu: true,
-    nb_postes: 1
+    nb_postes: 1,
+    cv_required: false
   })
 
   const handleChange = (e) => {
@@ -202,6 +203,7 @@ export default function MissionForm({ onMissionCreated }) {
         service_continu: formData.service_continu,
         nb_postes: parseInt(formData.nb_postes) || 1,
         nb_postes_pourvus: 0,
+        cv_required: formData.cv_required || false,
         status: status,
         payment_status: status === 'open' ? 'paid' : 'pending'
       })
@@ -316,6 +318,23 @@ export default function MissionForm({ onMissionCreated }) {
                 </select>
                 <span className="text-sm text-gray-500">{formData.nb_postes > 1 ? `👥 ${formData.nb_postes} personnes recherchées` : '👤 1 personne recherchée'}</span>
               </div>
+            </div>
+
+            {/* CV requis */}
+            <div className="mt-4">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  name="cv_required"
+                  checked={formData.cv_required}
+                  onChange={handleChange}
+                  className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">📄 CV requis</span>
+                  <p className="text-xs text-gray-500">Seuls les candidats avec un CV pourront postuler</p>
+                </div>
+              </label>
             </div>
           </div>
 

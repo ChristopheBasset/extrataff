@@ -70,8 +70,14 @@ function SessionRedirect({ session, onDone }) {
   const { pathname } = useLocation()
 
   useEffect(() => {
-    // Ne pas rediriger sur les routes admin
-    if (!session || pathname.startsWith('/admin') || pathname.startsWith('/auth')) { onDone(); return }
+    // Ne pas rediriger sur les routes admin, auth, ni reset-password
+    // (le reset-password établit une session de recovery qu'il ne faut PAS rediriger)
+    if (
+      !session
+      || pathname.startsWith('/admin')
+      || pathname.startsWith('/auth')
+      || pathname.startsWith('/reset-password')
+    ) { onDone(); return }
 
     const redirect = async () => {
       const { data: est } = await supabase
@@ -136,6 +142,13 @@ function App() {
 
   useEffect(() => {
     const restoreSession = async () => {
+      // ⚠️ NE PAS restaurer la session si on est sur /reset-password
+      // Sinon Supabase utilise la session existante au lieu du token de recovery
+      if (window.location.pathname.startsWith('/reset-password')) {
+        setLoading(false)
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
 
       if (session) {
@@ -164,18 +177,27 @@ function App() {
       if (event === 'SIGNED_OUT') {
         setSession(null)
       } else if (session) {
+        // ⚠️ Sur /reset-password : ne pas mettre à jour le state session
+        // Sinon SessionRedirect se déclenche et redirige vers le dashboard
+        if (window.location.pathname.startsWith('/reset-password')) {
+          return
+        }
         setSession(session)
       }
     })
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        // ⚠️ Pas de refresh sur /reset-password
+        if (window.location.pathname.startsWith('/reset-password')) return
         supabase.auth.refreshSession()
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     const refreshInterval = setInterval(() => {
+      // ⚠️ Pas de refresh sur /reset-password
+      if (window.location.pathname.startsWith('/reset-password')) return
       supabase.auth.refreshSession()
     }, 10 * 60 * 1000)
 

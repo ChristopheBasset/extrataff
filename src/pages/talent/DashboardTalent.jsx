@@ -43,7 +43,6 @@ export default function DashboardTalent() {
   }, [])
 
   useEffect(() => {
-    // Initialiser l'état historique + bloquer la sortie de l'app
     window.history.replaceState({ view: 'home' }, '')
     window.history.pushState({ view: 'home' }, '')
 
@@ -51,7 +50,6 @@ export default function DashboardTalent() {
       const newView = event.state?.view || 'home'
       setView(newView)
       setEditProfile(false)
-      // Si on revient à home, repousse une entrée pour ne jamais quitter l'app
       if (newView === 'home') {
         window.history.pushState({ view: 'home' }, '')
       }
@@ -74,13 +72,13 @@ export default function DashboardTalent() {
   const checkProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       const { data } = await supabase
         .from('talents')
         .select('*')
         .eq('user_id', user.id)
         .single()
-      
+
       setProfile(data)
       if (data) {
         loadTalentRating(user.id)
@@ -109,7 +107,6 @@ export default function DashboardTalent() {
 
   const loadCounts = async (talentId, talentProfile) => {
     try {
-      // Récupérer les missions ouvertes
       const { data: allMissions, error: missErr } = await supabase
         .from('missions')
         .select('*')
@@ -120,7 +117,6 @@ export default function DashboardTalent() {
         return
       }
 
-      // Toutes les applications du talent
       const { data: allApps } = await supabase
         .from('applications')
         .select('status, mission_id')
@@ -130,52 +126,43 @@ export default function DashboardTalent() {
       let interestedCount = 0
       let confirmedCount = 0
 
-      interestedCount = allApps ? allApps.filter(a => a.status === 'interested' || a.status === 'accepted').length : 0
-      confirmedCount = allApps ? allApps.filter(a => a.status === 'confirmed').length : 0
+      if (allApps) {
+        interestedCount = allApps.filter(a => a.status === 'interested' || a.status === 'accepted').length
+        confirmedCount = allApps.filter(a => a.status === 'confirmed').length
+      }
 
-      if (allMissions && allMissions.length > 0) {
-        const appliedMissionIds = new Set(allApps?.map(a => a.mission_id) || [])
+      if (allMissions && allMissions.length > 0 && talentProfile) {
+        const appliedMissionIds = new Set((allApps || []).map(a => a.mission_id))
 
-        // Exclure les missions déjà candidatées
-        let matched = allMissions.filter(m => !appliedMissionIds.has(m.id))
+        const matched = allMissions.filter(mission => {
+          if (appliedMissionIds.has(mission.id)) return false
 
-        // Filtrage par position_types
-        if (talentProfile?.position_types && talentProfile.position_types.length > 0) {
-          matched = matched.filter(m => talentProfile.position_types.includes(m.position))
-        }
+          if (talentProfile.position_types && talentProfile.position_types.length > 0) {
+            if (!talentProfile.position_types.includes(mission.position_type)) {
+              return false
+            }
+          }
 
-        // Filtrage par départements préférés
-        if (talentProfile?.preferred_departments && talentProfile.preferred_departments.length > 0) {
-          matched = matched.filter(m => {
-            const dept = extractDepartment(m.location_fuzzy)
-            return dept && talentProfile.preferred_departments.includes(dept)
-          })
-        }
+          if (talentProfile.preferred_departments && talentProfile.preferred_departments.length > 0) {
+            const missionDept = extractDepartment(mission.postal_code)
+            if (missionDept && !talentProfile.preferred_departments.includes(missionDept)) {
+              return false
+            }
+          }
 
-        // Anti-chevauchement
-        const bookedApps = allApps?.filter(a => a.status === 'confirmed' || a.status === 'accepted') || []
-        if (bookedApps.length > 0) {
-          const bookedMissionIds = bookedApps.map(a => a.mission_id)
-          const { data: bookedMissions } = await supabase
-            .from('missions')
-            .select('*')
-            .in('id', bookedMissionIds)
+          if (mission.cv_required && !talentProfile.cv_url) {
+            return false
+          }
 
-          if (bookedMissions && bookedMissions.length > 0) {
-            const bookedRanges = bookedMissions
-              .filter(bm => bm.start_date)
-              .map(bm => ({
-                start: new Date(bm.start_date),
-                end: bm.end_date ? new Date(bm.end_date) : new Date(bm.start_date)
-              }))
+          return true
+        })
 
-            if (bookedRanges.length > 0) {
-              matched = matched.filter(m => {
-                if (!m.start_date) return true
-                const mStart = new Date(m.start_date)
-                const mEnd = m.end_date ? new Date(m.end_date) : new Date(m.start_date)
-                return !bookedRanges.some(b => mStart <= b.end && mEnd >= b.start)
-              })
+        if (talentProfile.min_hourly_rate) {
+          const minRate = parseFloat(talentProfile.min_hourly_rate)
+          for (let i = matched.length - 1; i >= 0; i--) {
+            const m = matched[i]
+            if (m.hourly_rate && parseFloat(m.hourly_rate) < minRate) {
+              matched.splice(i, 1)
             }
           }
         }
@@ -273,7 +260,6 @@ export default function DashboardTalent() {
 
       if (error) throw error
 
-      // Recharger le profil
       const { data: updated } = await supabase
         .from('talents')
         .select('*')
@@ -297,14 +283,12 @@ export default function DashboardTalent() {
     const file = e.target.files[0]
     if (!file) return
 
-    // Vérifier le type de fichier
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
     if (!allowedTypes.includes(file.type)) {
       setProfileError('Format accepté : PDF ou Word (.doc, .docx)')
       return
     }
 
-    // Vérifier la taille (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       setProfileError('Le fichier ne doit pas dépasser 5 Mo')
       return
@@ -318,19 +302,16 @@ export default function DashboardTalent() {
       const fileExt = file.name.split('.').pop()
       const filePath = `${user.id}/cv_${Date.now()}.${fileExt}`
 
-      // Supprimer l'ancien CV si existant
       if (profile.cv_url) {
         await supabase.storage.from('CV').remove([profile.cv_url])
       }
 
-      // Uploader le nouveau CV
       const { error: uploadError } = await supabase.storage
         .from('CV')
         .upload(filePath, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
-      // Mettre à jour le profil
       const { error: updateError } = await supabase
         .from('talents')
         .update({ cv_url: filePath, updated_at: new Date().toISOString() })
@@ -338,7 +319,6 @@ export default function DashboardTalent() {
 
       if (updateError) throw updateError
 
-      // Recharger le profil
       const { data: updated } = await supabase
         .from('talents')
         .select('*')
@@ -364,10 +344,8 @@ export default function DashboardTalent() {
     setProfileError(null)
 
     try {
-      // Supprimer le fichier du storage
       await supabase.storage.from('CV').remove([profile.cv_url])
 
-      // Mettre à jour le profil
       const { error } = await supabase
         .from('talents')
         .update({ cv_url: null, updated_at: new Date().toISOString() })
@@ -375,7 +353,6 @@ export default function DashboardTalent() {
 
       if (error) throw error
 
-      // Recharger le profil
       const { data: updated } = await supabase
         .from('talents')
         .select('*')
@@ -391,668 +368,993 @@ export default function DashboardTalent() {
     }
   }
 
-  // Helpers
   const getPositionLabel = (value) => {
     const found = POSITION_TYPES?.find(p => p.value === value)
     return found ? found.label : value || '—'
   }
 
+  // Style block partagé
+  const sharedStyles = (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+      .talent-dashboard {
+        font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+        letter-spacing: -0.005em;
+      }
+      .talent-dashboard * {
+        font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+      }
+
+      .gradient-text {
+        background: linear-gradient(120deg, #1D4ED8 0%, #0EA5E9 60%, #3B82F6 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        display: inline-block;
+      }
+
+      .btn-primary-gradient {
+        background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+        position: relative; overflow: hidden;
+        box-shadow: 0 8px 24px rgba(29, 78, 216, 0.20);
+        transition: all 0.25s ease;
+      }
+      .btn-primary-gradient::before {
+        content: ''; position: absolute; inset: 0;
+        background: linear-gradient(135deg, #0EA5E9 0%, #1D4ED8 100%);
+        opacity: 0; transition: opacity 0.25s;
+      }
+      .btn-primary-gradient:hover:not(:disabled)::before { opacity: 1; }
+      .btn-primary-gradient > * { position: relative; z-index: 1; }
+      .btn-primary-gradient:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 40px rgba(29, 78, 216, 0.30);
+      }
+      .btn-primary-gradient:disabled {
+        opacity: 0.55; cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      /* ROW CARD — pavé compact horizontal */
+      .row-card {
+        position: relative; overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .row-card::before {
+        content: ''; position: absolute; top: 0; left: 0; bottom: 0;
+        width: 4px;
+        background: linear-gradient(180deg, #1D4ED8, #0EA5E9);
+        transform: scaleY(0); transform-origin: top;
+        transition: transform 0.35s ease;
+      }
+      .row-card:hover::before { transform: scaleY(1); }
+      .row-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px rgba(10, 37, 64, 0.10);
+        border-color: #BAE6FD !important;
+      }
+      .row-card:hover .row-icon { transform: scale(1.06); }
+      .row-icon { transition: transform 0.3s ease; }
+      .row-card:hover .row-arrow { transform: translateX(4px); }
+      .row-arrow { transition: transform 0.3s ease; }
+
+      .dash-input { transition: all 0.2s ease; }
+      .dash-input:focus {
+        border-color: #1D4ED8;
+        box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
+        outline: none;
+      }
+
+      .chip-toggle {
+        transition: all 0.2s ease;
+      }
+      .chip-toggle:hover { transform: translateY(-1px); }
+    `}</style>
+  )
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
+      <>
+        {sharedStyles}
+        <div className="talent-dashboard min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
+                 style={{
+                   background: 'linear-gradient(135deg, #1D4ED8 0%, #0EA5E9 100%)',
+                   boxShadow: '0 12px 32px rgba(29, 78, 216, 0.35)'
+                 }}>
+              <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            </div>
+            <p className="text-slate-600 font-semibold">Chargement…</p>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl text-red-600 mb-4">Profil non trouvé</p>
-          <button onClick={() => navigate('/login')} className="btn-primary">
-            Retour à la connexion
-          </button>
+      <>
+        {sharedStyles}
+        <div className="talent-dashboard min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-xl text-red-600 mb-4 font-bold">Profil non trouvé</p>
+            <button
+              onClick={() => navigate('/login')}
+              className="btn-primary-gradient px-6 py-3 rounded-xl text-white font-semibold"
+            >
+              Retour à la connexion
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          {/* Ligne 1 : Logo + Actions */}
-          <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
-            <div className="flex items-center gap-2">
-              <NotificationBell />
-              <button
-                onClick={handleLogout}
-                className="text-gray-400 hover:text-gray-600 p-1"
-                title="Déconnexion"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          {/* Ligne 2 : Nom + Badge + Note */}
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            <span className="text-sm font-medium text-gray-900">
-              {profile.first_name} {profile.last_name}
-            </span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              Talent
-            </span>
-            {talentRating.count >= 3 ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                {[1, 2, 3, 4, 5].map(s => (
-                  <span key={s} className={s <= Math.round(talentRating.avg) ? 'text-yellow-400' : 'text-gray-300'}>★</span>
-                ))}
-                {talentRating.avg}/5 ({talentRating.count})
-              </span>
-            ) : talentRating.count > 0 ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                ⭐ {talentRating.count}/3 avis requis
-              </span>
-            ) : null}
-          </div>
-          {/* Ligne 3 : Postes */}
-          {profile.position_types && profile.position_types.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {profile.position_types.map(pos => (
-                <span
-                  key={pos}
-                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
-                >
-                  {getPositionLabel(pos)}
+    <>
+      {sharedStyles}
+      <div className="talent-dashboard min-h-screen"
+           style={{
+             background: `
+               radial-gradient(ellipse 80% 30% at 50% 0%, rgba(186, 230, 253, 0.4) 0%, transparent 60%),
+               #F8FAFF
+             `
+           }}>
+
+        {/* ===== HEADER ===== */}
+        <header className="bg-white/85 backdrop-blur-xl border-b border-blue-100/70 sticky top-0 z-50">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3">
+            {/* Ligne 1 : Logo + Actions */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-extrabold text-base"
+                      style={{
+                        background: 'linear-gradient(135deg, #1D4ED8 0%, #0EA5E9 100%)',
+                        boxShadow: '0 4px 12px rgba(29, 78, 216, 0.3)'
+                      }}>
+                  E
                 </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </nav>
-
-      {/* Contenu */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        {/* ========== HOME ========== */}
-        {view === 'home' && (
-          <div>
-            {/* Bandeau CV manquant */}
-            {!profile?.cv_url && (
-              <div className="mb-6 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">📄</span>
-                  <div>
-                    <p className="text-sm font-semibold text-amber-900">Téléchargez votre CV pour augmenter vos chances !</p>
-                    <p className="text-xs text-amber-700 mt-0.5">Certaines missions exigent un CV. Les candidats avec CV sont mis en avant par les établissements.</p>
-                  </div>
-                </div>
+                <span className="font-extrabold text-lg tracking-tight text-slate-900">
+                  Extra<span className="text-blue-700 font-bold">Taff</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <NotificationBell />
                 <button
-                  onClick={() => changeView('profile')}
-                  className="shrink-0 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                  onClick={handleLogout}
+                  className="text-slate-400 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50"
+                  title="Déconnexion"
                 >
-                  Modifier mon profil →
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
                 </button>
               </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Missions Matchées */}
-            <div
-              onClick={() => changeView('matched')}
-              className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
-            >
-              <div className="text-4xl mb-4">🎯</div>
-              <h2 className="text-2xl font-bold text-gray-900">Missions Matchées <HelpBubble text="Ici vous trouverez les missions qui correspondent à votre profil (postes, départements, disponibilités)." /></h2>
-              <p className="text-gray-600 mt-2">Missions proposées</p>
-              <div className="mt-6 text-5xl font-bold text-primary-600">{counts.matched}</div>
             </div>
 
-            {/* Missions Intéressées */}
-            <div
-              onClick={() => changeView('interested')}
-              className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
-            >
-              <div className="text-4xl mb-4">❤️</div>
-              <h2 className="text-2xl font-bold text-gray-900">Missions Intéressées <HelpBubble text="Vos candidatures en cours. Vous serez notifié dès qu'un établissement accepte votre candidature et pourrez converser avec lui." /></h2>
-              <p className="text-gray-600 mt-2">Candidatures en cours</p>
-              <div className="mt-6 text-5xl font-bold text-primary-600">{counts.interested}</div>
+            {/* Ligne 2 : Nom + Badge Extra + Note */}
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className="text-sm font-bold text-slate-900">
+                {profile.first_name} {profile.last_name}
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border bg-blue-100 text-blue-700 border-blue-200">
+                ✨ Extra
+              </span>
+              {talentRating.count >= 3 ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border bg-amber-100 text-amber-700 border-amber-200">
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <span key={s} className={s <= Math.round(talentRating.avg) ? 'text-amber-500' : 'text-slate-300'}>★</span>
+                  ))}
+                  <span className="ml-0.5">{talentRating.avg}/5 ({talentRating.count})</span>
+                </span>
+              ) : talentRating.count > 0 ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border bg-slate-100 text-slate-500 border-slate-200">
+                  ⭐ {talentRating.count}/3 avis requis
+                </span>
+              ) : null}
             </div>
 
-            {/* Mes Missions Validées */}
-            <div
-              onClick={() => changeView('confirmed')}
-              className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
-            >
-              <div className="text-4xl mb-4">✅</div>
-              <h2 className="text-2xl font-bold text-gray-900">Mes Missions Validées <HelpBubble text="Vos missions acceptées par l'établissement. Vous pourrez continuer à converser avec lui pour l'organisation." /></h2>
-              <p className="text-gray-600 mt-2">Embauches confirmées</p>
-              <div className="mt-6 text-5xl font-bold text-primary-600">{counts.confirmed}</div>
-            </div>
-
-            {/* Mon Profil */}
-            <div
-              onClick={() => changeView('profile')}
-              className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
-            >
-              <div className="text-4xl mb-4">⚙️</div>
-              <h2 className="text-2xl font-bold text-gray-900">Mon Profil <HelpBubble text="Remplissez toutes les informations pour un match parfait avec les missions proposées." /></h2>
-              <p className="text-gray-600 mt-2">Gérer mon profil</p>
-              <div className="mt-6">
-                <span className="text-sm text-gray-500">Paramètres & infos</span>
-              </div>
-            </div>
-
-            {/* Planning */}
-            <div
-              onClick={() => changeView('planning')}
-              className="bg-white rounded-lg shadow-md p-8 cursor-pointer hover:shadow-lg transition-shadow"
-            >
-              <div className="text-4xl mb-4">📅</div>
-              <h2 className="text-2xl font-bold text-gray-900">Mon Planning <HelpBubble text="Visualisez vos missions confirmées sur un calendrier mensuel." /></h2>
-              <p className="text-gray-600 mt-2">Mes missions à venir</p>
-              <div className="mt-6">
-                <span className="text-sm text-gray-500">Vue par mois</span>
-              </div>
-            </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========== MISSIONS MATCHÉES ========== */}
-        {view === 'matched' && (
-          <MatchedMissions
-            talentId={profile.id}
-            talentProfile={profile}
-            onBack={() => handleBack()}
-            onCountChange={(count) => setCounts(prev => ({ ...prev, matched: count }))}
-          />
-        )}
-
-        {/* ========== MISSIONS INTÉRESSÉES ========== */}
-        {view === 'interested' && (
-          <TalentApplications
-            talentId={profile.id}
-            onBack={() => handleBack()}
-          />
-        )}
-
-        {/* ========== MISSIONS VALIDÉES ========== */}
-        {view === 'confirmed' && (
-          <TalentConfirmed
-            talentId={profile.id}
-            onBack={() => handleBack()}
-          />
-        )}
-
-        {/* ========== PLANNING ========== */}
-        {view === 'planning' && (
-          <TalentPlanning
-            talentId={profile.id}
-            onBack={() => handleBack()}
-          />
-        )}
-
-        {/* ========== MON PROFIL ========== */}
-        {view === 'profile' && (
-          <div>
-            <div className="mb-6">
-              <button
-                onClick={() => handleBack()}
-                className="text-primary-600 hover:text-primary-700 font-medium"
-              >
-                ← Retour
-              </button>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-8 max-w-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-bold text-gray-900">Mon Profil</h2>
-                {!editProfile && (
-                  <button
-                    onClick={() => setEditProfile(true)}
-                    className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
+            {/* Ligne 3 : Postes recherchés */}
+            {profile.position_types && profile.position_types.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {profile.position_types.map(pos => (
+                  <span
+                    key={pos}
+                    className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600"
                   >
-                    ✏️ Modifier
-                  </button>
-                )}
+                    {getPositionLabel(pos)}
+                  </span>
+                ))}
               </div>
+            )}
+          </div>
+        </header>
 
-              {profileSuccess && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4">
-                  ✅ Profil mis à jour avec succès !
-                </div>
-              )}
+        {/* ===== CONTENU ===== */}
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-              {profileError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-                  {profileError}
-                </div>
-              )}
-
-              {/* MODE LECTURE */}
-              {!editProfile && (
-                <div className="space-y-5">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
-                      <p className="text-lg text-gray-900">{profile.first_name}</p>
+          {/* ========== HOME ========== */}
+          {view === 'home' && (
+            <>
+              {/* Bandeau CV manquant */}
+              {!profile?.cv_url && (
+                <div className="mb-6 rounded-2xl border-2 p-4 sm:p-5 flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row"
+                     style={{
+                       background: 'linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%)',
+                       borderColor: '#FCD34D'
+                     }}>
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-xl flex-shrink-0">
+                      📄
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
-                      <p className="text-lg text-gray-900">{profile.last_name}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                    <p className="text-lg text-gray-900">{profile.phone || 'Non renseigné'}</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                    <p className="text-lg text-gray-900">{profile.address || 'Non renseignée'}</p>
-                    {(profile.city || profile.postal_code) && (
-                      <p className="text-sm text-gray-500">{profile.postal_code} {profile.city}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Postes recherchés</label>
-                    <div className="flex flex-wrap gap-2">
-                      {profile.position_types && profile.position_types.length > 0 ? (
-                        profile.position_types.map(pos => (
-                          <span
-                            key={pos}
-                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800"
-                          >
-                            {getPositionLabel(pos)}
-                          </span>
-                        ))
-                      ) : (
-                        <p className="text-gray-500">Non renseigné</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Départements de recherche</label>
-                    <div className="flex flex-wrap gap-2">
-                      {profile.preferred_departments && profile.preferred_departments.length > 0 ? (
-                        profile.preferred_departments.map(dept => {
-                          const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
-                          return (
-                            <span
-                              key={dept}
-                              className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
-                            >
-                              {deptInfo?.label || dept}
-                            </span>
-                          )
-                        })
-                      ) : (
-                        <p className="text-gray-500">Tous les départements</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Expérience</label>
-                      <p className="text-lg text-gray-900">{profile.years_experience || 0} an{profile.years_experience > 1 ? 's' : ''}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Tarif minimum</label>
-                      <p className="text-lg text-gray-900">
-                        {profile.min_hourly_rate ? `${parseFloat(profile.min_hourly_rate).toFixed(2)} €/h` : 'Non renseigné'}
+                      <p className="text-sm font-bold text-amber-900">
+                        Téléchargez votre CV pour augmenter vos chances&nbsp;!
+                      </p>
+                      <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                        Certaines missions exigent un CV. Les candidats avec CV sont mis en avant par les établissements.
                       </p>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Service avec coupure</label>
-                    <p className="text-lg text-gray-900">{profile.accepts_coupure ? '✅ Accepté' : '❌ Non'}</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
-                    <p className="text-gray-900">{profile.bio || 'Non renseignée'}</p>
-                  </div>
-
-                  {/* CV */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CV</label>
-                    {profile.cv_url ? (
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-sm font-medium">
-                          📄 CV enregistré
-                        </span>
-                        <button
-                          onClick={handleCvDelete}
-                          disabled={cvDeleting}
-                          className="text-red-500 hover:text-red-700 text-sm"
-                        >
-                          {cvDeleting ? '...' : '🗑️ Supprimer'}
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-gray-500 mb-2">Aucun CV enregistré</p>
-                        <label className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium cursor-pointer transition-colors">
-                          {cvUploading ? '⏳ Envoi...' : '📤 Ajouter mon CV'}
-                          <input
-                            type="file"
-                            accept=".pdf,.doc,.docx"
-                            onChange={handleCvUpload}
-                            disabled={cvUploading}
-                            className="hidden"
-                          />
-                        </label>
-                        <p className="text-xs text-gray-500 mt-1">PDF ou Word, 5 Mo max</p>
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => changeView('profile')}
+                    className="shrink-0 w-full sm:w-auto px-4 py-2 rounded-lg text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    style={{
+                      background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.25)'
+                    }}
+                  >
+                    Modifier mon profil
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                      <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                  </button>
                 </div>
               )}
 
-              {/* MODE ÉDITION */}
-              {editProfile && (
-                <div className="space-y-5">
-                  <div className="grid grid-cols-2 gap-4">
+              {/* Liste verticale de pavés compacts */}
+              <div className="space-y-3">
+
+                {/* Missions Matchées */}
+                <button
+                  onClick={() => changeView('matched')}
+                  className="row-card w-full bg-white rounded-2xl border border-blue-100 p-5 flex items-center gap-4 text-left"
+                  style={{ boxShadow: '0 2px 8px rgba(10, 37, 64, 0.04)' }}
+                >
+                  <div className="row-icon w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl"
+                       style={{ background: 'linear-gradient(135deg, #DBEAFE 0%, #BAE6FD 100%)' }}>
+                    🎯
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5" style={{ letterSpacing: '-0.015em' }}>
+                      Missions Matchées
+                      <HelpBubble text="Ici vous trouverez les missions qui correspondent à votre profil (postes, départements, disponibilités)." />
+                    </h3>
+                    <p className="text-slate-500 text-xs font-medium mt-0.5">Missions proposées</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-3xl font-extrabold gradient-text" style={{ letterSpacing: '-0.03em', lineHeight: 1 }}>
+                      {counts.matched}
+                    </span>
+                    <svg className="row-arrow w-5 h-5 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                      <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Missions Intéressées */}
+                <button
+                  onClick={() => changeView('interested')}
+                  className="row-card w-full bg-white rounded-2xl border border-blue-100 p-5 flex items-center gap-4 text-left"
+                  style={{ boxShadow: '0 2px 8px rgba(10, 37, 64, 0.04)' }}
+                >
+                  <div className="row-icon w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl"
+                       style={{ background: 'linear-gradient(135deg, #DBEAFE 0%, #BAE6FD 100%)' }}>
+                    ❤️
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5" style={{ letterSpacing: '-0.015em' }}>
+                      Missions Intéressées
+                      <HelpBubble text="Vos candidatures en cours. Vous serez notifié dès qu'un établissement accepte votre candidature et pourrez converser avec lui." />
+                    </h3>
+                    <p className="text-slate-500 text-xs font-medium mt-0.5">Candidatures en cours</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-3xl font-extrabold gradient-text" style={{ letterSpacing: '-0.03em', lineHeight: 1 }}>
+                      {counts.interested}
+                    </span>
+                    <svg className="row-arrow w-5 h-5 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                      <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Mes Missions Validées */}
+                <button
+                  onClick={() => changeView('confirmed')}
+                  className="row-card w-full bg-white rounded-2xl border border-blue-100 p-5 flex items-center gap-4 text-left"
+                  style={{ boxShadow: '0 2px 8px rgba(10, 37, 64, 0.04)' }}
+                >
+                  <div className="row-icon w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl"
+                       style={{ background: 'linear-gradient(135deg, #DBEAFE 0%, #BAE6FD 100%)' }}>
+                    ✅
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5" style={{ letterSpacing: '-0.015em' }}>
+                      Mes Missions Validées
+                      <HelpBubble text="Vos missions acceptées par l'établissement. Vous pourrez continuer à converser avec lui pour l'organisation." />
+                    </h3>
+                    <p className="text-slate-500 text-xs font-medium mt-0.5">Embauches confirmées</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-3xl font-extrabold gradient-text" style={{ letterSpacing: '-0.03em', lineHeight: 1 }}>
+                      {counts.confirmed}
+                    </span>
+                    <svg className="row-arrow w-5 h-5 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                      <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Mon Planning */}
+                <button
+                  onClick={() => changeView('planning')}
+                  className="row-card w-full bg-white rounded-2xl border border-blue-100 p-5 flex items-center gap-4 text-left"
+                  style={{ boxShadow: '0 2px 8px rgba(10, 37, 64, 0.04)' }}
+                >
+                  <div className="row-icon w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl"
+                       style={{ background: 'linear-gradient(135deg, #DBEAFE 0%, #BAE6FD 100%)' }}>
+                    📅
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5" style={{ letterSpacing: '-0.015em' }}>
+                      Mon Planning
+                      <HelpBubble text="Visualisez vos missions confirmées sur un calendrier mensuel." />
+                    </h3>
+                    <p className="text-slate-500 text-xs font-medium mt-0.5">Mes missions à venir</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Voir</span>
+                    <svg className="row-arrow w-5 h-5 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                      <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Mon Profil */}
+                <button
+                  onClick={() => changeView('profile')}
+                  className="row-card w-full bg-white rounded-2xl border border-blue-100 p-5 flex items-center gap-4 text-left"
+                  style={{ boxShadow: '0 2px 8px rgba(10, 37, 64, 0.04)' }}
+                >
+                  <div className="row-icon w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl"
+                       style={{ background: 'linear-gradient(135deg, #DBEAFE 0%, #BAE6FD 100%)' }}>
+                    ⚙️
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5" style={{ letterSpacing: '-0.015em' }}>
+                      Mon Profil
+                      <HelpBubble text="Remplissez toutes les informations pour un match parfait avec les missions proposées." />
+                    </h3>
+                    <p className="text-slate-500 text-xs font-medium mt-0.5">Paramètres &amp; infos</p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Gérer</span>
+                    <svg className="row-arrow w-5 h-5 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                      <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                  </div>
+                </button>
+
+              </div>
+            </>
+          )}
+
+          {/* ========== MISSIONS MATCHÉES ========== */}
+          {view === 'matched' && (
+            <MatchedMissions
+              talentId={profile.id}
+              talentProfile={profile}
+              onBack={() => handleBack()}
+              onCountChange={(count) => setCounts(prev => ({ ...prev, matched: count }))}
+            />
+          )}
+
+          {/* ========== MISSIONS INTÉRESSÉES ========== */}
+          {view === 'interested' && (
+            <TalentApplications
+              talentId={profile.id}
+              onBack={() => handleBack()}
+            />
+          )}
+
+          {/* ========== MISSIONS VALIDÉES ========== */}
+          {view === 'confirmed' && (
+            <TalentConfirmed
+              talentId={profile.id}
+              onBack={() => handleBack()}
+            />
+          )}
+
+          {/* ========== PLANNING ========== */}
+          {view === 'planning' && (
+            <TalentPlanning
+              talentId={profile.id}
+              onBack={() => handleBack()}
+            />
+          )}
+
+          {/* ========== MON PROFIL ========== */}
+          {view === 'profile' && (
+            <div>
+              <div className="mb-5">
+                <button
+                  onClick={() => handleBack()}
+                  className="text-blue-700 hover:text-blue-800 font-bold inline-flex items-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                  </svg>
+                  Retour
+                </button>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6 sm:p-8 max-w-2xl"
+                   style={{ boxShadow: '0 8px 32px rgba(10, 37, 64, 0.06)' }}>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-extrabold text-slate-900" style={{ letterSpacing: '-0.025em' }}>
+                    Mon Profil
+                  </h2>
+                  {!editProfile && (
+                    <button
+                      onClick={() => setEditProfile(true)}
+                      className="btn-primary-gradient px-4 py-2 rounded-lg text-white text-sm font-semibold inline-flex items-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                      Modifier
+                    </button>
+                  )}
+                </div>
+
+                {profileSuccess && (
+                  <div className="bg-emerald-50 border-2 border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-semibold mb-4 flex items-center gap-2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Profil mis à jour avec succès&nbsp;!
+                  </div>
+                )}
+
+                {profileError && (
+                  <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium mb-4">
+                    {profileError}
+                  </div>
+                )}
+
+                {/* MODE LECTURE */}
+                {!editProfile && (
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Prénom</label>
+                        <p className="text-base text-slate-900 font-semibold">{profile.first_name}</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Nom</label>
+                        <p className="text-base text-slate-900 font-semibold">{profile.last_name}</p>
+                      </div>
+                    </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Prénom *</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Téléphone</label>
+                      <p className="text-base text-slate-900 font-semibold">{profile.phone || 'Non renseigné'}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Adresse</label>
+                      <p className="text-base text-slate-900 font-semibold">{profile.address || 'Non renseignée'}</p>
+                      {(profile.city || profile.postal_code) && (
+                        <p className="text-sm text-slate-500 mt-0.5">{profile.postal_code} {profile.city}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Postes recherchés</label>
+                      <div className="flex flex-wrap gap-2">
+                        {profile.position_types && profile.position_types.length > 0 ? (
+                          profile.position_types.map(pos => (
+                            <span
+                              key={pos}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-50 text-blue-700 border border-blue-200"
+                            >
+                              {getPositionLabel(pos)}
+                            </span>
+                          ))
+                        ) : (
+                          <p className="text-slate-500 text-sm">Non renseigné</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Départements de recherche</label>
+                      <div className="flex flex-wrap gap-2">
+                        {profile.preferred_departments && profile.preferred_departments.length > 0 ? (
+                          profile.preferred_departments.map(dept => {
+                            const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
+                            return (
+                              <span
+                                key={dept}
+                                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-sky-50 text-sky-700 border border-sky-200"
+                              >
+                                {deptInfo?.label || dept}
+                              </span>
+                            )
+                          })
+                        ) : (
+                          <p className="text-slate-500 text-sm">Tous les départements</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Expérience</label>
+                        <p className="text-base text-slate-900 font-semibold">{profile.years_experience || 0} an{profile.years_experience > 1 ? 's' : ''}</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Tarif minimum</label>
+                        <p className="text-base text-slate-900 font-semibold">
+                          {profile.min_hourly_rate ? `${parseFloat(profile.min_hourly_rate).toFixed(2)} €/h` : 'Non renseigné'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Service avec coupure</label>
+                      <p className="text-base text-slate-900 font-semibold">{profile.accepts_coupure ? '✅ Accepté' : '❌ Non'}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Bio</label>
+                      <p className="text-slate-700 leading-relaxed">{profile.bio || 'Non renseignée'}</p>
+                    </div>
+
+                    {/* CV */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">CV</label>
+                      {profile.cv_url ? (
+                        <div className="flex items-center flex-wrap gap-3">
+                          <span className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-bold border border-emerald-200">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            CV enregistré
+                          </span>
+                          <button
+                            onClick={handleCvDelete}
+                            disabled={cvDeleting}
+                            className="text-red-500 hover:text-red-700 text-sm font-semibold transition-colors"
+                          >
+                            {cvDeleting ? '...' : '🗑️ Supprimer'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-slate-500 text-sm mb-2">Aucun CV enregistré</p>
+                          <label className="btn-primary-gradient inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-semibold cursor-pointer">
+                            {cvUploading ? (
+                              <>
+                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                Envoi…
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                  <polyline points="17 8 12 3 7 8"/>
+                                  <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                Ajouter mon CV
+                              </>
+                            )}
+                            <input
+                              type="file"
+                              accept=".pdf,.doc,.docx"
+                              onChange={handleCvUpload}
+                              disabled={cvUploading}
+                              className="hidden"
+                            />
+                          </label>
+                          <p className="text-xs text-slate-500 mt-2 font-medium">PDF ou Word, 5 Mo max</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* MODE ÉDITION */}
+                {editProfile && (
+                  <div className="space-y-4">
+                    {/* Prénom + Nom */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">
+                          Prénom <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="first_name"
+                          value={profileForm.first_name}
+                          onChange={handleProfileChange}
+                          className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">
+                          Nom <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="last_name"
+                          value={profileForm.last_name}
+                          onChange={handleProfileChange}
+                          className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Téléphone */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">
+                        Téléphone <span className="text-red-500">*</span>
+                      </label>
                       <input
-                        type="text"
-                        name="first_name"
-                        value={profileForm.first_name}
+                        type="tel"
+                        name="phone"
+                        value={profileForm.phone}
                         onChange={handleProfileChange}
-                        className="input"
+                        className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
                         required
                       />
                     </div>
+
+                    {/* Adresse */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">
+                        Adresse
+                      </label>
                       <input
                         type="text"
-                        name="last_name"
-                        value={profileForm.last_name}
+                        name="address"
+                        value={profileForm.address}
                         onChange={handleProfileChange}
-                        className="input"
-                        required
+                        className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
+                        placeholder="Votre adresse"
                       />
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={profileForm.phone}
-                      onChange={handleProfileChange}
-                      className="input"
-                      required
-                    />
-                  </div>
+                    {/* CP + Ville */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Code postal</label>
+                        <input
+                          type="text"
+                          name="postal_code"
+                          value={profileForm.postal_code}
+                          onChange={handleProfileChange}
+                          className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Ville</label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={profileForm.city}
+                          onChange={handleProfileChange}
+                          className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
+                        />
+                      </div>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                    <input
-                      type="text"
-                      name="address"
-                      value={profileForm.address}
-                      onChange={handleProfileChange}
-                      className="input"
-                      placeholder="Votre adresse"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                    {/* Postes recherchés - chips toggle */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Code postal</label>
-                      <input
-                        type="text"
-                        name="postal_code"
-                        value={profileForm.postal_code}
-                        onChange={handleProfileChange}
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
-                      <input
-                        type="text"
-                        name="city"
-                        value={profileForm.city}
-                        onChange={handleProfileChange}
-                        className="input"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Postes recherchés - toggle chips */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Postes recherchés</label>
-                    <div className="flex flex-wrap gap-2">
-                      {POSITION_TYPES?.map(pos => (
-                        <button
-                          key={pos.value}
-                          type="button"
-                          onClick={() => togglePositionType(pos.value)}
-                          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                            profileForm.position_types?.includes(pos.value)
-                              ? 'bg-primary-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {pos.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Départements de recherche */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Départements de recherche</label>
-                    <p className="text-xs text-gray-500 mb-2">Sélectionnez les départements où vous cherchez des missions</p>
-                    
-                    {/* Départements sélectionnés */}
-                    {profileForm.preferred_departments?.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {profileForm.preferred_departments.map(dept => {
-                          const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Postes recherchés</label>
+                      <div className="flex flex-wrap gap-2">
+                        {POSITION_TYPES?.map(pos => {
+                          const active = profileForm.position_types?.includes(pos.value)
                           return (
                             <button
-                              key={dept}
+                              key={pos.value}
                               type="button"
-                              onClick={() => toggleDepartment(dept)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-full text-sm font-medium"
+                              onClick={() => togglePositionType(pos.value)}
+                              className={`chip-toggle px-3 py-1.5 rounded-full text-sm font-bold border-2 transition-all ${
+                                active
+                                  ? 'text-white border-transparent shadow-md'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50'
+                              }`}
+                              style={active ? { background: 'linear-gradient(135deg, #1D4ED8, #0EA5E9)' } : {}}
                             >
-                              {deptInfo?.label || dept} ×
+                              {pos.label}
                             </button>
                           )
                         })}
                       </div>
-                    )}
+                    </div>
 
-                    {/* Recherche */}
-                    <input
-                      type="text"
-                      placeholder="🔍 Rechercher un département (ex: 33, Gironde...)"
-                      value={deptSearch}
-                      onChange={(e) => setDeptSearch(e.target.value)}
-                      className="input mb-2"
-                    />
+                    {/* Départements de recherche */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">Départements de recherche</label>
+                      <p className="text-xs text-slate-500 mb-3 font-medium">Sélectionnez les départements où vous cherchez des missions</p>
 
-                    {/* Liste filtrée */}
-                    <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        {FRENCH_DEPARTMENTS
-                          .filter(dept => {
-                            if (!deptSearch.trim()) return true
-                            const search = deptSearch.toLowerCase()
-                            return dept.value.includes(search) || dept.label.toLowerCase().includes(search)
-                          })
-                          .map(dept => (
-                            <button
-                              key={dept.value}
-                              type="button"
-                              onClick={() => toggleDepartment(dept.value)}
-                              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                                profileForm.preferred_departments?.includes(dept.value)
-                                  ? 'bg-blue-600 text-white'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                            >
-                              {dept.label}
-                            </button>
-                          ))
-                        }
+                      {/* Départements sélectionnés */}
+                      {profileForm.preferred_departments?.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {profileForm.preferred_departments.map(dept => {
+                            const deptInfo = FRENCH_DEPARTMENTS.find(d => d.value === dept)
+                            return (
+                              <button
+                                key={dept}
+                                type="button"
+                                onClick={() => toggleDepartment(dept)}
+                                className="chip-toggle inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold text-white shadow-md border-2 border-transparent"
+                                style={{ background: 'linear-gradient(135deg, #0EA5E9, #0284C7)' }}
+                              >
+                                {deptInfo?.label || dept}
+                                <span className="text-white/80 hover:text-white">×</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* Recherche */}
+                      <div className="relative mb-2">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="11" cy="11" r="8"/>
+                          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Rechercher un département (ex: 33, Gironde…)"
+                          value={deptSearch}
+                          onChange={(e) => setDeptSearch(e.target.value)}
+                          className="dash-input w-full pl-9 pr-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-medium text-slate-900 bg-white"
+                        />
+                      </div>
+
+                      {/* Liste filtrée */}
+                      <div className="max-h-44 overflow-y-auto border-2 border-slate-200 rounded-xl p-3 bg-slate-50">
+                        <div className="flex flex-wrap gap-1.5">
+                          {FRENCH_DEPARTMENTS
+                            .filter(dept => {
+                              if (!deptSearch.trim()) return true
+                              const search = deptSearch.toLowerCase()
+                              return dept.value.includes(search) || dept.label.toLowerCase().includes(search)
+                            })
+                            .map(dept => {
+                              const active = profileForm.preferred_departments?.includes(dept.value)
+                              return (
+                                <button
+                                  key={dept.value}
+                                  type="button"
+                                  onClick={() => toggleDepartment(dept.value)}
+                                  className={`chip-toggle px-2.5 py-1 rounded-full text-xs font-bold border-2 transition-all ${
+                                    active
+                                      ? 'text-white border-transparent shadow-sm'
+                                      : 'bg-white text-slate-700 border-slate-200 hover:border-sky-300 hover:bg-sky-50'
+                                  }`}
+                                  style={active ? { background: 'linear-gradient(135deg, #0EA5E9, #0284C7)' } : {}}
+                                >
+                                  {dept.label}
+                                </button>
+                              )
+                            })
+                          }
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
-                      <input
-                        type="number"
-                        name="years_experience"
-                        value={profileForm.years_experience}
-                        onChange={handleProfileChange}
-                        min="0"
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Tarif minimum (€/h)</label>
-                      <input
-                        type="number"
-                        name="min_hourly_rate"
-                        value={profileForm.min_hourly_rate}
-                        onChange={handleProfileChange}
-                        step="0.50"
-                        min="0"
-                        className="input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="accepts_coupure"
-                        checked={profileForm.accepts_coupure}
-                        onChange={handleProfileChange}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                      />
-                      <span className="text-gray-900">J'accepte le service avec coupure</span>
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
-                    <textarea
-                      name="bio"
-                      value={profileForm.bio}
-                      onChange={handleProfileChange}
-                      rows={3}
-                      className="input"
-                      placeholder="Présentez-vous en quelques mots..."
-                    />
-                  </div>
-
-                  {/* CV Upload */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">CV</label>
-                    {profile.cv_url ? (
-                      <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                        <span className="text-green-700 text-sm font-medium">📄 CV enregistré</span>
-                        <label className="text-primary-600 hover:text-primary-700 text-sm font-medium cursor-pointer">
-                          {cvUploading ? '⏳ Envoi...' : '🔄 Remplacer'}
-                          <input
-                            type="file"
-                            accept=".pdf,.doc,.docx"
-                            onChange={handleCvUpload}
-                            disabled={cvUploading}
-                            className="hidden"
-                          />
-                        </label>
-                        <button
-                          onClick={handleCvDelete}
-                          disabled={cvDeleting}
-                          className="text-red-500 hover:text-red-700 text-sm"
-                        >
-                          {cvDeleting ? '...' : '🗑️ Supprimer'}
-                        </button>
-                      </div>
-                    ) : (
+                    {/* Expérience + Tarif */}
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium cursor-pointer transition-colors">
-                          {cvUploading ? '⏳ Envoi en cours...' : '📤 Ajouter mon CV'}
-                          <input
-                            type="file"
-                            accept=".pdf,.doc,.docx"
-                            onChange={handleCvUpload}
-                            disabled={cvUploading}
-                            className="hidden"
-                          />
-                        </label>
-                        <p className="text-xs text-gray-500 mt-1">PDF ou Word, 5 Mo max</p>
+                        <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Années d'expérience</label>
+                        <input
+                          type="number"
+                          name="years_experience"
+                          value={profileForm.years_experience}
+                          onChange={handleProfileChange}
+                          min="0"
+                          className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
+                        />
                       </div>
-                    )}
-                  </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Tarif min (€/h)</label>
+                        <input
+                          type="number"
+                          name="min_hourly_rate"
+                          value={profileForm.min_hourly_rate}
+                          onChange={handleProfileChange}
+                          step="0.50"
+                          min="0"
+                          className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
+                        />
+                      </div>
+                    </div>
 
-                  {/* Boutons */}
-                  <div className="flex gap-4 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditProfile(false)
-                        setProfileForm({
-                          first_name: profile.first_name || '',
-                          last_name: profile.last_name || '',
-                          phone: profile.phone || '',
-                          address: profile.address || '',
-                          city: profile.city || '',
-                          postal_code: profile.postal_code || '',
-                          bio: profile.bio || '',
-                          min_hourly_rate: profile.min_hourly_rate || '',
-                          years_experience: profile.years_experience || 0,
-                          accepts_coupure: profile.accepts_coupure ?? true,
-                          position_types: profile.position_types || [],
-                          contract_preferences: profile.contract_preferences || [],
-                          preferred_departments: profile.preferred_departments || []
-                        })
-                        setProfileError(null)
-                      }}
-                      className="btn-secondary flex-1"
-                    >
-                      Annuler
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleProfileSave}
-                      disabled={profileSaving}
-                      className="btn-primary flex-1"
-                    >
-                      {profileSaving ? 'Sauvegarde...' : '💾 Enregistrer'}
-                    </button>
+                    {/* Coupure */}
+                    <div className="rounded-xl border-2 border-blue-100 bg-blue-50/40 p-4">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="accepts_coupure"
+                          checked={profileForm.accepts_coupure}
+                          onChange={handleProfileChange}
+                          className="w-5 h-5 rounded border-2 border-slate-300 text-blue-700 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <span className="text-slate-900 font-semibold text-sm">J'accepte le service avec coupure</span>
+                      </label>
+                    </div>
+
+                    {/* Bio */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Bio</label>
+                      <textarea
+                        name="bio"
+                        value={profileForm.bio}
+                        onChange={handleProfileChange}
+                        rows={3}
+                        className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white resize-none"
+                        placeholder="Présentez-vous en quelques mots…"
+                      />
+                    </div>
+
+                    {/* CV Upload (mode édition) */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">CV</label>
+                      {profile.cv_url ? (
+                        <div className="flex items-center flex-wrap gap-3 p-3 rounded-xl bg-emerald-50 border-2 border-emerald-200">
+                          <span className="inline-flex items-center gap-2 text-emerald-700 text-sm font-bold">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            CV enregistré
+                          </span>
+                          <label className="text-blue-700 hover:text-blue-800 text-sm font-bold cursor-pointer transition-colors">
+                            {cvUploading ? '⏳ Envoi…' : '🔄 Remplacer'}
+                            <input
+                              type="file"
+                              accept=".pdf,.doc,.docx"
+                              onChange={handleCvUpload}
+                              disabled={cvUploading}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            onClick={handleCvDelete}
+                            disabled={cvDeleting}
+                            className="text-red-500 hover:text-red-700 text-sm font-bold transition-colors"
+                          >
+                            {cvDeleting ? '...' : '🗑️ Supprimer'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="btn-primary-gradient inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-semibold cursor-pointer">
+                            {cvUploading ? (
+                              <>
+                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                Envoi…
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                  <polyline points="17 8 12 3 7 8"/>
+                                  <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                Ajouter mon CV
+                              </>
+                            )}
+                            <input
+                              type="file"
+                              accept=".pdf,.doc,.docx"
+                              onChange={handleCvUpload}
+                              disabled={cvUploading}
+                              className="hidden"
+                            />
+                          </label>
+                          <p className="text-xs text-slate-500 mt-2 font-medium">PDF ou Word, 5 Mo max</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Boutons actions */}
+                    <div className="flex gap-3 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditProfile(false)
+                          setProfileForm({
+                            first_name: profile.first_name || '',
+                            last_name: profile.last_name || '',
+                            phone: profile.phone || '',
+                            address: profile.address || '',
+                            city: profile.city || '',
+                            postal_code: profile.postal_code || '',
+                            bio: profile.bio || '',
+                            min_hourly_rate: profile.min_hourly_rate || '',
+                            years_experience: profile.years_experience || 0,
+                            accepts_coupure: profile.accepts_coupure ?? true,
+                            position_types: profile.position_types || [],
+                            contract_preferences: profile.contract_preferences || [],
+                            preferred_departments: profile.preferred_departments || []
+                          })
+                          setProfileError(null)
+                        }}
+                        className="flex-1 px-5 py-3 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleProfileSave}
+                        disabled={profileSaving}
+                        className="btn-primary-gradient flex-1 px-5 py-3 rounded-xl text-white font-semibold inline-flex items-center justify-center gap-2"
+                      >
+                        {profileSaving ? (
+                          <>
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            Sauvegarde…
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                              <polyline points="17 21 17 13 7 13 7 21"/>
+                              <polyline points="7 3 7 8 15 8"/>
+                            </svg>
+                            Enregistrer
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

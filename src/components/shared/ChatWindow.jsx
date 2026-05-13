@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import { formatDateTime } from '../../lib/supabase'
+import { supabase, formatDateTime } from '../../lib/supabase'
 
 const CV_REQUEST_PREFIX = '__CV_REQUEST__'
 const CV_SHARED_PREFIX = '__CV_SHARED__'
@@ -29,7 +28,6 @@ export default function ChatWindow({ userType }) {
   const [downloadingCv, setDownloadingCv] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
-  // Tableau de tous les appointments (pas juste le dernier)
   const [appointments, setAppointments] = useState([])
   const [showRdvModal, setShowRdvModal] = useState(false)
   const [rdvDate, setRdvDate] = useState(null)
@@ -41,21 +39,30 @@ export default function ChatWindow({ userType }) {
 
   const messagesEndRef = useRef(null)
 
-  // Appointment le plus récent (pour les décisions globales)
-  const latestAppointment = appointments.length > 0
-    ? appointments[appointments.length - 1]
-    : null
-
+  const latestAppointment = appointments.length > 0 ? appointments[appointments.length - 1] : null
   const getAppointmentById = (id) => appointments.find(a => a.id === id) || null
+
+  // === Fermeture auto du chat au début de la mission ===
+  const isChatClosed = useMemo(() => {
+    if (!application?.missions) return false
+    if (application.hire_status !== 'hired') return false // chat ouvert tant que pas d'embauche
+
+    const { start_date, shift_start_time } = application.missions
+    if (!start_date) return false
+
+    const startStr = shift_start_time
+      ? `${start_date}T${shift_start_time}`
+      : `${start_date}T00:00:00`
+    const startTs = new Date(startStr).getTime()
+    return Date.now() >= startTs
+  }, [application])
 
   useEffect(() => {
     loadChat()
     const channel = supabase
       .channel(`chat:${applicationId}`)
       .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
+        event: 'INSERT', schema: 'public', table: 'messages',
         filter: `application_id=eq.${applicationId}`
       }, (payload) => {
         if (payload.new.sender_id !== currentUserId) {
@@ -65,14 +72,9 @@ export default function ChatWindow({ userType }) {
           if (c.startsWith(CV_SHARED_PREFIX)) setCvShared(true)
           if (c.startsWith(RDV_RESPONSE_PREFIX)) {
             const data = JSON.parse(c.replace(RDV_RESPONSE_PREFIX, ''))
-            setAppointments(prev => prev.map(a =>
-              a.id === data.appointment_id ? { ...a, status: data.response } : a
-            ))
+            setAppointments(prev => prev.map(a => a.id === data.appointment_id ? { ...a, status: data.response } : a))
           }
-          if (c.startsWith(RDV_PROPOSAL_PREFIX)) {
-            // Recharger les appointments pour avoir le nouveau
-            loadAppointments()
-          }
+          if (c.startsWith(RDV_PROPOSAL_PREFIX)) loadAppointments()
           scrollToBottom()
         }
       })
@@ -82,9 +84,7 @@ export default function ChatWindow({ userType }) {
 
   useEffect(() => { scrollToBottom() }, [messages])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }
 
   const checkCvStatus = (msgs) => {
     msgs.forEach(msg => {
@@ -96,8 +96,7 @@ export default function ChatWindow({ userType }) {
 
   const loadAppointments = async () => {
     const { data } = await supabase
-      .from('appointments')
-      .select('*')
+      .from('appointments').select('*')
       .eq('application_id', applicationId)
       .order('created_at', { ascending: true })
     if (data) setAppointments(data)
@@ -113,38 +112,30 @@ export default function ChatWindow({ userType }) {
         .select(`
           id, status, hire_status,
           missions (
-            id, position, start_date,
+            id, position, start_date, shift_start_time, shift_end_time,
             establishments ( name, user_id, address )
           ),
           talents!talent_id ( first_name, last_name, user_id, cv_url, phone, email )
         `)
-        .eq('id', applicationId)
-        .single()
-
+        .eq('id', applicationId).single()
       if (appError) throw appError
       setApplication(appData)
       setTalentCvUrl(appData.talents?.cv_url || null)
 
       const { data: messagesData, error: messagesError } = await supabase
-        .from('messages')
-        .select('*')
+        .from('messages').select('*')
         .eq('application_id', applicationId)
         .order('created_at', { ascending: true })
-
       if (messagesError) throw messagesError
       const msgs = messagesData || []
       setMessages(msgs)
       checkCvStatus(msgs)
 
-      // Charger TOUS les appointments de cette candidature
       const { data: apptData } = await supabase
-        .from('appointments')
-        .select('*')
+        .from('appointments').select('*')
         .eq('application_id', applicationId)
         .order('created_at', { ascending: true })
-
       if (apptData) setAppointments(apptData)
-
     } catch (err) {
       console.error('Erreur chargement chat:', err)
     } finally {
@@ -154,7 +145,7 @@ export default function ChatWindow({ userType }) {
 
   const handleSend = async (e) => {
     e.preventDefault()
-    if (!newMessage.trim() || sending) return
+    if (!newMessage.trim() || sending || isChatClosed) return
     const messageText = newMessage.trim()
     setNewMessage('')
     setSending(true)
@@ -178,15 +169,11 @@ export default function ChatWindow({ userType }) {
       const { data: insertedMessage, error } = await supabase
         .from('messages')
         .insert({
-          application_id: applicationId,
-          mission_id: application.missions.id,
-          sender_id: currentUserId,
-          receiver_id: receiverId,
-          topic: 'text',
-          content: messageText
+          application_id: applicationId, mission_id: application.missions.id,
+          sender_id: currentUserId, receiver_id: receiverId,
+          topic: 'text', content: messageText
         })
         .select().single()
-
       if (error) throw error
       setMessages(prev => prev.map(msg => msg.id === tempId ? insertedMessage : msg))
 
@@ -295,97 +282,74 @@ export default function ChatWindow({ userType }) {
       const { data: apptData, error: apptError } = await supabase
         .from('appointments')
         .insert({
-          application_id: applicationId,
-          mission_id: application.missions.id,
-          scheduled_at: scheduledAt,
-          address,
-          note: rdvNote || null,
-          status: 'pending'
+          application_id: applicationId, mission_id: application.missions.id,
+          scheduled_at: scheduledAt, address, note: rdvNote || null, status: 'pending'
         })
         .select().single()
-
       if (apptError) throw apptError
       setAppointments(prev => [...prev, apptData])
 
       const receiverId = application.talents.user_id
       const rdvPayload = JSON.stringify({
-        appointment_id: apptData.id,
-        scheduled_at: scheduledAt,
-        address,
-        note: rdvNote || null
+        appointment_id: apptData.id, scheduled_at: scheduledAt,
+        address, note: rdvNote || null
       })
 
       const { data: insertedMsg, error: msgError } = await supabase
         .from('messages')
         .insert({
-          application_id: applicationId,
-          mission_id: application.missions.id,
-          sender_id: currentUserId,
-          receiver_id: receiverId,
-          topic: 'rdv_proposal',
-          content: RDV_PROPOSAL_PREFIX + rdvPayload
+          application_id: applicationId, mission_id: application.missions.id,
+          sender_id: currentUserId, receiver_id: receiverId,
+          topic: 'rdv_proposal', content: RDV_PROPOSAL_PREFIX + rdvPayload
         })
         .select().single()
 
       if (msgError) {
-        console.error('Erreur insert message RDV:', msgError)
         setMessages(prev => [...prev, {
           id: `rdv-${Date.now()}`, application_id: applicationId,
           sender_id: currentUserId, receiver_id: receiverId,
-          topic: 'rdv_proposal',
-          content: RDV_PROPOSAL_PREFIX + rdvPayload,
+          topic: 'rdv_proposal', content: RDV_PROPOSAL_PREFIX + rdvPayload,
           created_at: new Date().toISOString()
         }])
       } else {
         setMessages(prev => [...prev, insertedMsg])
       }
-
       setRdvDate(null); setRdvTime(null); setRdvNote('')
 
-      // Notification in-app
       await supabase.from('notifications').insert({
         user_id: receiverId, type: 'rdv_proposed', title: 'Rendez-vous proposé',
         content: `${application.missions.establishments.name} vous propose un RDV le ${rdvDate.d} ${MONTHS[rdvDate.m]} à ${rdvTime}`,
         link: `/talent/chat/${applicationId}`
       })
 
-      // SMS au talent
       const talentPhone = application.talents?.phone
       if (talentPhone) {
         const rdvDateLabel = `${rdvDate.d} ${MONTHS[rdvDate.m]}`
         supabase.functions.invoke('sms-rdv-proposed', {
           body: {
-            talent_phone: talentPhone,
-            talent_name: application.talents.first_name,
+            talent_phone: talentPhone, talent_name: application.talents.first_name,
             establishment_name: application.missions.establishments.name,
-            rdv_date: rdvDateLabel,
-            rdv_time: rdvTime,
+            rdv_date: rdvDateLabel, rdv_time: rdvTime,
             app_link: `https://extrataff.fr/talent/chat/${applicationId}`
           }
         }).catch(err => console.error('Erreur SMS RDV:', err))
       }
 
-      // Email au talent via send-notification-email
       const talentEmail = application.talents?.email
       if (talentEmail) {
         const rdvDateLabel = `${rdvDate.d} ${MONTHS[rdvDate.m]}`
         supabase.functions.invoke('send-notification-email', {
           body: {
-            type: 'rdv_proposed',
-            to: talentEmail,
+            type: 'rdv_proposed', to: talentEmail,
             data: {
               talent_name: application.talents.first_name,
               establishment_name: application.missions.establishments.name,
-              address,
-              rdv_date: rdvDateLabel,
-              rdv_time: rdvTime,
-              note: rdvNote || null,
-              application_id: applicationId
+              address, rdv_date: rdvDateLabel, rdv_time: rdvTime,
+              note: rdvNote || null, application_id: applicationId
             }
           }
         }).catch(err => console.error('Erreur email RDV:', err))
       }
-
     } catch (err) {
       console.error('Erreur proposition RDV:', err)
       alert('Erreur : ' + (err.message || 'impossible de proposer le RDV'))
@@ -408,15 +372,11 @@ export default function ChatWindow({ userType }) {
       const { data: insertedMsg, error: msgError } = await supabase
         .from('messages')
         .insert({
-          application_id: applicationId,
-          mission_id: application.missions.id,
-          sender_id: currentUserId,
-          receiver_id: receiverId,
-          topic: 'rdv_response',
-          content: RDV_RESPONSE_PREFIX + responsePayload
+          application_id: applicationId, mission_id: application.missions.id,
+          sender_id: currentUserId, receiver_id: receiverId,
+          topic: 'rdv_response', content: RDV_RESPONSE_PREFIX + responsePayload
         })
         .select().single()
-
       if (!msgError && insertedMsg) setMessages(prev => [...prev, insertedMsg])
 
       await supabase.from('notifications').insert({
@@ -429,31 +389,23 @@ export default function ChatWindow({ userType }) {
         link: `/establishment/chat/${applicationId}`
       })
 
-      // Email à l'établissement via auth.users (RPC)
       const appt = appointments.find(a => a.id === appointmentId)
-      const { data: estabEmail } = await supabase
-        .rpc('get_establishment_email', { estab_user_id: receiverId })
-
+      const { data: estabEmail } = await supabase.rpc('get_establishment_email', { estab_user_id: receiverId })
       if (estabEmail && appt) {
         const rdvDate = new Date(appt.scheduled_at)
         const rdvDateLabel = rdvDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
         const rdvTimeLabel = rdvDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
         supabase.functions.invoke('send-notification-email', {
           body: {
-            type: 'rdv_response',
-            to: estabEmail,
+            type: 'rdv_response', to: estabEmail,
             data: {
-              talent_name: talentName,
-              position: application.missions.position,
-              rdv_date: rdvDateLabel,
-              rdv_time: rdvTimeLabel,
-              response,
-              application_id: applicationId
+              talent_name: talentName, position: application.missions.position,
+              rdv_date: rdvDateLabel, rdv_time: rdvTimeLabel,
+              response, application_id: applicationId
             }
           }
         }).catch(err => console.error('Erreur email réponse RDV:', err))
       }
-
     } catch (err) {
       console.error('Erreur réponse RDV:', err)
       alert('Erreur lors de la réponse')
@@ -462,6 +414,7 @@ export default function ChatWindow({ userType }) {
     }
   }
 
+  // === HANDLE CONFIRM HIRE (modifié) ===
   const handleConfirmHire = async (decision = 'hired') => {
     if (confirming) return
     setConfirming(true)
@@ -475,11 +428,17 @@ export default function ChatWindow({ userType }) {
 
       setApplication(prev => ({ ...prev, status: newStatus, hire_status: decision }))
 
+      // === NOUVEAU : si embauche → fermer la mission ===
+      if (decision === 'hired' && application?.missions?.id) {
+        await supabase.from('missions').update({
+          status: 'filled',
+          updated_at: new Date().toISOString()
+        }).eq('id', application.missions.id)
+      }
+
       if (latestAppointment && decision === 'hired') {
         await supabase.from('appointments').update({ status: 'done' }).eq('id', latestAppointment.id)
-        setAppointments(prev => prev.map(a =>
-          a.id === latestAppointment.id ? { ...a, status: 'done' } : a
-        ))
+        setAppointments(prev => prev.map(a => a.id === latestAppointment.id ? { ...a, status: 'done' } : a))
       }
 
       const receiverId = application.talents.user_id
@@ -489,15 +448,11 @@ export default function ChatWindow({ userType }) {
       const { data: insertedMsg, error: msgError } = await supabase
         .from('messages')
         .insert({
-          application_id: applicationId,
-          mission_id: application.missions.id,
-          sender_id: currentUserId,
-          receiver_id: receiverId,
-          topic: 'hire_decision',
-          content: HIRE_DECISION_PREFIX + hirePayload
+          application_id: applicationId, mission_id: application.missions.id,
+          sender_id: currentUserId, receiver_id: receiverId,
+          topic: 'hire_decision', content: HIRE_DECISION_PREFIX + hirePayload
         })
         .select().single()
-
       if (!msgError && insertedMsg) setMessages(prev => [...prev, insertedMsg])
 
       if (decision === 'hired') {
@@ -512,46 +467,27 @@ export default function ChatWindow({ userType }) {
           link: `/establishment/chat/${applicationId}`
         })
 
-        // Email au talent — embauche confirmée
         const talentEmail = application.talents?.email
         if (talentEmail) {
           supabase.functions.invoke('send-notification-email', {
             body: {
-              type: 'hire_confirmed',
-              to: talentEmail,
+              type: 'hire_confirmed', to: talentEmail,
               data: {
                 talent_name: application.talents.first_name,
                 establishment_name: application.missions.establishments.name,
-                position: application.missions.position,
-                application_id: applicationId
+                position: application.missions.position, application_id: applicationId
               }
             }
           }).catch(err => console.error('Erreur email embauche:', err))
         }
-
       } else {
+        // === SUPPRIMÉ : pas d'email "non retenu" (silence radio) ===
+        // On garde juste la notification in-app discrète pour le talent
         await supabase.from('notifications').insert({
           user_id: receiverId, type: 'hire_rejected', title: 'Candidature non retenue',
           content: `${application.missions.establishments.name} n'a pas retenu votre candidature`,
           link: `/talent/chat/${applicationId}`
         })
-
-        // Email au talent — non retenu
-        const talentEmail = application.talents?.email
-        if (talentEmail) {
-          supabase.functions.invoke('send-notification-email', {
-            body: {
-              type: 'hire_rejected',
-              to: talentEmail,
-              data: {
-                talent_name: application.talents.first_name,
-                establishment_name: application.missions.establishments.name,
-                position: application.missions.position,
-                application_id: applicationId
-              }
-            }
-          }).catch(err => console.error('Erreur email non retenu:', err))
-        }
       }
     } catch (err) {
       console.error('Erreur validation embauche:', err)
@@ -568,106 +504,88 @@ export default function ChatWindow({ userType }) {
     const prevTotal = new Date(y, m, 0).getDate()
     const cells = []
     for (let i = 0; i < first; i++) cells.push({ d: prevTotal - first + 1 + i, other: true })
-    for (let i = 1; i <= total; i++) cells.push({ d: i })
+    for (let i = 1; i <= total; i++) cells.push({ d: i, other: false })
     while (cells.length % 7 !== 0) cells.push({ d: cells.length - first - total + 1, other: true })
     return cells
   }
 
   const isPastDay = (d, m, y) => {
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    return new Date(y, m, d) < today
+    const day = new Date(y, m, d)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return day < today
   }
 
+  // ─── RENDER MESSAGE ───
   const renderMessage = (message) => {
     const isMe = message.sender_id === currentUserId
     const content = message.content || ''
 
-    // ── Carte RDV proposé ──
     if (content.startsWith(RDV_PROPOSAL_PREFIX)) {
       const data = JSON.parse(content.replace(RDV_PROPOSAL_PREFIX, ''))
       const date = new Date(data.scheduled_at)
       const dateLabel = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
       const timeLabel = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-
-      // Chaque carte cherche SON appointment par appointment_id
       const appt = getAppointmentById(data.appointment_id)
       const apptStatus = appt?.status || 'pending'
 
       return (
         <div key={message.id} className="flex justify-center my-4">
-          <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 max-w-sm w-full">
+          <div className="rounded-2xl p-4 max-w-sm w-full border-2"
+               style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)', borderColor: '#FCD34D' }}>
             <div className="flex items-center gap-2 mb-3">
-              <div className="bg-amber-100 rounded-lg p-1.5">
-                <svg className="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
+              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-lg shadow-sm">📅</div>
               <div>
-                <p className="text-sm font-semibold text-amber-800">Rendez-vous proposé</p>
-                <p className="text-xs text-amber-600">
+                <p className="text-sm font-bold text-amber-900">Rendez-vous proposé</p>
+                <p className="text-xs text-amber-700 font-medium">
                   {apptStatus === 'pending' && 'En attente de réponse'}
                   {apptStatus === 'confirmed' && '✅ Confirmé'}
-                  {apptStatus === 'refused' && 'Refusé'}
+                  {apptStatus === 'refused' && '❌ Refusé'}
                   {apptStatus === 'done' && '✅ Effectué'}
                 </p>
               </div>
             </div>
             <div className="space-y-2 mb-3">
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="capitalize">{dateLabel} · {timeLabel}</span>
+              <div className="flex items-center gap-2 text-sm text-amber-900 font-semibold capitalize">
+                <span>🗓️</span><span>{dateLabel} · {timeLabel}</span>
               </div>
-              <div className="flex items-start gap-2 text-sm text-gray-700">
-                <svg className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span>{data.address}</span>
+              <div className="flex items-start gap-2 text-sm text-amber-800">
+                <span>📍</span><span className="font-medium">{data.address}</span>
               </div>
               {data.note && (
-                <div className="bg-amber-100 rounded-lg p-2 text-xs text-amber-700 italic">{data.note}</div>
+                <div className="bg-white/70 rounded-xl p-2.5 text-xs text-amber-800 italic font-medium">{data.note}</div>
               )}
             </div>
 
             {userType === 'talent' && apptStatus === 'pending' && (
               <div className="flex gap-2">
                 <button onClick={() => handleRdvResponse('confirmed', data.appointment_id)} disabled={sendingRdv}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-3 rounded-lg disabled:opacity-50">
-                  {sendingRdv ? '...' : 'Confirmer'}
+                  className="flex-1 text-white text-sm font-bold py-2.5 rounded-xl disabled:opacity-50 transition-all hover:-translate-y-0.5"
+                  style={{ background: 'linear-gradient(135deg, #10B981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
+                  {sendingRdv ? '...' : '✅ Confirmer'}
                 </button>
                 <button onClick={() => handleRdvResponse('refused', data.appointment_id)} disabled={sendingRdv}
-                  className="flex-1 border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm py-2 px-3 rounded-lg disabled:opacity-50">
+                  className="flex-1 bg-white border-2 border-amber-200 text-amber-800 hover:bg-amber-50 text-sm font-bold py-2.5 rounded-xl disabled:opacity-50 transition-all">
                   Refuser
                 </button>
               </div>
             )}
             {userType === 'establishment' && apptStatus === 'pending' && (
-              <div className="flex items-center gap-2 bg-gray-100 text-gray-500 text-sm rounded-lg px-3 py-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                En attente de confirmation du talent
+              <div className="bg-white/70 text-amber-800 text-xs font-semibold rounded-xl px-3 py-2 text-center">
+                ⏳ En attente de confirmation
               </div>
             )}
             {(apptStatus === 'confirmed' || apptStatus === 'done') && (
-              <div className="flex items-center gap-2 bg-green-100 text-green-700 text-sm rounded-lg px-3 py-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                RDV confirmé par {application?.talents?.first_name}
+              <div className="bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl px-3 py-2 text-center">
+                ✅ RDV confirmé par {application?.talents?.first_name}
               </div>
             )}
             {apptStatus === 'refused' && (
-              <div className="flex items-center gap-2 bg-red-100 text-red-700 text-sm rounded-lg px-3 py-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                RDV refusé
+              <div className="bg-red-100 text-red-700 text-xs font-bold rounded-xl px-3 py-2 text-center">
+                ❌ RDV refusé
               </div>
             )}
-            <p className="text-xs text-amber-500 mt-2">{formatDateTime(message.created_at)}</p>
+            <p className="text-[10px] text-amber-600/70 mt-2 font-medium">{formatDateTime(message.created_at)}</p>
           </div>
         </div>
       )
@@ -680,31 +598,26 @@ export default function ChatWindow({ userType }) {
       const isHired = data.decision === 'hired'
       return (
         <div key={message.id} className="flex justify-center my-4">
-          <div className={`border-2 rounded-xl p-4 max-w-sm w-full ${isHired ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-gray-300'}`}>
+          <div className="rounded-2xl p-4 max-w-sm w-full border-2"
+               style={isHired
+                 ? { background: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)', borderColor: '#6EE7B7' }
+                 : { background: 'linear-gradient(135deg, #F8FAFF, #F1F5F9)', borderColor: '#CBD5E1' }}>
             <div className="flex items-center gap-3">
-              <div className={`rounded-lg p-1.5 ${isHired ? 'bg-purple-100' : 'bg-gray-200'}`}>
-                {isHired ? (
-                  <svg className="w-4 h-4 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                )}
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-xl shadow-sm">
+                {isHired ? '🎉' : '😔'}
               </div>
-              <div>
-                <p className={`text-sm font-semibold ${isHired ? 'text-purple-800' : 'text-gray-700'}`}>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-bold ${isHired ? 'text-emerald-800' : 'text-slate-700'}`}>
                   {isHired ? (userType === 'establishment' ? 'Embauche confirmée' : '🎉 Félicitations !') : 'Candidature non retenue'}
                 </p>
-                <p className={`text-xs ${isHired ? 'text-purple-600' : 'text-gray-500'}`}>
+                <p className={`text-xs font-medium mt-0.5 ${isHired ? 'text-emerald-600' : 'text-slate-500'}`}>
                   {isHired
                     ? (userType === 'establishment' ? `${data.talent_name} est embauché(e)` : 'Votre embauche a été confirmée')
                     : (userType === 'establishment' ? 'Vous n\'avez pas retenu ce candidat' : 'L\'établissement n\'a pas donné suite')}
                 </p>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">{formatDateTime(message.created_at)}</p>
+            <p className="text-[10px] text-slate-400 mt-2 font-medium">{formatDateTime(message.created_at)}</p>
           </div>
         </div>
       )
@@ -713,28 +626,30 @@ export default function ChatWindow({ userType }) {
     if (content.startsWith(CV_REQUEST_PREFIX)) {
       return (
         <div key={message.id} className="flex justify-center my-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 max-w-sm">
-            <div className="flex items-center gap-2 text-amber-800">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span className="font-medium">Demande de CV</span>
+          <div className="rounded-2xl p-4 max-w-sm w-full border-2"
+               style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)', borderColor: '#FCD34D' }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-lg">📄</div>
+              <div>
+                <p className="text-sm font-bold text-amber-900">Demande de CV</p>
+                <p className="text-xs text-amber-700 font-medium">
+                  {userType === 'talent' ? "L'établissement souhaite consulter votre CV" : "CV demandé"}
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-amber-700 mt-1">
-              {userType === 'talent' ? "L'établissement souhaite consulter votre CV" : "Vous avez demandé le CV du candidat"}
-            </p>
             {userType === 'talent' && !cvShared && (
               <button onClick={handleShareCv} disabled={sending || !talentCvUrl}
-                className="mt-2 w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium py-2 px-4 rounded-lg disabled:opacity-50">
+                className="mt-2 w-full text-white text-sm font-bold py-2.5 rounded-xl disabled:opacity-50 transition-all hover:-translate-y-0.5"
+                style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)' }}>
                 {!talentCvUrl ? 'Aucun CV enregistré' : sending ? 'Envoi...' : '📄 Envoyer mon CV'}
               </button>
             )}
             {userType === 'talent' && !talentCvUrl && (
-              <p className="text-xs text-amber-600 mt-1">
-                <a href="/talent/edit-profile" className="underline">Ajoutez votre CV</a> dans votre profil
+              <p className="text-xs text-amber-700 mt-2 font-medium">
+                <a href="/talent/dashboard" className="underline">Ajoutez votre CV</a> dans votre profil
               </p>
             )}
-            <p className="text-xs text-amber-500 mt-2">{formatDateTime(message.created_at)}</p>
+            <p className="text-[10px] text-amber-600/70 mt-2 font-medium">{formatDateTime(message.created_at)}</p>
           </div>
         </div>
       )
@@ -744,23 +659,25 @@ export default function ChatWindow({ userType }) {
       const cvPath = content.replace(CV_SHARED_PREFIX, '')
       return (
         <div key={message.id} className="flex justify-center my-4">
-          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 max-w-sm">
-            <div className="flex items-center gap-2 text-green-800">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="font-medium">CV partagé</span>
+          <div className="rounded-2xl p-4 max-w-sm w-full border-2"
+               style={{ background: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)', borderColor: '#6EE7B7' }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-lg">✅</div>
+              <div>
+                <p className="text-sm font-bold text-emerald-800">CV partagé</p>
+                <p className="text-xs text-emerald-600 font-medium">
+                  {userType === 'establishment' ? "Le candidat a partagé son CV" : "Vous avez partagé votre CV"}
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-green-700 mt-1">
-              {userType === 'establishment' ? "Le candidat a partagé son CV" : "Vous avez partagé votre CV"}
-            </p>
             {userType === 'establishment' && (
               <button onClick={() => handleDownloadCv(cvPath)} disabled={downloadingCv}
-                className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded-lg disabled:opacity-50">
+                className="mt-2 w-full text-white text-sm font-bold py-2.5 rounded-xl disabled:opacity-50 transition-all hover:-translate-y-0.5"
+                style={{ background: 'linear-gradient(135deg, #10B981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
                 {downloadingCv ? 'Téléchargement...' : '📥 Télécharger le CV'}
               </button>
             )}
-            <p className="text-xs text-green-500 mt-2">{formatDateTime(message.created_at)}</p>
+            <p className="text-[10px] text-emerald-600/70 mt-2 font-medium">{formatDateTime(message.created_at)}</p>
           </div>
         </div>
       )
@@ -768,9 +685,14 @@ export default function ChatWindow({ userType }) {
 
     return (
       <div key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-        <div className={`max-w-xs md:max-w-md px-4 py-2 rounded-lg ${isMe ? 'bg-primary-600 text-white' : 'bg-white border border-gray-200 text-gray-900'}`}>
-          <p className="break-words">{content}</p>
-          <p className={`text-xs mt-1 ${isMe ? 'text-primary-100' : 'text-gray-500'}`}>
+        <div
+          className={`max-w-xs md:max-w-md px-4 py-2.5 rounded-2xl ${isMe ? 'text-white' : 'bg-white border border-blue-100 text-slate-900'}`}
+          style={isMe
+            ? { background: 'linear-gradient(135deg, #1D4ED8, #0EA5E9)', boxShadow: '0 4px 12px rgba(29, 78, 216, 0.20)' }
+            : { boxShadow: '0 2px 6px rgba(10, 37, 64, 0.05)' }}
+        >
+          <p className="break-words text-[15px] font-medium leading-snug">{content}</p>
+          <p className={`text-[10px] mt-1 ${isMe ? 'text-white/80' : 'text-slate-400'} font-medium`}>
             {formatDateTime(message.created_at)}
           </p>
         </div>
@@ -783,32 +705,31 @@ export default function ChatWindow({ userType }) {
     const cells = getCalDays(calMonth, calYear)
     const canSend = rdvDate && rdvTime && !sendingRdv
     return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black bg-opacity-40">
-        <div className="bg-white rounded-t-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-1">Proposer un rendez-vous</h2>
-          <p className="text-xs text-gray-500 mb-4">La date sera visible par le talent dans le chat</p>
-          <p className="text-xs text-gray-500 mb-2 font-medium">Date</p>
-          <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: 'rgba(10, 37, 64, 0.4)', backdropFilter: 'blur(8px)' }}>
+        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+          <h2 className="text-xl font-extrabold text-slate-900 mb-1" style={{ letterSpacing: '-0.025em' }}>Proposer un rendez-vous</h2>
+          <p className="text-xs text-slate-500 font-medium mb-4">La date sera visible par le talent dans le chat</p>
+          <p className="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">Date</p>
+          <div className="border-2 border-slate-200 rounded-2xl overflow-hidden mb-4 bg-slate-50">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 bg-white">
               <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) } else setCalMonth(m => m - 1) }}
-                className="text-gray-400 hover:text-gray-700 px-2 py-1 rounded text-lg">‹</button>
-              <span className="text-sm font-medium text-gray-800">{MONTHS[calMonth]} {calYear}</span>
+                className="text-slate-400 hover:text-blue-700 px-2 py-1 rounded text-lg font-bold">‹</button>
+              <span className="text-sm font-bold text-slate-800 capitalize">{MONTHS[calMonth]} {calYear}</span>
               <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) } else setCalMonth(m => m + 1) }}
-                className="text-gray-400 hover:text-gray-700 px-2 py-1 rounded text-lg">›</button>
+                className="text-slate-400 hover:text-blue-700 px-2 py-1 rounded text-lg font-bold">›</button>
             </div>
             <div className="grid grid-cols-7 gap-px p-2">
-              {DAYS_SHORT.map(d => (
-                <div key={d} className="text-center text-xs text-gray-400 font-medium py-1">{d}</div>
-              ))}
+              {DAYS_SHORT.map(d => (<div key={d} className="text-center text-xs text-slate-500 font-bold py-1">{d}</div>))}
               {cells.map((cell, idx) => {
                 const past = !cell.other && isPastDay(cell.d, calMonth, calYear)
                 const selected = !cell.other && rdvDate?.d === cell.d && rdvDate?.m === calMonth && rdvDate?.y === calYear
                 return (
                   <button key={idx} disabled={cell.other || past}
                     onClick={() => { if (!cell.other && !past) { setRdvDate({ d: cell.d, m: calMonth, y: calYear }); setRdvTime(null) } }}
-                    className={`text-center text-sm py-1.5 rounded-lg transition-colors
-                      ${cell.other || past ? 'text-gray-300 cursor-default' : 'cursor-pointer'}
-                      ${selected ? 'bg-primary-600 text-white' : (!cell.other && !past ? 'hover:bg-gray-100 text-gray-800' : '')}`}>
+                    className={`text-center text-sm py-1.5 rounded-lg transition-all font-semibold
+                      ${cell.other || past ? 'text-slate-300 cursor-default' : 'cursor-pointer'}
+                      ${selected ? 'text-white shadow-md' : (!cell.other && !past ? 'hover:bg-blue-50 text-slate-800' : '')}`}
+                    style={selected ? { background: 'linear-gradient(135deg, #1D4ED8, #0EA5E9)' } : {}}>
                     {cell.d}
                   </button>
                 )
@@ -817,12 +738,13 @@ export default function ChatWindow({ userType }) {
           </div>
           {rdvDate && (
             <>
-              <p className="text-xs text-gray-500 mb-2 font-medium">Heure du rendez-vous</p>
+              <p className="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">Heure</p>
               <div className="grid grid-cols-5 gap-2 mb-4">
                 {TIME_SLOTS.map(slot => (
                   <button key={slot} onClick={() => setRdvTime(slot)}
-                    className={`py-2 rounded-lg text-sm border transition-colors
-                      ${rdvTime === slot ? 'bg-primary-50 border-primary-400 text-primary-700 font-medium' : 'border-gray-200 text-gray-700 hover:border-primary-300'}`}>
+                    className={`py-2 rounded-xl text-sm border-2 transition-all font-bold
+                      ${rdvTime === slot ? 'text-white border-transparent shadow-md' : 'border-slate-200 text-slate-700 hover:border-blue-300'}`}
+                    style={rdvTime === slot ? { background: 'linear-gradient(135deg, #1D4ED8, #0EA5E9)' } : {}}>
                     {slot}
                   </button>
                 ))}
@@ -831,26 +753,24 @@ export default function ChatWindow({ userType }) {
           )}
           {rdvDate && rdvTime && (
             <>
-              <p className="text-xs text-gray-500 mb-1 font-medium">Adresse (pré-remplie)</p>
-              <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 mb-4 bg-gray-50">
-                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span className="text-sm text-gray-700">{application?.missions?.establishments?.address || 'Adresse non renseignée'}</span>
+              <p className="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">Adresse (pré-remplie)</p>
+              <div className="flex items-center gap-2 border-2 border-slate-200 rounded-xl px-3 py-2.5 mb-4 bg-slate-50">
+                <span>📍</span>
+                <span className="text-sm text-slate-700 font-medium truncate">{application?.missions?.establishments?.address || 'Adresse non renseignée'}</span>
               </div>
-              <p className="text-xs text-gray-500 mb-1 font-medium">Note pour le talent (optionnel)</p>
+              <p className="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">Note (optionnel)</p>
               <textarea rows={2} value={rdvNote} onChange={e => setRdvNote(e.target.value)}
                 placeholder="Ex : sonnette B, demander Mme Martin..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 mb-4 resize-none focus:outline-none focus:border-primary-400" />
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 mb-4 resize-none focus:outline-none focus:border-blue-500 transition-all" />
             </>
           )}
           <div className="flex gap-3">
             <button onClick={() => { setShowRdvModal(false); setRdvDate(null); setRdvTime(null); setRdvNote('') }}
-              className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm">Annuler</button>
+              className="flex-1 py-3 border-2 border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all">Annuler</button>
             <button onClick={handleProposeRdv} disabled={!canSend}
-              className="flex-2 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium disabled:opacity-40 px-6">
-              {sendingRdv ? 'Envoi...' : 'Envoyer le RDV'}
+              className="flex-1 py-3 text-white rounded-xl text-sm font-bold disabled:opacity-40 transition-all hover:-translate-y-0.5"
+              style={{ background: 'linear-gradient(135deg, #1D4ED8, #1E40AF)', boxShadow: '0 8px 24px rgba(29, 78, 216, 0.25)' }}>
+              {sendingRdv ? 'Envoi...' : '📅 Envoyer le RDV'}
             </button>
           </div>
         </div>
@@ -858,25 +778,26 @@ export default function ChatWindow({ userType }) {
     )
   }
 
-  const renderHireValidationCard = () => {
+  // ─── Bandeau "Je l'embauche" toujours visible côté établissement ───
+  const renderHireBanner = () => {
     if (userType !== 'establishment') return null
-    if (!latestAppointment || latestAppointment.status !== 'confirmed') return null
-    if (application?.hire_status) return null
+    if (application?.hire_status) return null // déjà décidé
     return (
-      <div className="bg-purple-50 border-t-2 border-purple-200 px-4 py-3">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-sm font-semibold text-purple-800 mb-1">Suite au rendez-vous</p>
-          <p className="text-xs text-purple-600 mb-3">
-            Souhaitez-vous confirmer l'embauche de {application?.talents?.first_name} {application?.talents?.last_name} ?
+      <div className="px-4 py-3 border-b border-purple-100"
+           style={{ background: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)' }}>
+        <div className="max-w-3xl mx-auto">
+          <p className="text-sm font-bold text-purple-900 mb-2 flex items-center gap-2">
+            <span className="text-base">💜</span> Avez-vous embauché {application?.talents?.first_name} ?
           </p>
           <div className="flex gap-2">
             <button onClick={() => handleConfirmHire('hired')} disabled={confirming}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg disabled:opacity-50">
-              {confirming ? '...' : '🎉 Confirmer l\'embauche'}
+              className="flex-1 text-white text-sm font-bold py-2.5 rounded-xl disabled:opacity-50 transition-all hover:-translate-y-0.5 inline-flex items-center justify-center gap-1.5"
+              style={{ background: 'linear-gradient(135deg, #10B981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
+              {confirming ? '...' : <>✅ Je l'embauche</>}
             </button>
             <button onClick={() => handleConfirmHire('rejected')} disabled={confirming}
-              className="flex-1 border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm py-2 rounded-lg disabled:opacity-50">
-              Ne pas retenir
+              className="flex-1 bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 text-sm font-bold py-2.5 rounded-xl disabled:opacity-50 transition-all">
+              Non retenu
             </button>
           </div>
         </div>
@@ -884,127 +805,184 @@ export default function ChatWindow({ userType }) {
     )
   }
 
+  const sharedStyles = (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+      .chat-v8 { font-family: 'Montserrat', system-ui, sans-serif; letter-spacing: -0.005em; }
+      .chat-v8 * { font-family: 'Montserrat', system-ui, sans-serif; }
+      .chat-input { transition: all 0.2s ease; }
+      .chat-input:focus { border-color: #1D4ED8; box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12); outline: none; }
+    `}</style>
+  )
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement de la conversation...</p>
+      <>
+        {sharedStyles}
+        <div className="chat-v8 min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
+                 style={{ background: 'linear-gradient(135deg, #1D4ED8 0%, #0EA5E9 100%)', boxShadow: '0 12px 32px rgba(29, 78, 216, 0.35)' }}>
+              <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            </div>
+            <p className="text-slate-600 font-semibold">Chargement…</p>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   if (!application) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl text-red-600 mb-4">Conversation introuvable</p>
-          <button onClick={() => navigate(userType === 'talent' ? '/talent/dashboard' : '/establishment/dashboard')}
-            className="btn-primary">Retour aux conversations</button>
+      <>
+        {sharedStyles}
+        <div className="chat-v8 min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-xl text-red-600 mb-4 font-bold">Conversation introuvable</p>
+            <button onClick={() => navigate(userType === 'talent' ? '/talent/dashboard' : '/establishment/dashboard')}
+              className="px-6 py-3 rounded-xl text-white font-bold"
+              style={{ background: 'linear-gradient(135deg, #1D4ED8, #1E40AF)' }}>
+              Retour
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   const otherPartyName = userType === 'talent'
     ? application.missions.establishments.name
     : `${application.talents.first_name} ${application.talents.last_name}`
-
-  // Bouton + RDV visible si : pas de RDV en cours (pending) et pas encore embauché
   const hasActiveRdv = appointments.some(a => a.status === 'pending' || a.status === 'confirmed')
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {renderRdvModal()}
+    <>
+      {sharedStyles}
+      <div className="chat-v8 min-h-screen flex flex-col" style={{ background: '#F8FAFF' }}>
+        {renderRdvModal()}
 
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+        {/* HEADER */}
+        <header className="bg-white/95 backdrop-blur-xl border-b border-blue-100 sticky top-0 z-30">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
             <button onClick={() => navigate(userType === 'talent' ? '/talent/dashboard' : '/establishment/dashboard')}
-              className="text-gray-600 hover:text-gray-900">← Retour</button>
-            <div className="text-center">
-              <h1 className="font-semibold text-gray-900">{otherPartyName}</h1>
-              <p className="text-xs text-gray-500">{application.missions.position}</p>
+              className="text-blue-700 hover:text-blue-800 font-bold inline-flex items-center gap-1.5 text-sm">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+              </svg>
+              Retour
+            </button>
+            <div className="text-center min-w-0 flex-1 px-4">
+              <h1 className="font-extrabold text-slate-900 text-sm truncate" style={{ letterSpacing: '-0.015em' }}>{otherPartyName}</h1>
+              <p className="text-[11px] text-slate-500 font-medium truncate">{application.missions.position}</p>
             </div>
-            <div className="w-20"></div>
+            <div className="w-12"></div>
           </div>
-        </div>
-      </nav>
+        </header>
 
-      <div className="bg-green-50 border-b border-green-100">
-        <div className="max-w-4xl mx-auto px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-green-700 text-xs">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+        {/* Bandeau secondaire */}
+        <div className="bg-white border-b border-blue-50">
+          <div className="max-w-3xl mx-auto px-4 py-2 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-blue-700 text-xs font-bold">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
               <span>Messagerie sécurisée</span>
               {application.hire_status === 'hired' && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-200 text-green-800 ml-2">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ml-1 text-white"
+                      style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
                   ✅ Embauche confirmée
                 </span>
               )}
+              {isChatClosed && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ml-1 bg-slate-200 text-slate-700">
+                  🔒 Chat fermé
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              {userType === 'establishment' && !cvRequested && !cvShared && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {userType === 'establishment' && !cvRequested && !cvShared && !application.hire_status && (
                 <button onClick={handleRequestCv} disabled={sending}
-                  className="flex items-center gap-1 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-medium py-1.5 px-3 rounded-full transition-colors disabled:opacity-50">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Demander CV
+                  className="inline-flex items-center gap-1 text-amber-800 text-[11px] font-bold py-1.5 px-3 rounded-full transition-all hover:-translate-y-0.5 disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', border: '1px solid #FCD34D' }}>
+                  📄 Demander CV
                 </button>
               )}
               {userType === 'establishment' && cvRequested && !cvShared && (
-                <span className="text-xs text-amber-600">CV demandé ⏳</span>
+                <span className="text-[11px] text-amber-700 font-bold">CV demandé ⏳</span>
               )}
-              {cvShared && <span className="text-xs text-green-600">CV reçu ✓</span>}
+              {cvShared && <span className="text-[11px] text-emerald-600 font-bold">CV reçu ✓</span>}
 
-              {/* Bouton + RDV : visible si pas de RDV actif et pas encore embauché */}
               {userType === 'establishment' && !hasActiveRdv && !application.hire_status && (
                 <button onClick={() => setShowRdvModal(true)}
-                  className="flex items-center gap-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-medium py-1.5 px-3 rounded-full transition-colors">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  + RDV
+                  className="inline-flex items-center gap-1 text-blue-800 text-[11px] font-bold py-1.5 px-3 rounded-full transition-all hover:-translate-y-0.5"
+                  style={{ background: 'linear-gradient(135deg, #DBEAFE, #BFDBFE)', border: '1px solid #93C5FD' }}>
+                  📅 + RDV
                 </button>
               )}
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {messages.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500">Aucun message pour l'instant</p>
-              <p className="text-sm text-gray-400 mt-2">Envoyez le premier message !</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {messages.map(message => renderMessage(message))}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+        {/* Bandeau "Je l'embauche" */}
+        {renderHireBanner()}
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+            {messages.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl"
+                     style={{ background: 'linear-gradient(135deg, #DBEAFE, #BAE6FD)' }}>💬</div>
+                <p className="text-slate-500 font-bold">Aucun message pour l'instant</p>
+                <p className="text-sm text-slate-400 mt-2 font-medium">Envoyez le premier message !</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {messages.map(message => renderMessage(message))}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Input */}
+        <div className="bg-white border-t border-blue-100">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3">
+            {isChatClosed ? (
+              <div className="text-center py-3 rounded-xl"
+                   style={{ background: 'linear-gradient(135deg, #F1F5F9, #F8FAFF)', border: '2px solid #E2E8F0' }}>
+                <p className="text-sm font-bold text-slate-700">🔒 Le chat est fermé</p>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  La mission a commencé. Communiquez via le planning si besoin.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSend} className="flex gap-2">
+                <input
+                  type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Écrivez votre message…"
+                  className="chat-input flex-1 px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
+                  disabled={sending}
+                />
+                <button type="submit" disabled={!newMessage.trim() || sending}
+                  className="px-6 text-white font-bold rounded-xl transition-all hover:-translate-y-0.5 disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #1D4ED8, #1E40AF)', boxShadow: '0 4px 12px rgba(29, 78, 216, 0.25)' }}>
+                  {sending ? '...' : (
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13"/>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
-
-      {renderHireValidationCard()}
-
-      <div className="bg-white border-t border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <form onSubmit={handleSend} className="flex gap-2">
-            <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Écrivez votre message..." className="flex-1 input" disabled={sending} />
-            <button type="submit" disabled={!newMessage.trim() || sending} className="btn-primary px-6">
-              {sending ? '...' : 'Envoyer'}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
+    </>
   )
 }

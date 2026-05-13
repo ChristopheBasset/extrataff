@@ -143,7 +143,7 @@ export default function EstablishmentProfileForm() {
           {/* Offre Freemium */}
           <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
             <p className="text-amber-900 font-medium mb-1">🎁 Offre Freemium - 1 mois d'essai gratuit</p>
-            <p className="text-amber-700 text-sm">Testez ExtraTaff gratuitement pendant 1 mois avec jusqu'à 2 missions, puis 59,90€/mois pour des missions illimitées.</p>
+            <p className="text-amber-700 text-sm">Testez ExtraTaff gratuitement pendant 1 mois avec missions illimitées, puis 39€/mois pour continuer en illimité (ou 19,90€/mission ponctuelle, sans engagement).</p>
           </div>
 
           {/* Informations de l'établissement */}

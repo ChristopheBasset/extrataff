@@ -147,7 +147,7 @@ export default function DashboardTalent() {
     try {
       const { data: allMissions, error: missErr } = await supabase
         .from('missions')
-        .select('*')
+        .select('*, establishment:establishments(department)')
         .eq('status', 'open')
 
       if (missErr) {
@@ -175,15 +175,18 @@ export default function DashboardTalent() {
         const matched = allMissions.filter(mission => {
           if (appliedMissionIds.has(mission.id)) return false
 
+          // ✅ FIX : la colonne dans missions est 'position' (pas 'position_type')
           if (talentProfile.position_types && talentProfile.position_types.length > 0) {
-            if (!talentProfile.position_types.includes(mission.position_type)) {
+            if (!talentProfile.position_types.includes(mission.position)) {
               return false
             }
           }
 
+          // ✅ FIX : match département via la table établissements (JOIN)
+          // Le talent choisit ses departments préférés, l'établissement a son department
           if (talentProfile.preferred_departments && talentProfile.preferred_departments.length > 0) {
-            const missionDept = extractDepartment(mission.postal_code)
-            if (missionDept && !talentProfile.preferred_departments.includes(missionDept)) {
+            const missionDept = mission.establishment?.department
+            if (!missionDept || !talentProfile.preferred_departments.includes(missionDept)) {
               return false
             }
           }

@@ -69,6 +69,44 @@ export default function DashboardTalent() {
     }
   }, [profile, view])
 
+  // ✅ REALTIME : recharger les compteurs quand applications/missions changent
+  useEffect(() => {
+    if (!profile?.id) return
+
+    const channel = supabase
+      .channel(`dashboard-talent-counts-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'applications',
+          filter: `talent_id=eq.${profile.id}`
+        },
+        (payload) => {
+          console.log('🔔 Application change:', payload.eventType)
+          loadCounts(profile.id, profile)
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'missions'
+        },
+        (payload) => {
+          console.log('🔔 Mission change:', payload.eventType)
+          loadCounts(profile.id, profile)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [profile])
+
   const checkProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()

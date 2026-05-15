@@ -55,6 +55,9 @@ export default function Login() {
       const { data, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: {
+          captchaToken: turnstileToken
+        }
       })
 
       if (loginError) {
@@ -182,54 +185,41 @@ export default function Login() {
         }
         .btn-primary-gradient:disabled {
           opacity: 0.55; cursor: not-allowed;
-          box-shadow: none;
+          transform: none; box-shadow: 0 4px 12px rgba(29, 78, 216, 0.12);
         }
 
-        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
-        .fade-in {
-          opacity: 0; transform: translateY(16px);
-          animation: fadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        .login-input { transition: all 0.25s ease; }
+        .login-input:focus {
+          outline: none;
+          border-color: #1D4ED8;
+          box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.10);
         }
+        .login-input:hover:not(:focus) { border-color: #94A3B8; }
+
+        .fade-in { animation: fadeInUp 0.6s ease both; }
         .fade-in-1 { animation-delay: 0.05s; }
         .fade-in-2 { animation-delay: 0.15s; }
-        .fade-in-3 { animation-delay: 0.25s; }
-
-        /* Custom focus state for inputs */
-        .login-input {
-          transition: all 0.2s ease;
-        }
-        .login-input:focus {
-          border-color: #1D4ED8;
-          box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
-          outline: none;
+        .fade-in-3 { animation-delay: 0.30s; }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
-      <div className="login-page min-h-screen flex items-center justify-center py-12 px-4"
-           style={{
-             background: `
-               radial-gradient(ellipse 80% 50% at 80% 20%, rgba(186, 230, 253, 0.6) 0%, transparent 60%),
-               radial-gradient(ellipse 60% 40% at 10% 80%, rgba(219, 234, 254, 0.5) 0%, transparent 60%),
-               #FFFFFF
-             `
-           }}>
+      <div className="login-page min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md">
 
-        <div className="max-w-md w-full">
-
-          {/* ===== LOGO ===== */}
+          {/* ===== Header ===== */}
           <div className="fade-in fade-in-1 text-center mb-8">
             <button
               onClick={() => navigate('/')}
-              className="inline-flex items-center gap-2.5 mb-3 group"
+              className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
-              <span className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-extrabold text-xl transition-transform duration-300 group-hover:scale-105"
-                    style={{
-                      background: 'linear-gradient(135deg, #1D4ED8 0%, #0EA5E9 100%)',
-                      boxShadow: '0 8px 20px rgba(29, 78, 216, 0.3)'
-                    }}>
-                E
-              </span>
-              <span className="font-extrabold text-2xl tracking-tight text-slate-900">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl flex items-center justify-center shadow-lg">
+                <span className="text-white text-xl font-extrabold">E</span>
+              </div>
+              <span className="text-2xl font-extrabold text-slate-900 tracking-tight"
+                    style={{ letterSpacing: '-0.025em' }}>
                 Extra<span className="text-blue-700 font-bold">Taff</span>
               </span>
             </button>

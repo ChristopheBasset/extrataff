@@ -69,6 +69,45 @@ export default function EstablishmentDashboard() {
     }
   }, [profile, view])
 
+  // ✅ REALTIME : recharger les compteurs quand applications/missions changent
+  useEffect(() => {
+    if (!profile?.id) return
+
+    const channel = supabase
+      .channel(`dashboard-counts-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'applications'
+        },
+        (payload) => {
+          console.log('🔔 Application change:', payload.eventType)
+          // loadCounts filtre déjà côté SQL par mission_ids de l'établissement
+          loadCounts(profile.id)
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'missions',
+          filter: `establishment_id=eq.${profile.id}`
+        },
+        (payload) => {
+          console.log('🔔 Mission change:', payload.eventType)
+          loadCounts(profile.id)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [profile?.id])
+
   const checkProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()

@@ -6,13 +6,32 @@ export default function MyMissions({ establishmentId, onBack }) {
   const navigate = useNavigate()
   const [missions, setMissions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all') // 'all', 'open', 'filled', 'alert', 'closed'
+  const [filter, setFilter] = useState('all') // 'all', 'open', 'filled', 'alert', 'closed', 'expired'
   const [search, setSearch] = useState('')
   const [confirmAction, setConfirmAction] = useState(null) // { type, missionId, missionTitle }
+  const [subscriptionPlan, setSubscriptionPlan] = useState(null)
 
   useEffect(() => {
-    if (establishmentId) loadMissions()
+    if (establishmentId) {
+      loadMissions()
+      loadSubscription()
+    }
   }, [establishmentId])
+
+  const loadSubscription = async () => {
+    try {
+      const { data } = await supabase
+        .from('establishments')
+        .select('subscription_plan')
+        .eq('id', establishmentId)
+        .single()
+      if (data) setSubscriptionPlan(data.subscription_plan)
+    } catch (err) {
+      console.error('Erreur chargement abonnement:', err)
+    }
+  }
+
+  const isClubMember = subscriptionPlan === 'club'
 
   const loadMissions = async () => {
     setLoading(true)
@@ -74,6 +93,7 @@ export default function MyMissions({ establishmentId, onBack }) {
 
   // Calculer l'état visuel de chaque mission
   const getMissionState = (mission) => {
+    if (mission.status === 'expired') return 'expired'
     if (mission.status === 'filled') return 'filled'
     if (mission.status === 'closed' || mission.status === 'cancelled') return 'closed'
     if (mission.status === 'pending') return 'pending'
@@ -92,13 +112,14 @@ export default function MyMissions({ establishmentId, onBack }) {
 
   // Compteurs par état
   const counts = useMemo(() => {
-    const c = { all: missions.length, open: 0, filled: 0, alert: 0, closed: 0 }
+    const c = { all: missions.length, open: 0, filled: 0, alert: 0, closed: 0, expired: 0 }
     missions.forEach(m => {
       const state = getMissionState(m)
       if (state === 'open') c.open++
       else if (state === 'filled') c.filled++
       else if (state === 'alert') c.alert++
       else if (state === 'closed') c.closed++
+      else if (state === 'expired') c.expired++
     })
     return c
   }, [missions])
@@ -156,6 +177,31 @@ export default function MyMissions({ establishmentId, onBack }) {
       loadMissions()
     } catch (err) {
       console.error('Erreur réouverture mission:', err)
+    }
+  }
+
+  // Relance d'une mission expirée
+  // Membre Club → relance gratuite directe (repart pour 1 mois)
+  // Non-membre → redirection vers l'abonnement Club
+  const handleRelaunchMission = async (missionId) => {
+    if (!isClubMember) {
+      navigate('/establishment/subscribe')
+      return
+    }
+    try {
+      const { error } = await supabase
+        .from('missions')
+        .update({
+          status: 'open',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', missionId)
+      if (error) throw error
+      loadMissions()
+    } catch (err) {
+      console.error('Erreur relance mission:', err)
+      alert('Erreur lors de la relance de la mission')
     }
   }
 
@@ -361,6 +407,7 @@ export default function MyMissions({ establishmentId, onBack }) {
               { value: 'filled', label: '🔵 Validées', count: counts.filled, color: 'blue' },
               { value: 'alert', label: '🔴 Alerte', count: counts.alert, color: 'red' },
               { value: 'closed', label: 'Clôturées', count: counts.closed, color: 'slate' },
+              { value: 'expired', label: '⏳ Expirées', count: counts.expired, color: 'amber' },
             ].map(f => (
               <button
                 key={f.value}
@@ -433,6 +480,9 @@ export default function MyMissions({ establishmentId, onBack }) {
             } else if (state === 'pending') {
               pastilleBg = 'linear-gradient(135deg, #F59E0B, #D97706)'
               pastilleIcon = '⏳'
+            } else if (state === 'expired') {
+              pastilleBg = 'linear-gradient(135deg, #F59E0B, #B45309)'
+              pastilleIcon = '⏳'
             } else {
               pastilleBg = 'linear-gradient(135deg, #94A3B8, #64748B)'
               pastilleIcon = '🔒'
@@ -474,6 +524,11 @@ export default function MyMissions({ establishmentId, onBack }) {
                     {state === 'alert' && (
                       <p className="text-xs text-red-700 font-bold mt-1">
                         ⚠️ Date dépassée — Pensez à valider ou clôturer
+                      </p>
+                    )}
+                    {state === 'expired' && (
+                      <p className="text-xs text-amber-700 font-bold mt-1">
+                        ⏳ Expirée après 1 mois — Relancez-la pour la republier
                       </p>
                     )}
 
@@ -556,6 +611,16 @@ export default function MyMissions({ establishmentId, onBack }) {
                         className="flex-1 min-w-[100px] px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-all inline-flex items-center justify-center gap-1.5"
                       >
                         🔄 Relancer
+                      </button>
+                    </>
+                  ) : state === 'expired' ? (
+                    <>
+                      <button
+                        onClick={() => handleRelaunchMission(mission.id)}
+                        className="flex-1 min-w-[140px] px-3 py-2 rounded-xl text-white text-xs font-bold transition-all inline-flex items-center justify-center gap-1.5 hover:-translate-y-0.5"
+                        style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', boxShadow: '0 6px 18px rgba(245, 158, 11, 0.25)' }}
+                      >
+                        {isClubMember ? '🔄 Relancer (gratuit)' : '🔄 Relancer la mission'}
                       </button>
                     </>
                   ) : (

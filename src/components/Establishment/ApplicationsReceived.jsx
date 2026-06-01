@@ -44,11 +44,11 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
         return
       }
 
-      // Récupérer les infos des talents
+      // Récupérer les infos des talents (SANS le téléphone — révélé après embauche)
       const talentIds = [...new Set(apps.map(a => a.talent_id))]
       const { data: talents } = await supabase
         .from('talents')
-        .select('id, user_id, first_name, last_name, phone, position_types, years_experience, cv_url')
+        .select('id, user_id, first_name, last_name, position_types, years_experience, cv_url')
         .in('id', talentIds)
 
       // Enrichir les candidatures
@@ -236,6 +236,49 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
         </div>
       )}
 
+      {/* Bandeau pédagogique — visible dès qu'il y a au moins une candidature */}
+      {applications.length > 0 && (
+        <div
+          className="mb-5 rounded-2xl p-4 sm:p-5"
+          style={{
+            background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
+            border: '1px solid #BFDBFE'
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg"
+              style={{
+                background: 'linear-gradient(135deg, #1D4ED8, #1E40AF)',
+                boxShadow: '0 4px 12px rgba(29, 78, 216, 0.25)'
+              }}
+            >
+              💡
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-extrabold text-blue-900 mb-2">Comment ça marche ?</h4>
+              <ol className="space-y-1.5 text-xs sm:text-sm text-blue-900/90 font-medium">
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-white text-blue-700 font-extrabold text-[10px]">1</span>
+                  <span><strong>Acceptez</strong> les candidatures qui vous intéressent pour ouvrir une conversation.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-white text-blue-700 font-extrabold text-[10px]">2</span>
+                  <span><strong>Échangez</strong> dans le chat : dispos, expérience, conditions, RDV éventuel.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-white text-blue-700 font-extrabold text-[10px]">3</span>
+                  <span><strong>Cliquez sur « Je l'embauche »</strong> : les coordonnées sont échangées et la mission est clôturée.</span>
+                </li>
+              </ol>
+              <p className="mt-3 text-[11px] sm:text-xs text-blue-800/80 italic">
+                ⚠️ Merci de bien penser à valider l'embauche dans l'app — c'est ce qui permet de fermer la mission et de finaliser la mise en relation.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Liste des candidatures */}
       <div className="space-y-4">
         {applications.map(app => (
@@ -256,9 +299,6 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
                     <h3 className="text-lg font-bold text-gray-900">
                       {app.talent?.first_name || '—'} {app.talent?.last_name || ''}
                     </h3>
-                    {app.talent?.phone && (
-                      <p className="text-sm text-gray-500">📞 {app.talent.phone}</p>
-                    )}
                   {app.talent?.cv_url && (
                     <button
                       onClick={() => handleDownloadCv(app.talent.cv_url, app.talent.first_name)}

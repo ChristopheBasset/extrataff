@@ -927,6 +927,58 @@ export default function ChatWindow({ userType }) {
           </div>
         </div>
 
+        {/* Bandeau pédagogique côté établissement — n'apparaît que si pas encore embauché */}
+        {userType === 'establishment' && application.hire_status !== 'hired' && (
+          <>
+            {messages.length === 0 && (
+              <div className="bg-white border-b border-blue-50">
+                <div className="max-w-3xl mx-auto px-4 py-3">
+                  <div
+                    className="rounded-xl p-3 sm:p-4 flex items-start gap-3"
+                    style={{
+                      background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
+                      border: '1px solid #BFDBFE'
+                    }}
+                  >
+                    <div
+                      className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
+                      style={{ background: 'linear-gradient(135deg, #1D4ED8, #1E40AF)' }}
+                    >
+                      💡
+                    </div>
+                    <p className="text-xs sm:text-sm text-blue-900 font-medium leading-relaxed">
+                      <strong>Bienvenue dans le chat.</strong> Échangez librement avec le candidat. Quand vous serez prêt, cliquez sur <strong>« Je l'embauche »</strong> pour finaliser officiellement et obtenir ses coordonnées.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {messages.length >= 2 && (
+              <div className="bg-white border-b border-blue-50">
+                <div className="max-w-3xl mx-auto px-4 py-3">
+                  <div
+                    className="rounded-xl p-3 sm:p-4 flex items-start gap-3"
+                    style={{
+                      background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)',
+                      border: '1px solid #FCD34D'
+                    }}
+                  >
+                    <div
+                      className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
+                      style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)' }}
+                    >
+                      👋
+                    </div>
+                    <p className="text-xs sm:text-sm text-amber-900 font-medium leading-relaxed">
+                      Vous avez l'air d'avancer ! <strong>N'oubliez pas de valider l'embauche dans l'app</strong> en cliquant sur <strong>« Je l'embauche »</strong> — c'est important pour clôturer la mission et finaliser la mise en relation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Bandeau "Je l'embauche" */}
         {renderHireBanner()}
 

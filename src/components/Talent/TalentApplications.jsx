@@ -64,19 +64,23 @@ export default function TalentApplications({ talentId, onBack }) {
   }
 
   const handleWithdraw = async (applicationId) => {
-    if (!confirm('Retirer votre candidature ?')) return
+    if (!confirm('Retirer votre candidature ? L\'établissement sera notifié que vous vous retirez.')) return
 
     try {
       const { error } = await supabase
         .from('applications')
-        .delete()
+        .update({
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', applicationId)
+        .eq('talent_id', talentId) // sécurité supplémentaire côté client
 
       if (error) throw error
       loadApplications()
     } catch (err) {
       console.error('Erreur retrait:', err)
-      alert('Erreur lors du retrait')
+      alert('Erreur lors du retrait de la candidature')
     }
   }
 

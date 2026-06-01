@@ -594,7 +594,7 @@ export default function MissionForm({ onMissionCreated }) {
                   <input
                     type="number" name="hourly_rate" value={formData.hourly_rate} onChange={handleChange}
                     placeholder="15" step="0.50" min="0"
-                    className="dash-input salaire-input-big flex-1 px-4 py-4 border-2 border-slate-200 rounded-xl bg-white"
+                    className="dash-input salaire-input-big flex-1 min-w-0 px-4 py-4 border-2 border-slate-200 rounded-xl bg-white"
                   />
                   <span className="text-base font-bold text-slate-600 whitespace-nowrap">€ / h</span>
                 </div>
@@ -604,7 +604,7 @@ export default function MissionForm({ onMissionCreated }) {
                   <input
                     type="number" name="monthly_rate" value={formData.monthly_rate} onChange={handleChange}
                     placeholder="2200" step="50" min="0"
-                    className="dash-input salaire-input-big flex-1 px-4 py-4 border-2 border-slate-200 rounded-xl bg-white"
+                    className="dash-input salaire-input-big flex-1 min-w-0 px-4 py-4 border-2 border-slate-200 rounded-xl bg-white"
                   />
                   <span className="text-base font-bold text-slate-600 whitespace-nowrap">€ NET / mois</span>
                 </div>

@@ -14,10 +14,12 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
     setLoading(true)
     try {
       // Récupérer toutes les missions ouvertes (sans jointure)
+      // Exclure aussi les missions déjà archivées (service passé)
       const { data: allMissions, error: missError } = await supabase
         .from('missions')
         .select('*')
         .eq('status', 'open')
+        .is('archived_at', null)
         .order('created_at', { ascending: false })
 
       if (missError) throw missError

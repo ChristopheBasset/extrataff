@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import AdminFunnel from '../../components/Admin/AdminFunnel';
 
 // ============================================================
 // ADMIN DASHBOARD — Vue complète avec emails
@@ -9,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 
 const TABS_BASE = [
   { id: 'overview', label: '📊 Vue d\'ensemble' },
+  { id: 'funnel', label: '🎯 Funnel' },
   { id: 'talents', label: '👤 Talents' },
   { id: 'establishments', label: '🏪 Établissements' },
   { id: 'missions', label: '📋 Missions' },
@@ -1770,6 +1772,15 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === 'overview' && renderOverview()}
+        {activeTab === 'funnel' && (
+          <AdminFunnel
+            missions={missions}
+            applications={applications}
+            appointments={appointments}
+            hires={hires}
+            onReload={loadData}
+          />
+        )}
         {activeTab === 'talents' && renderTalents()}
         {activeTab === 'establishments' && renderEstablishments()}
         {activeTab === 'missions' && renderMissions()}

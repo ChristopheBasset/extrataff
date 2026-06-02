@@ -7,6 +7,7 @@ export default function EstablishmentProfileForm() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const isExpress = typeof window !== 'undefined' && sessionStorage.getItem('express_flow') === '1'
   
   const [formData, setFormData] = useState({
     name: '',
@@ -90,7 +91,7 @@ export default function EstablishmentProfileForm() {
         location = `POINT(${formData.coordinates[0]} ${formData.coordinates[1]})`
       }
 
-      const finalType = formData.type === 'autre' ? formData.otherType : formData.type
+      const finalType = isExpress ? 'autre' : (formData.type === 'autre' ? formData.otherType : formData.type)
       const normalizedPhone = normalizePhone(formData.phone)
 
       const { error } = await supabase
@@ -117,8 +118,13 @@ export default function EstablishmentProfileForm() {
 
       if (error) throw error
 
-      alert('Profil créé avec succès ! 🎉')
-      window.location.href = '/establishment'
+      if (isExpress) {
+        sessionStorage.removeItem('express_flow')
+        window.location.href = '/establishment/create-mission-express'
+      } else {
+        alert('Profil créé avec succès ! 🎉')
+        window.location.href = '/establishment'
+      }
     } catch (err) {
       console.error('Erreur création profil:', err)
       setError(err.message)
@@ -131,8 +137,8 @@ export default function EstablishmentProfileForm() {
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">🏪 Créer mon profil Établissement</h1>
-          <p className="text-gray-600 mt-2">Complétez votre profil pour publier vos annonces</p>
+          <h1 className="text-3xl font-bold text-gray-900">{isExpress ? '⚡ Dernière étape avant votre mission' : '🏪 Créer mon profil Établissement'}</h1>
+          <p className="text-gray-600 mt-2">{isExpress ? 'Quelques infos sur votre établissement, puis vous postez votre mission Express.' : 'Complétez votre profil pour publier vos annonces'}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card space-y-6">
@@ -140,11 +146,13 @@ export default function EstablishmentProfileForm() {
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>
           )}
 
-          {/* Offre Freemium */}
-          <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
-            <p className="text-amber-900 font-medium mb-1">🎁 Offre Freemium - 1 mois d'essai gratuit</p>
-            <p className="text-amber-700 text-sm">Testez ExtraTaff gratuitement pendant 1 mois avec missions illimitées, puis 39€/mois pour continuer en illimité (ou 19,90€/mission ponctuelle, sans engagement).</p>
-          </div>
+          {/* Offre Freemium (masquée en Express : annonce payante, gratuité réservée au Club) */}
+          {!isExpress && (
+            <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+              <p className="text-amber-900 font-medium mb-1">🎁 Offre Freemium - 1 mois d'essai gratuit</p>
+              <p className="text-amber-700 text-sm">Testez ExtraTaff gratuitement pendant 1 mois avec jusqu'à 2 missions, puis 59,90€/mois pour des missions illimitées.</p>
+            </div>
+          )}
 
           {/* Informations de l'établissement */}
           <div>
@@ -155,6 +163,7 @@ export default function EstablishmentProfileForm() {
                 <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Restaurant Le Gourmet" className="input" required />
               </div>
 
+              {!isExpress && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type d'établissement *</label>
                 <select name="type" value={formData.type} onChange={handleChange} className="input" required>
@@ -164,6 +173,7 @@ export default function EstablishmentProfileForm() {
                   ))}
                 </select>
               </div>
+              )}
 
               {formData.type === 'autre' && (
                 <div>
@@ -181,15 +191,18 @@ export default function EstablishmentProfileForm() {
                 <p className="text-xs text-gray-500 mt-1">Numéro de mobile obligatoire (06 ou 07) — utilisé pour les notifications SMS</p>
               </div>
 
+              {!isExpress && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description de l'établissement</label>
                 <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className="input" placeholder="Présentez votre établissement, votre ambiance, vos spécialités..." />
                 <p className="text-xs text-gray-500 mt-1">Cette description sera visible par les talents</p>
               </div>
+              )}
             </div>
           </div>
 
           {/* Préférences de notifications */}
+          {!isExpress && (
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-1">🔔 Notifications</h2>
             <p className="text-sm text-gray-500 mb-4">Comment souhaitez-vous être informé des candidatures reçues ?</p>
@@ -223,6 +236,7 @@ export default function EstablishmentProfileForm() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Boutons */}
           <div className="flex gap-4">

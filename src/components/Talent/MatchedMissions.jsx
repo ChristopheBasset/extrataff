@@ -137,26 +137,30 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
   const handleInterested = async (missionId) => {
     setApplyingId(missionId)
     try {
+      const mission = missions.find(m => m.id === missionId)
       const { error } = await supabase
         .from('applications')
         .insert({
           mission_id: missionId,
           talent_id: talentId,
-          status: 'interested'
+          status: 'interested',
+          source: mission?.mode === 'express' ? 'express' : 'normal'
         })
 
       if (error) throw error
 
       // ✅ Envoyer une notification à l'établissement
-      const mission = missions.find(m => m.id === missionId)
       if (mission?.establishments?.user_id) {
         const posLabel = getPositionLabel(mission.position)
         const talentName = talentProfile?.first_name || 'Un talent'
+        const isExpress = mission.mode === 'express'
         await supabase.from('notifications').insert({
           user_id: mission.establishments.user_id,
           type: 'new_application',
-          title: '📩 Nouvelle candidature',
-          content: `${talentName} est intéressé(e) par votre mission ${posLabel}`,
+          title: isExpress ? '⚡ Dispo Express !' : '📩 Nouvelle candidature',
+          content: isExpress
+            ? `${talentName} est dispo pour votre mission urgente ${posLabel}`
+            : `${talentName} est intéressé(e) par votre mission ${posLabel}`,
           link: '/establishment/applications',
           read: false
         })

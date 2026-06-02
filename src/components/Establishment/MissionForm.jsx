@@ -3,6 +3,40 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, POSITION_TYPES, CONTRACT_TYPES, generateFuzzyLocation } from '../../lib/supabase'
 import HelpBubble from '../../components/HelpBubble'
 
+// Parsers Express : extraction poste / horaires / prix depuis le texte libre
+const parsePoste = (txt) => {
+  if (!txt) return ''
+  const low = txt.toLowerCase()
+  const hit = POSITION_TYPES.find(p => low.includes(p.label.toLowerCase()))
+  return hit ? hit.value : ''
+}
+const parseHoraires = (txt) => {
+  if (!txt) return { start: null, end: null }
+  const re = /(\d{1,2})\s*[h:]\s*(\d{0,2})/g
+  const found = []
+  let m
+  while ((m = re.exec(txt)) !== null) {
+    let hh = parseInt(m[1], 10)
+    let mm = m[2] ? parseInt(m[2], 10) : 0
+    if (hh > 23) hh = 23
+    if (mm > 59) mm = 59
+    found.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`)
+  }
+  return { start: found[0] || null, end: found[1] || null }
+}
+const parsePrix = (txt) => {
+  if (!txt) return null
+  const m = txt.match(/(\d+(?:[.,]\d+)?)\s*€?\s*(?:\/?\s*h|de l'heure|euro)/i)
+  if (m) return parseFloat(m[1].replace(',', '.'))
+  const m2 = txt.match(/(\d+(?:[.,]\d+)?)\s*€/)
+  return m2 ? parseFloat(m2[1].replace(',', '.')) : null
+}
+const fmtH = (t) => {
+  if (!t) return ''
+  const [h, mm] = t.split(':')
+  return mm === '00' ? `${parseInt(h, 10)}h` : `${parseInt(h, 10)}h${mm}`
+}
+
 export default function MissionForm({ onMissionCreated, expressMode: expressModeProp }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -10,14 +44,15 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
 
   // Date cible Express : avant 15h -> aujourd'hui (ce soir), après 15h -> demain
   const expressIsTonight = new Date().getHours() < 15
-  const expressDate = useMemo(() => {
-    const target = new Date()
-    if (new Date().getHours() >= 15) target.setDate(target.getDate() + 1)
-    const y = target.getFullYear()
-    const m = String(target.getMonth() + 1).padStart(2, '0')
-    const d = String(target.getDate()).padStart(2, '0')
+  const dateForOffset = (offset) => {
+    const t = new Date()
+    t.setDate(t.getDate() + offset)
+    const y = t.getFullYear()
+    const m = String(t.getMonth() + 1).padStart(2, '0')
+    const d = String(t.getDate()).padStart(2, '0')
     return `${y}-${m}-${d}`
-  }, [])
+  }
+  const QUAND_OFFSET = { today: 0, tomorrow: 1, after: 2 }
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -52,6 +87,8 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
     end_date: '',
     shift_start_time: '',
     shift_end_time: '',
+    horaires_text: '',
+    quand: '',
     contract_type: 'extra',
     hourly_rate: '',
     salary_type: 'hourly',
@@ -64,12 +101,35 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
 
   useEffect(() => {
     if (!expressMode) return
-    setFormData(prev => ({ ...prev, start_date: expressDate, end_date: expressDate, nb_postes: 1, cv_required: false }))
-  }, [expressMode, expressDate])
+    const defaultQuand = expressIsTonight ? 'today' : 'tomorrow'
+    setFormData(prev => {
+      const quand = prev.quand || defaultQuand
+      const d = dateForOffset(QUAND_OFFSET[quand])
+      return { ...prev, quand, start_date: d, end_date: d, nb_postes: 1, cv_required: false }
+    })
+  }, [expressMode])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
     setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
+  }
+
+  const analyzeExpress = () => {
+    const txt = formData.comment || ''
+    const poste = parsePoste(txt)
+    const { start, end } = parseHoraires(txt)
+    const prix = parsePrix(txt)
+    setFormData(prev => ({
+      ...prev,
+      position: poste || prev.position,
+      horaires_text: (start && end) ? `${fmtH(start)}-${fmtH(end)}` : prev.horaires_text,
+      hourly_rate: prix != null ? String(prix) : prev.hourly_rate
+    }))
+  }
+
+  const setExpressQuand = (quand) => {
+    const d = dateForOffset(QUAND_OFFSET[quand])
+    setFormData(prev => ({ ...prev, quand, start_date: d, end_date: d }))
   }
 
   const isUrgent = useMemo(() => {
@@ -198,6 +258,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
   const createMission = async (status = 'open') => {
     if (!establishment.address) throw new Error("Adresse de l'établissement manquante. Veuillez compléter votre profil.")
     const fuzzyLocation = generateFuzzyLocation(establishment.address)
+    const exHoraires = expressMode ? parseHoraires(formData.horaires_text) : { start: formData.shift_start_time, end: formData.shift_end_time }
     const { data: newMission, error } = await supabase
       .from('missions')
       .insert({
@@ -209,8 +270,8 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
         duration_type: durationDays === 1 ? 'ponctuelle' : 'courte',
         start_date: formData.start_date,
         end_date: formData.end_date || null,
-        shift_start_time: formData.shift_start_time || null,
-        shift_end_time: formData.shift_end_time || null,
+        shift_start_time: exHoraires.start || null,
+        shift_end_time: exHoraires.end || null,
         break_duration: 0,
         work_days: [],
         hourly_rate: formData.salary_type === 'hourly' && formData.hourly_rate ? parseFloat(formData.hourly_rate) : null,
@@ -331,11 +392,11 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
 
           {expressMode && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <p className="font-semibold text-amber-800">⚡ Mission Express — {expressIsTonight ? 'pour ce soir' : 'pour demain'}</p>
+              <p className="font-semibold text-amber-800">⚡ Mission Express — dans les 48h</p>
               <p className="text-sm text-amber-700 mt-1">
                 {expressIsTonight
-                  ? 'Postée avant 15h : diffusion immédiate aux talents disponibles pour ce soir.'
-                  : "Il est passé 15h — pour garantir des candidats, votre mission est programmée pour demain."}
+                  ? "Avant 15h : vous pouvez être servi dès aujourd'hui. Sinon, choisissez votre créneau dans les 48h."
+                  : "Il est passé 15h — pour aujourd'hui c'est trop juste. Choisissez demain ou après-demain (dans les 48h)."}
               </p>
             </div>
           )}
@@ -347,6 +408,10 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Décris ta demande</label>
                 <textarea name="comment" value={formData.comment} onChange={handleChange} maxLength={200} rows={2} className="input" placeholder="Ex : un plongeur ce soir 19h-23h, 13€/h" />
+                <button type="button" onClick={analyzeExpress} className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-700">
+                  ⚡ Analyser ma demande
+                </button>
+                <p className="text-xs text-gray-500 mt-1">L'appli pré-remplit le poste, les horaires et le prix — vérifiez et ajustez ci-dessous.</p>
               </div>
 
               {/* Poste */}
@@ -358,13 +423,27 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
                 </select>
               </div>
 
-              {/* Horaires */}
+              {/* Quand (dans les 48h) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Horaires *</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="time" name="shift_start_time" value={formData.shift_start_time} onChange={handleChange} className="input" required />
-                  <input type="time" name="shift_end_time" value={formData.shift_end_time} onChange={handleChange} className="input" required />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quand ?</label>
+                <div className="flex gap-2">
+                  {[{ key: 'today', label: "Aujourd'hui" }, { key: 'tomorrow', label: 'Demain' }, { key: 'after', label: 'Après-demain' }].map(opt => {
+                    const disabled = opt.key === 'today' && !expressIsTonight
+                    const active = formData.quand === opt.key
+                    return (
+                      <button key={opt.key} type="button" disabled={disabled} onClick={() => setExpressQuand(opt.key)}
+                        className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-colors ${active ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
                 </div>
+              </div>
+
+              {/* Horaires (format texte libre) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Horaires</label>
+                <input type="text" name="horaires_text" value={formData.horaires_text} onChange={handleChange} className="input" placeholder="Ex : 19h-23h" />
               </div>
 
               {/* Prix */}
@@ -517,8 +596,8 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
           </div>
           </>)}
 
-          {/* Encart tarif */}
-          {paymentInfo && (
+          {/* Encart tarif (masqué en Express : la gratuité est réservée à l'espace membre) */}
+          {!expressMode && paymentInfo && (
             <div className={`rounded-xl p-4 border ${paymentInfo.price === 0 ? 'bg-green-50 border-green-200' : isUrgent ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
               <div className="flex items-center justify-between">
                 <div>

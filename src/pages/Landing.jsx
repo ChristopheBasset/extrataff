@@ -379,7 +379,21 @@ export default function Landing() {
                   </div>
                 </div>
               )}
-
+{/* NOUVEAU — Recruter en Express */}
+              <div className="fade-in fade-in-5 mb-5">
+                <button
+                  onClick={() => navigate('/register?type=express')}
+                  className="relative inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl text-white font-semibold text-[15px] tracking-tight transition-all duration-300 hover:-translate-y-0.5 w-full sm:w-auto"
+                  style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #F97316 100%)', boxShadow: '0 12px 40px rgba(245,158,11,0.28)' }}
+                >
+                  <span className="absolute -top-2.5 left-4 bg-white text-amber-600 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow uppercase tracking-wider">Nouveau</span>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg>
+                  Recruter en Express
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+                <p className="text-sm text-slate-500 mt-2 font-medium">Un extra pour ce soir ou demain, en quelques minutes.</p>
+              </div>
+              
               {/* CTA buttons */}
               <div className="fade-in fade-in-5 flex flex-col sm:flex-row gap-3.5 mb-7">
                 <button

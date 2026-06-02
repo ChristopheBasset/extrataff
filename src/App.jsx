@@ -71,8 +71,9 @@ function SessionRedirect({ session, onDone }) {
   const { pathname } = useLocation()
 
   useEffect(() => {
-    // Ne pas rediriger sur les routes admin
-    if (!session || pathname.startsWith('/admin') || pathname.startsWith('/auth')) { onDone(); return }
+    // Ne rediriger QUE depuis la landing '/' — sinon on casse les liens profonds
+    // (création mission express, page de succès paiement, liens notif/chat, etc.)
+    if (!session || pathname !== '/') { onDone(); return }
 
     const redirect = async () => {
       const { data: est } = await supabase
@@ -265,6 +266,10 @@ function App() {
         <Route 
           path="/establishment/create-mission" 
           element={session ? <MissionForm /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/establishment/create-mission-express" 
+          element={session ? <MissionForm expressMode={true} /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/establishment/edit-mission/:missionId" 

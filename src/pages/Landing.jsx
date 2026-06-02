@@ -376,6 +376,7 @@ export default function Landing() {
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </button>
                 <p className="text-sm text-slate-500 mt-2 font-medium">Un extra pour ce soir ou demain, en quelques minutes.</p>
+                <p className="text-sm font-bold text-amber-600 mt-1.5">🎁 −50 % sur votre 1ʳᵉ mission</p>
               </div>
               
               {/* Cartouche stats avec compteur */}

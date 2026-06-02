@@ -30,6 +30,7 @@ import ChatWindow from './components/shared/ChatWindow'
 // Abonnement
 import Subscribe from './pages/establishment/Subscribe'
 import SubscribeSuccess from './pages/establishment/SubscribeSuccess'
+import MissionSuccess from './pages/establishment/MissionSuccess'
 
 // Admin
 import AdminLogin from './pages/admin/AdminLogin'
@@ -70,11 +71,8 @@ function SessionRedirect({ session, onDone }) {
   const { pathname } = useLocation()
 
   useEffect(() => {
-    // On ne redirige automatiquement que depuis la page d'accueil "/".
-    // Un utilisateur déjà connecté qui arrive sur la landing est envoyé vers son dashboard.
-    // Toutes les autres routes explicites (create-mission, edit-mission, chat, liens de notif...)
-    // sont respectées, y compris en accès direct ou lien profond ouvert à froid.
-    if (!session || pathname !== '/') { onDone(); return }
+    // Ne pas rediriger sur les routes admin
+    if (!session || pathname.startsWith('/admin') || pathname.startsWith('/auth')) { onDone(); return }
 
     const redirect = async () => {
       const { data: est } = await supabase
@@ -250,6 +248,10 @@ function App() {
           path="/establishment/subscribe/success" 
           element={session ? <SubscribeSuccess /> : <Navigate to="/login" />} 
         />
+        <Route 
+          path="/establishment/mission/success" 
+          element={session ? <MissionSuccess /> : <Navigate to="/login" />} 
+        />
 
         {/* ========== ROUTES ÉTABLISSEMENT ========== */}
         <Route 
@@ -263,10 +265,6 @@ function App() {
         <Route 
           path="/establishment/create-mission" 
           element={session ? <MissionForm /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/establishment/create-mission-express" 
-          element={session ? <MissionForm expressMode={true} /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/establishment/edit-mission/:missionId" 

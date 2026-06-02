@@ -117,6 +117,14 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         }
       }
 
+      // Tri : Express d'abord, puis urgentes, puis les plus récentes
+      matched.sort((a, b) => {
+        const rank = (m) => m.mode === 'express' ? 2 : (m.urgency_level === 'urgent' ? 1 : 0)
+        const diff = rank(b) - rank(a)
+        if (diff !== 0) return diff
+        return new Date(b.created_at) - new Date(a.created_at)
+      })
+
       setMissions(matched)
       if (onCountChange) onCountChange(matched.length)
     } catch (err) {
@@ -260,7 +268,11 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
               {/* Info mission */}
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  {mission.urgency_level === 'urgent' ? (
+                  {mission.mode === 'express' ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white">
+                      ⚡ EXPRESS
+                    </span>
+                  ) : mission.urgency_level === 'urgent' ? (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                       🔴 Urgent
                     </span>

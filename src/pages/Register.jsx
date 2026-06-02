@@ -229,6 +229,7 @@ export default function Register() {
                 <div>
                   <p className="font-semibold text-amber-900">Trouvez un extra pour ce soir ou demain</p>
                   <p className="text-sm text-amber-700">Créez votre accès, puis postez votre mission urgente — 19,90 € l'annonce.</p>
+                  <p className="text-sm font-bold text-amber-800 mt-1">🎁 −50 % sur votre 1ʳᵉ mission, soit 9,95 €.</p>
                 </div>
               </div>
             </div>

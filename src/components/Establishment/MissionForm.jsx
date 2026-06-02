@@ -59,6 +59,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
   const [checkingAccess, setCheckingAccess] = useState(true)
   const [establishment, setEstablishment] = useState(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [isFirstMission, setIsFirstMission] = useState(false)
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -72,6 +73,13 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
           .single()
         if (!est) { navigate('/establishment'); return }
         setEstablishment(est)
+        // Promo lancement : -50% tant que l'établissement n'a aucune mission payée
+        const { count: paidCount } = await supabase
+          .from('missions')
+          .select('id', { count: 'exact', head: true })
+          .eq('establishment_id', est.id)
+          .eq('payment_status', 'paid')
+        setIsFirstMission(!paidCount || paidCount === 0)
         setCheckingAccess(false)
       } catch (err) {
         console.error('Erreur vérification accès:', err)
@@ -656,10 +664,20 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
                   <span className="font-bold text-red-600">⚡ Urgente</span>
                 </div>
               )}
-              <div className="border-t pt-2 mt-2 flex justify-between">
+              <div className="border-t pt-2 mt-2 flex justify-between items-center">
                 <span className="font-bold text-gray-900">Total</span>
-                <span className="text-2xl font-extrabold text-primary-600">{paymentInfo.price.toFixed(2)}€</span>
+                {isFirstMission && paymentInfo.price > 0 ? (
+                  <span className="flex items-baseline gap-2">
+                    <span className="text-base text-gray-400 line-through">{paymentInfo.price.toFixed(2)}€</span>
+                    <span className="text-2xl font-extrabold text-primary-600">{(paymentInfo.price * 0.5).toFixed(2)}€</span>
+                  </span>
+                ) : (
+                  <span className="text-2xl font-extrabold text-primary-600">{paymentInfo.price.toFixed(2)}€</span>
+                )}
               </div>
+              {isFirstMission && paymentInfo.price > 0 && (
+                <p className="text-sm font-semibold text-amber-600 text-right mt-1">🎁 −50 % sur votre 1ʳᵉ mission</p>
+              )}
             </div>
             {paymentInfo.clubSaving && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
@@ -677,7 +695,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
                     </svg>
                     Paiement...
                   </span>
-                ) : `Payer ${paymentInfo.price.toFixed(2)}€`}
+                ) : `Payer ${((isFirstMission && paymentInfo.price > 0 ? paymentInfo.price * 0.5 : paymentInfo.price)).toFixed(2)}€`}
               </button>
             </div>
           </div>

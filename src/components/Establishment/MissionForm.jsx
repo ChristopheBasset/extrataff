@@ -340,6 +340,49 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
             </div>
           )}
 
+          {/* ===== Champs Express (épuré) ===== */}
+          {expressMode && (
+            <div className="space-y-5">
+              {/* Décris ta demande (texte libre) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Décris ta demande</label>
+                <textarea name="comment" value={formData.comment} onChange={handleChange} maxLength={200} rows={2} className="input" placeholder="Ex : un plongeur ce soir 19h-23h, 13€/h" />
+              </div>
+
+              {/* Poste */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Poste *</label>
+                <select name="position" value={formData.position} onChange={handleChange} className="input" required>
+                  <option value="">Sélectionner un poste</option>
+                  {POSITION_TYPES.map(pos => <option key={pos.value} value={pos.value}>{pos.label}</option>)}
+                </select>
+              </div>
+
+              {/* Horaires */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Horaires *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="time" name="shift_start_time" value={formData.shift_start_time} onChange={handleChange} className="input" required />
+                  <input type="time" name="shift_end_time" value={formData.shift_end_time} onChange={handleChange} className="input" required />
+                </div>
+              </div>
+
+              {/* Prix */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prix (€/h)</label>
+                <input type="number" name="hourly_rate" value={formData.hourly_rate} onChange={handleChange} placeholder="13" step="0.50" min="0" className="input" />
+              </div>
+
+              {/* Lieu (pré-rempli) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
+                <div className="input bg-gray-50 text-gray-700">{establishment?.name ? `${establishment.name} — ` : ''}{establishment?.address || 'Adresse de votre établissement'}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Champs du parcours classique */}
+          {!expressMode && (<>
           {/* Poste recherché */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Poste recherché</h3>
@@ -472,6 +515,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
             <textarea name="comment" value={formData.comment} onChange={handleChange} maxLength={200} rows={3} className="input" placeholder="Précisez vos attentes, l'ambiance, les tâches spécifiques..." />
             <p className="text-xs text-gray-500 mt-1">{formData.comment.length} / 200 caractères</p>
           </div>
+          </>)}
 
           {/* Encart tarif */}
           {paymentInfo && (
@@ -498,7 +542,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
           <div className="flex gap-4">
             <button type="button" onClick={() => navigate('/establishment')} className="btn-secondary flex-1">Annuler</button>
             <button type="submit" disabled={loading} className="btn-primary flex-1">
-              {loading ? 'Création...' : (paymentInfo?.price > 0 ? `Publier — ${paymentInfo.price.toFixed(2)}€` : 'Publier la mission')}
+              {loading ? 'Création...' : (expressMode ? '⚡ Lancer la demande' : (paymentInfo?.price > 0 ? `Publier — ${paymentInfo.price.toFixed(2)}€` : 'Publier la mission'))}
             </button>
           </div>
         </form>

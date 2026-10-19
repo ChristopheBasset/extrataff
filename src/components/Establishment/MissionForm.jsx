@@ -3,6 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, POSITION_TYPES, CONTRACT_TYPES, generateFuzzyLocation } from '../../lib/supabase'
 import HelpBubble from '../../components/HelpBubble'
 
+// Tarif d'une mission à l'unité (TTC)
+const PRICE_MISSION = 19.90
+// Première mission offerte pour toute inscription avant le 1er décembre 2026 (heure de Paris)
+const FREE_FIRST_DEADLINE = new Date('2026-12-01T00:00:00+01:00')
+
 // Parsers Express : extraction poste / horaires / prix depuis le texte libre
 const parsePoste = (txt) => {
   if (!txt) return ''
@@ -59,7 +64,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
   const [checkingAccess, setCheckingAccess] = useState(true)
   const [establishment, setEstablishment] = useState(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [isFirstMission, setIsFirstMission] = useState(false)
+  const [freeFirstAvailable, setFreeFirstAvailable] = useState(false)
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -68,18 +73,20 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
         if (!user) { navigate('/login'); return }
         const { data: est } = await supabase
           .from('establishments')
-          .select('id, name, address, subscription_status, subscription_plan, trial_ends_at')
+          .select('id, name, address, subscription_status, subscription_plan, trial_ends_at, created_at')
           .eq('user_id', user.id)
           .single()
         if (!est) { navigate('/establishment'); return }
         setEstablishment(est)
-        // Promo lancement : -50% tant que l'établissement n'a aucune mission payée
-        const { count: paidCount } = await supabase
+        // Première mission offerte : inscription avant le 1er déc. 2026 et aucune mission déjà publiée.
+        // (Affichage seulement : la décision finale est prise par le serveur.)
+        const { count: usedCount } = await supabase
           .from('missions')
           .select('id', { count: 'exact', head: true })
           .eq('establishment_id', est.id)
           .eq('payment_status', 'paid')
-        setIsFirstMission(!paidCount || paidCount === 0)
+        const registeredInTime = est.created_at && new Date(est.created_at) < FREE_FIRST_DEADLINE
+        setFreeFirstAvailable(Boolean(registeredInTime) && (!usedCount || usedCount === 0))
         setCheckingAccess(false)
       } catch (err) {
         console.error('Erreur vérification accès:', err)
@@ -162,7 +169,8 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
     return diff > 0 ? diff : 1
   }, [formData.start_date, formData.end_date])
 
-  const isClubMember = establishment?.subscription_status === 'active' && establishment?.subscription_plan === 'club'
+  const hasActivePlan = establishment?.subscription_status === 'active' && ['club', 'annual'].includes(establishment?.subscription_plan)
+  const hasMonthlyPlan = establishment?.subscription_status === 'active' && establishment?.subscription_plan === 'monthly3'
   const isTrialActive = (() => {
     if (!establishment?.trial_ends_at) return false
     return new Date(establishment.trial_ends_at) > new Date()
@@ -175,9 +183,11 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
 
   const paymentInfo = useMemo(() => {
     if (!establishment) return null
-    if (isClubMember) return { type: 'club', price: 0, label: '🏆 Membre Club ExtraTaff', description: "Missions illimitées comprises dans votre abonnement", canCreate: true }
-    return { type: 'pay_per_mission', price: 19.90, label: 'Mission ponctuelle', description: 'Publication à 19,90€', canCreate: false, clubSaving: "Passez au Club à 39€/mois pour des missions illimitées" }
-  }, [establishment, isClubMember, expressMode])
+    if (hasActivePlan) return { type: 'plan', price: 0, label: '✅ Abonnement actif', description: 'Missions illimitées comprises dans votre abonnement', canCreate: true }
+    if (hasMonthlyPlan) return { type: 'plan', price: 0, label: '✅ Formule 3 missions par mois', description: 'Cette mission est comprise dans votre formule (3 missions par mois)', canCreate: true }
+    if (freeFirstAvailable) return { type: 'free_first', price: 0, label: '🎁 Première mission offerte', description: 'Votre première mission est gratuite', canCreate: true }
+    return { type: 'pay_per_mission', price: PRICE_MISSION, label: 'Mission ponctuelle', description: 'Publication à 19,90 €', canCreate: false }
+  }, [establishment, hasActivePlan, hasMonthlyPlan, freeFirstAvailable, expressMode])
 
   const extractDepartmentFromAddress = (address) => {
     if (!address) return null
@@ -319,7 +329,13 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
       navigate('/establishment')
     } catch (err) {
       console.error('Erreur création mission:', err)
-      setError(err.message)
+      if (String(err.message || '').includes('Paiement requis')) {
+        // Le serveur n'accorde pas la gratuité : on propose le paiement
+        setFreeFirstAvailable(false)
+        setShowPaymentModal(true)
+      } else {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
     }
@@ -613,14 +629,6 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
                 </div>
                 {paymentInfo.price > 0 && <span className={`text-2xl font-bold ${isUrgent ? 'text-red-700' : 'text-blue-700'}`}>{paymentInfo.price.toFixed(2)}€</span>}
               </div>
-              {paymentInfo.clubSaving && (
-                <div className="mt-3 pt-3 border-t border-amber-200 bg-amber-50 -mx-4 -mb-4 px-4 py-3 rounded-b-xl">
-                  <p className="text-sm text-amber-800">
-                    💡 <strong>Astuce :</strong> {paymentInfo.clubSaving}
-                    <button type="button" onClick={() => navigate('/establishment/subscribe')} className="ml-2 text-primary-600 font-semibold underline">Voir le Club</button>
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
@@ -628,7 +636,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
           <div className="flex gap-4">
             <button type="button" onClick={() => navigate('/establishment')} className="btn-secondary flex-1">Annuler</button>
             <button type="submit" disabled={loading} className="btn-primary flex-1">
-              {loading ? 'Création...' : (expressMode ? '⚡ Lancer la demande' : (paymentInfo?.price > 0 ? `Publier — ${paymentInfo.price.toFixed(2)}€` : 'Publier la mission'))}
+              {loading ? 'Création...' : (expressMode ? '⚡ Lancer la demande' : (paymentInfo?.price > 0 ? `Publier — ${paymentInfo.price.toFixed(2)}€` : (paymentInfo?.type === 'free_first' ? 'Publier ma première mission (offerte)' : 'Publier la mission')))}
             </button>
           </div>
         </form>
@@ -666,24 +674,9 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
               )}
               <div className="border-t pt-2 mt-2 flex justify-between items-center">
                 <span className="font-bold text-gray-900">Total</span>
-                {isFirstMission && paymentInfo.price > 0 ? (
-                  <span className="flex items-baseline gap-2">
-                    <span className="text-base text-gray-400 line-through">{paymentInfo.price.toFixed(2)}€</span>
-                    <span className="text-2xl font-extrabold text-primary-600">{(paymentInfo.price * 0.5).toFixed(2)}€</span>
-                  </span>
-                ) : (
-                  <span className="text-2xl font-extrabold text-primary-600">{paymentInfo.price.toFixed(2)}€</span>
-                )}
+                <span className="text-2xl font-extrabold text-primary-600">{PRICE_MISSION.toFixed(2)}€</span>
               </div>
-              {isFirstMission && paymentInfo.price > 0 && (
-                <p className="text-sm font-semibold text-amber-600 text-right mt-1">🎁 −50 % sur votre 1ʳᵉ mission</p>
-              )}
             </div>
-            {paymentInfo.clubSaving && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-                <p className="text-sm text-amber-800">💡 <strong>Avec le Club :</strong> {paymentInfo.clubSaving}</p>
-              </div>
-            )}
             <div className="flex gap-3">
               <button onClick={() => setShowPaymentModal(false)} disabled={loading} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors">Annuler</button>
               <button onClick={handlePaidCreate} disabled={loading} className="flex-1 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
@@ -695,7 +688,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
                     </svg>
                     Paiement...
                   </span>
-                ) : `Payer ${((isFirstMission && paymentInfo.price > 0 ? paymentInfo.price * 0.5 : paymentInfo.price)).toFixed(2)}€`}
+                ) : `Payer ${PRICE_MISSION.toFixed(2)}€`}
               </button>
             </div>
           </div>

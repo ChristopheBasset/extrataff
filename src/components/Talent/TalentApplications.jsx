@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, POSITION_TYPES } from '../../lib/supabase'
+import { supabase, POSITION_TYPES, ESTABLISHMENT_TYPES, getLabel } from '../../lib/supabase'
 
 export default function TalentApplications({ talentId, onBack }) {
   const navigate = useNavigate()
@@ -37,17 +37,26 @@ export default function TalentApplications({ talentId, onBack }) {
         .select('id, position, start_date, end_date, shift_start_time, shift_end_time, hourly_rate, salary_text, establishment_id, service_continu')
         .in('id', missionIds)
 
-      // Récupérer les établissements
+      // Récupérer les établissements : type et commune pour tous (infos publiques),
+      // nom seulement si le restaurant a accepté la candidature
       const estabIds = [...new Set(missions?.map(m => m.establishment_id) || [])]
-      const { data: establishments } = await supabase
+      const { data: publicEst } = await supabase
+        .from('establishment_public')
+        .select('id, city, type')
+        .in('id', estabIds)
+      const { data: fullEst } = await supabase
         .from('establishments')
-        .select('id, name, city')
+        .select('id, name')
         .in('id', estabIds)
 
       // Enrichir
       const enriched = apps.map(app => {
         const mission = missions?.find(m => m.id === app.mission_id)
-        const establishment = mission ? establishments?.find(e => e.id === mission.establishment_id) : null
+        const pub = mission ? publicEst?.find(e => e.id === mission.establishment_id) : null
+        const full = mission ? fullEst?.find(e => e.id === mission.establishment_id) : null
+        const establishment = pub
+          ? { ...pub, name: app.status === 'accepted' ? full?.name : null }
+          : null
         return { ...app, mission, establishment }
       })
 
@@ -83,6 +92,10 @@ export default function TalentApplications({ talentId, onBack }) {
       alert('Erreur lors du retrait de la candidature')
     }
   }
+
+  // Type d'établissement affiché au candidat (« Autre » ou vide → « Établissement »)
+  const getEstablishmentTypeLabel = (value) =>
+    !value || value === 'autre' ? 'Établissement' : getLabel(value, ESTABLISHMENT_TYPES)
 
   // Helpers
   const getPositionLabel = (value) => {
@@ -174,7 +187,7 @@ export default function TalentApplications({ talentId, onBack }) {
                     </h3>
                     {app.establishment && (
                       <p className="text-sm text-primary-600 font-medium mt-1">
-                        🏪 {app.establishment.name}
+                        🏪 {app.establishment.name || getEstablishmentTypeLabel(app.establishment.type)}
                         {app.establishment.city && ` — ${app.establishment.city}`}
                       </p>
                     )}

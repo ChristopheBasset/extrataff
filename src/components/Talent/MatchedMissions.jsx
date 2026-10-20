@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase, POSITION_TYPES, CONTRACT_TYPES, DURATION_TYPES, extractDepartment } from '../../lib/supabase'
+import { supabase, POSITION_TYPES, CONTRACT_TYPES, DURATION_TYPES, ESTABLISHMENT_TYPES, extractDepartment, getLabel } from '../../lib/supabase'
 
 export default function MatchedMissions({ talentId, talentProfile, onBack, onCountChange }) {
   const [missions, setMissions] = useState([])
@@ -31,13 +31,14 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         return
       }
 
-      // Récupérer les établissements liés aux missions
+      // Récupérer les établissements liés aux missions (infos publiques seulement :
+      // type et commune. Le nom et l'adresse ne sont communiqués qu'après acceptation)
       const estIds = [...new Set(allMissions.map(m => m.establishment_id).filter(Boolean))]
       let estMap = {}
       if (estIds.length > 0) {
         const { data: establishments } = await supabase
-          .from('establishments')
-          .select('id, name, city, type, user_id')
+          .from('establishment_public')
+          .select('id, city, type, user_id')
           .in('id', estIds)
         if (establishments) {
           estMap = Object.fromEntries(establishments.map(e => [e.id, e]))
@@ -183,6 +184,10 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
     if (onCountChange) onCountChange(missions.length - 1)
   }
 
+  // Type d'établissement affiché au candidat (« Autre » ou vide → « Établissement »)
+  const getEstablishmentTypeLabel = (value) =>
+    !value || value === 'autre' ? 'Établissement' : getLabel(value, ESTABLISHMENT_TYPES)
+
   // Helpers
   const getPositionLabel = (value) => {
     const found = POSITION_TYPES?.find(p => p.value === value)
@@ -296,10 +301,10 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
                   </span>
                 )}
 
-                {/* Établissement */}
+                {/* Établissement : type et commune seulement (le nom est communiqué après acceptation) */}
                 {mission.establishments && (
                   <p className="text-sm text-primary-600 font-medium mt-1">
-                    🏪 {mission.establishments.name}
+                    🏪 {getEstablishmentTypeLabel(mission.establishments.type)}
                     {mission.establishments.city && ` — ${mission.establishments.city}`}
                   </p>
                 )}

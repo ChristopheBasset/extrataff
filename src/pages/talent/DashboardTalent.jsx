@@ -147,7 +147,7 @@ export default function DashboardTalent() {
     try {
       const { data: allMissions, error: missErr } = await supabase
         .from('missions')
-        .select('*, establishment:establishments(department)')
+        .select('*')
         .eq('status', 'open')
 
       if (missErr) {
@@ -185,7 +185,7 @@ export default function DashboardTalent() {
           // ✅ FIX : match département via la table établissements (JOIN)
           // Le talent choisit ses departments préférés, l'établissement a son department
           if (talentProfile.preferred_departments && talentProfile.preferred_departments.length > 0) {
-            const missionDept = mission.establishment?.department
+            const missionDept = extractDepartment(mission.location_fuzzy)
             if (!missionDept || !talentProfile.preferred_departments.includes(missionDept)) {
               return false
             }

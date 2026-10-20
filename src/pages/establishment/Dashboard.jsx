@@ -9,11 +9,15 @@ import AddressAutocomplete from '../../components/shared/AddressAutocomplete'
 import NotificationBell from '../../components/shared/NotificationBell'
 import HelpBubble from '../../components/HelpBubble'
 
+// Première mission offerte pour toute inscription jusqu'au 30 novembre 2026 inclus (heure de Paris).
+const FREE_FIRST_DEADLINE = new Date('2026-12-01T00:00:00+01:00')
+
 export default function EstablishmentDashboard() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [view, setView] = useState('home')
   const [loading, setLoading] = useState(true)
+  const [freeFirstAvailable, setFreeFirstAvailable] = useState(false)
   const [counts, setCounts] = useState({
     missions: 0,
     candidates: 0,
@@ -82,6 +86,15 @@ export default function EstablishmentDashboard() {
       setProfile(data)
       if (data) {
         loadCounts(data.id)
+        // Première mission offerte : inscrit avant le 1er déc. 2026 et aucune mission déjà facturée
+        // (affichage seulement : la décision finale est prise par le serveur)
+        const { count: billedCount } = await supabase
+          .from('missions')
+          .select('id', { count: 'exact', head: true })
+          .eq('establishment_id', data.id)
+          .in('billing_kind', ['free_first', 'single', 'subscription'])
+        const registeredInTime = data.created_at && new Date(data.created_at) < FREE_FIRST_DEADLINE
+        setFreeFirstAvailable(Boolean(registeredInTime) && (!billedCount || billedCount === 0))
         // Préparer le formulaire d'édition
         setProfileForm({
           name: data.name || '',
@@ -251,37 +264,22 @@ export default function EstablishmentDashboard() {
   }
 
   // ---- Helpers header ----
-  const getTrialDaysLeft = () => {
-    if (!profile?.trial_ends_at) return null
-    const now = new Date()
-    const end = new Date(profile.trial_ends_at)
-    const diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
-    return diff > 0 ? diff : 0
-  }
-
-  const isTrialActive = () => {
-    const days = getTrialDaysLeft()
-    return days !== null && days > 0
-  }
-
-  const isClubMember = () => {
-    return profile?.subscription_status === 'active' && profile?.subscription_plan === 'club'
+  const isSubscriber = () => {
+    return profile?.subscription_status === 'active' &&
+      ['club', 'annual', 'monthly3'].includes(profile?.subscription_plan)
   }
 
   const getSubscriptionBadge = () => {
-    const status = profile?.subscription_status
-    const plan = profile?.subscription_plan
-    if (status === 'active' && plan === 'club') {
-      return { label: '🏆 Membre Club ExtraTaff', color: 'bg-green-100 text-green-800' }
+    if (isSubscriber()) {
+      if (profile?.subscription_plan === 'monthly3') {
+        return { label: '✅ Formule 3 missions par mois', color: 'bg-green-100 text-green-800' }
+      }
+      return { label: '✅ Abonné — missions illimitées', color: 'bg-green-100 text-green-800' }
     }
-    if (isTrialActive()) {
-      const days = getTrialDaysLeft()
-      return { label: `🎁 Essai gratuit — ${days}j restants`, color: 'bg-blue-100 text-blue-800' }
+    if (freeFirstAvailable) {
+      return { label: '🎁 Première mission offerte', color: 'bg-blue-100 text-blue-800' }
     }
-    if (status === 'expired') {
-      return { label: '🔴 Expiré', color: 'bg-red-100 text-red-800' }
-    }
-    return { label: '🟡 Freemium expiré', color: 'bg-yellow-100 text-yellow-800' }
+    return { label: 'Mission à 19,90 €', color: 'bg-gray-100 text-gray-700' }
   }
 
   if (loading) {
@@ -309,7 +307,6 @@ export default function EstablishmentDashboard() {
   }
 
   const badge = getSubscriptionBadge()
-  const trialDays = getTrialDaysLeft()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -339,36 +336,24 @@ export default function EstablishmentDashboard() {
               {badge.label}
             </span>
           </div>
-          {/* Ligne 3 : Infos freemium — essai gratuit en cours */}
-          {!isClubMember() && isTrialActive() && (
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              <button
-                onClick={() => navigate('/establishment/subscribe')}
-                className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
-              >
-                Rejoindre le Club — 39€/mois →
-              </button>
+          {/* Ligne 3 : première mission offerte */}
+          {!isSubscriber() && freeFirstAvailable && (
+            <div className="mt-1 text-sm">
+              <span className="text-blue-700 font-medium">🎁 Votre première mission est offerte</span>
             </div>
           )}
-          {/* Ligne 3 : Freemium expiré */}
-          {!isClubMember() && !isTrialActive() && (
+          {/* Ligne 3 : publication à la mission */}
+          {!isSubscriber() && !freeFirstAvailable && (
+            <div className="mt-1 text-sm">
+              <span className="text-gray-500">Publication à 19,90 € la mission</span>
+            </div>
+          )}
+          {/* Ligne 3 bis : abonnés */}
+          {isSubscriber() && (
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-amber-600 font-medium">
-                ⏰ Essai terminé
+              <span className="text-green-600 font-medium">
+                {profile.subscription_plan === 'monthly3' ? '✅ 3 missions par mois' : '✅ Missions illimitées'}
               </span>
-              <button
-                onClick={() => navigate('/establishment/subscribe')}
-                className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
-              >
-                Rejoindre le Club — 39€/mois →
-              </button>
-              <span className="text-gray-400 text-xs">ou 19,90€/mission</span>
-            </div>
-          )}
-          {/* Ligne 3 bis : Info Club pour les membres */}
-          {isClubMember() && (
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-green-600 font-medium">✅ Missions illimitées</span>
               <button
                 onClick={handleManageSubscription}
                 className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
@@ -584,48 +569,41 @@ export default function EstablishmentDashboard() {
                         {badge.label}
                       </span>
                     </div>
-                    {/* Info Club */}
-                    {isClubMember() && (
+                    {/* Abonnés */}
+                    {isSubscriber() && (
                       <div className="mt-2 space-y-1">
                         <p className="text-sm text-green-600 font-medium">
-                          ✅ Missions illimitées — 39€/mois
+                          {profile.subscription_plan === 'monthly3' ? '✅ 3 missions par mois' : '✅ Missions illimitées'}
                         </p>
                         <p className="text-sm text-gray-500">
-                          Sans engagement • Résiliable à tout moment
+                          {profile.subscription_plan === 'annual'
+                            ? 'Engagement de 12 mois • Renouvelé automatiquement'
+                            : 'Sans engagement • Résiliable à tout moment'}
                         </p>
                       </div>
                     )}
-                    {/* Info Freemium actif */}
-                    {!isClubMember() && isTrialActive() && (
-                      <div className="mt-2">
-                        <p className="text-sm text-blue-600 font-medium">
-                          🎁 Essai gratuit — {trialDays} jours restants • Missions illimitées
-                        </p>
-                      </div>
-                    )}
-                    {/* Info Freemium expiré */}
-                    {!isClubMember() && !isTrialActive() && (
-                      <p className="text-sm text-amber-600 mt-2">
-                        ⏰ Essai gratuit terminé — Rejoignez le Club ou publiez à 19,90€/mission
+                    {/* Première mission offerte */}
+                    {!isSubscriber() && freeFirstAvailable && (
+                      <p className="text-sm text-blue-600 font-medium mt-2">
+                        🎁 Votre première mission est offerte
                       </p>
                     )}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {isClubMember() ? (
+                    {/* Publication à la mission */}
+                    {!isSubscriber() && !freeFirstAvailable && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Publication à 19,90 € la mission
+                      </p>
+                    )}
+                    {isSubscriber() && (
+                      <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           onClick={handleManageSubscription}
                           className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
                         >
                           ⚙️ Gérer mon abonnement
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => navigate('/establishment/subscribe')}
-                          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
-                        >
-                          🏆 Rejoindre le Club — 39€/mois
-                        </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

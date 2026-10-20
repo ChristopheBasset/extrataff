@@ -182,7 +182,7 @@ export default function EditMissionForm() {
         user_id: talent.user_id,
         type: 'new_mission',
         title: '🎯 Mission relancée !',
-        content: `Une mission "${positionLabel}" correspond à votre profil - ${establishmentName}`,
+        content: `Une mission "${positionLabel}" correspond à votre profil — ${generateFuzzyLocation(establishmentAddress)}`,
         link: '/talent/missions',
         read: false
       }))
@@ -211,9 +211,7 @@ export default function EditMissionForm() {
       const fuzzyLocation = generateFuzzyLocation(est.address)
       const { start: shift_start, end: shift_end } = parseShiftText(formData.shift_text)
 
-      const { data: updatedMission, error } = await supabase
-        .from('missions')
-        .update({
+      const missionFields = {
           position: formData.position,
           location_fuzzy: fuzzyLocation,
           location_exact: est.address,
@@ -232,12 +230,28 @@ export default function EditMissionForm() {
           comment: formData.comment || null,
           service_continu: formData.service_continu,
           nb_postes: parseInt(formData.nb_postes) || 1,
-          cv_required: formData.cv_required || false,
-          status: 'open',
-          archived_at: null
-        })
+          cv_required: formData.cv_required || false
+      }
+
+      // On tente de republier la mission : c'est le serveur qui décide si cette
+      // publication est comprise dans les droits de l'établissement.
+      const { data: updatedMission, error } = await supabase
+        .from('missions')
+        .update({ ...missionFields, status: 'open', archived_at: null })
         .eq('id', missionId)
         .select().single()
+
+      if (error && String(error.message || '').includes('Paiement requis')) {
+        // Republication payante : on enregistre les modifications sans rouvrir la mission
+        const { error: saveError } = await supabase
+          .from('missions')
+          .update(missionFields)
+          .eq('id', missionId)
+        if (saveError) throw saveError
+        alert('Vos modifications sont enregistrées. Pour republier cette mission, utilisez « Réouvrir » dans Mes missions (19,90 €).')
+        navigate('/establishment/missions')
+        return
+      }
 
       if (error) throw error
       await notifyMatchingTalents(updatedMission, est.name, est.address)

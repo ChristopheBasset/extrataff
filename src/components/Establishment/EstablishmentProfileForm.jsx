@@ -3,11 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { supabase, ESTABLISHMENT_TYPES } from '../../lib/supabase'
 import AddressAutocomplete from '../shared/AddressAutocomplete'
 
+// Première mission offerte pour toute inscription jusqu'au 30 novembre 2026 inclus (heure de Paris).
+// Même date que dans la base (verrou SQL), le formulaire de mission et la page d'inscription.
+const FREE_FIRST_DEADLINE = new Date('2026-12-01T00:00:00+01:00')
+
 export default function EstablishmentProfileForm() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const isExpress = typeof window !== 'undefined' && sessionStorage.getItem('express_flow') === '1'
+  const freeOfferActive = new Date() < FREE_FIRST_DEADLINE
   
   const [formData, setFormData] = useState({
     name: '',
@@ -146,11 +151,11 @@ export default function EstablishmentProfileForm() {
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>
           )}
 
-          {/* Offre Freemium (masquée en Express : annonce payante, gratuité réservée au Club) */}
-          {!isExpress && (
+          {/* Première mission offerte (affichée jusqu'au 30 novembre 2026) */}
+          {freeOfferActive && (
             <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
-              <p className="text-amber-900 font-medium mb-1">🎁 Offre Freemium - 1 mois d'essai gratuit</p>
-              <p className="text-amber-700 text-sm">Testez ExtraTaff gratuitement pendant 1 mois avec jusqu'à 2 missions, puis 59,90€/mois pour des missions illimitées.</p>
+              <p className="text-amber-900 font-medium mb-1">🎁 Votre première mission est offerte</p>
+              <p className="text-amber-700 text-sm">Pour toute inscription jusqu’au 30 novembre 2026, sans carte bancaire. Ensuite, 19,90 € la mission.</p>
             </div>
           )}
 

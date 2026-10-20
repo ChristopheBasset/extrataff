@@ -112,10 +112,6 @@ export default function MissionSuccess() {
         >
           Voir mes missions
         </button>
-
-        <p className="text-sm text-gray-500 mt-4">
-          💡 Pour des missions illimitées, pensez au Club ExtraTaff.
-        </p>
       </div>
     </div>
   )

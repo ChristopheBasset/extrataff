@@ -13,7 +13,7 @@ export default function MyMissions({ establishmentId, onBack }) {
     if (establishmentId) loadMissions()
   }, [establishmentId, filter])
 
-  // Charger l'abonnement de l'établissement (pour savoir si membre Club ou non)
+  // Charger l'abonnement de l'établissement (pour savoir s'il est abonné ou non)
   useEffect(() => {
     if (!establishmentId) return
     ;(async () => {
@@ -98,12 +98,12 @@ export default function MyMissions({ establishmentId, onBack }) {
   }
 
   const handleReopenMission = async (missionId) => {
-    const isClubMember =
+    const isSubscriber =
       establishment?.subscription_status === 'active' &&
-      establishment?.subscription_plan === 'club'
+      ['club', 'annual', 'monthly3'].includes(establishment?.subscription_plan)
 
-    // Membre Club → réouverture gratuite (missions illimitées)
-    if (isClubMember) {
+    // Abonné → réouverture comprise dans la formule (le serveur contrôle la limite des 3 missions par mois)
+    if (isSubscriber) {
       try {
         const { error } = await supabase
           .from('missions')
@@ -119,13 +119,13 @@ export default function MyMissions({ establishmentId, onBack }) {
         loadMissions()
       } catch (err) {
         console.error('Erreur réouverture mission:', err)
-        alert('Erreur lors de la réouverture')
+        alert(String(err.message || '').includes('Limite') ? err.message : 'Erreur lors de la réouverture')
       }
       return
     }
 
-    // Non-membre → paiement obligatoire (19,90€) pour réouvrir
-    if (!confirm('Réouvrir cette mission coûte 19,90 €. Pour des missions illimitées, devenez membre du Club (bouton « Devenir membre » en haut). Continuer vers le paiement ?')) return
+    // Sans abonnement → paiement obligatoire (19,90€) pour réouvrir
+    if (!confirm('Réouvrir cette mission coûte 19,90 €. Continuer vers le paiement ?')) return
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL

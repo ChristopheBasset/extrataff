@@ -227,7 +227,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
         user_id: talent.user_id,
         type: 'new_mission',
         title: `${urgentPrefix}Nouvelle mission disponible !`,
-        content: `Une mission "${positionLabel}" correspond à votre profil - ${establishmentName}`,
+        content: `Une mission "${positionLabel}" correspond à votre profil — ${generateFuzzyLocation(establishmentAddress)}`,
         link: '/talent/missions',
         read: false
       }))
@@ -254,7 +254,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
                 data: {
                   talent_name: talent.first_name,
                   position: positionLabel,
-                  establishment_name: establishmentName,
+                  location: generateFuzzyLocation(establishmentAddress),
                   start_date: new Date(mission.start_date).toLocaleDateString('fr-FR'),
                   hourly_rate: mission.hourly_rate,
                   is_urgent: mission.is_urgent

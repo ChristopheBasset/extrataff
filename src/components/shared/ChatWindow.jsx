@@ -119,6 +119,11 @@ export default function ChatWindow({ userType }) {
         `)
         .eq('id', applicationId).single()
       if (appError) throw appError
+      // Si la fiche de l'établissement n'est plus accessible (candidature ni acceptée ni confirmée),
+      // on affiche un nom neutre au lieu de planter
+      if (appData?.missions && !appData.missions.establishments) {
+        appData.missions.establishments = { name: 'Établissement', user_id: null, address: '' }
+      }
       setApplication(appData)
       setTalentCvUrl(appData.talents?.cv_url || null)
 

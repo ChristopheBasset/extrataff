@@ -48,6 +48,7 @@ const CGV = () => {
               <p>Publication de missions temporaires, mise en relation avec des talents qualifiés grâce à un système de matching, messagerie intégrée, gestion des candidatures, planning des missions.</p>
               <p className="mt-3"><strong>Pour les talents (extras) :</strong></p>
               <p>Consultation et candidature aux missions correspondant à leur profil, profil professionnel, messagerie avec les établissements, planning des missions acceptées. L'accès à la plateforme est entièrement gratuit pour les talents.</p>
+              <p className="mt-3">Le nom, l'adresse et le numéro de téléphone d'un établissement ne sont communiqués à un talent qu'après l'acceptation de sa candidature par l'établissement.</p>
             </div>
           </section>
 
@@ -78,7 +79,7 @@ const CGV = () => {
               <div className="text-gray-700 text-sm space-y-2">
                 <p><strong>Tarif unique :</strong> 19,90 € TTC par mission, quel que soit le type de mission (urgente ou non).</p>
                 <p>
-                  La réouverture d'une mission clôturée constitue une nouvelle publication, facturée au même tarif.
+                  La réouverture d'une mission clôturée, pourvue ou terminée constitue une nouvelle publication, facturée au même tarif. La clôture d'une mission par l'établissement est gratuite et n'ouvre droit à aucun remboursement.
                 </p>
               </div>
             </div>
@@ -104,7 +105,10 @@ const CGV = () => {
           <section>
             <h2 className="text-xl font-bold text-gray-900 mb-4">Article 5 — Publication des missions, droit de rétractation et remboursement</h2>
             <p className="text-gray-700 leading-relaxed">
-              Une mission est visible par les candidats correspondants dès que son paiement est confirmé (ou, pour la mission offerte, dès sa publication). Elle le reste jusqu'à sa clôture par l'établissement ou jusqu'à son expiration. ExtraTaff ne garantit ni le nombre de candidatures reçues, ni l'embauche d'un candidat.
+              Une mission est visible par les candidats correspondants dès que son paiement est confirmé (ou, pour la mission offerte, dès sa publication). Elle reste en ligne jusqu'à ce que tous ses postes soient pourvus, ou jusqu'à sa date de fin si elle arrive avant, ou jusqu'à sa clôture par l'établissement. ExtraTaff ne garantit ni le nombre de candidatures reçues, ni l'embauche d'un candidat.
+            </p>
+            <p className="text-gray-700 leading-relaxed mt-3">
+              La date de fin d'une mission ne peut pas dépasser 30 jours après sa date de début. Pour une période plus longue, l'établissement publie une nouvelle mission à la fin de la première. Chaque publication est facturée selon les conditions de l'article 4.
             </p>
             <p className="text-gray-700 leading-relaxed mt-3">
               Conformément à l'article L.221-28 du Code de la consommation, le droit de rétractation ne s'applique pas aux services pleinement exécutés avant la fin du délai de rétractation et dont l'exécution a commencé avec l'accord du consommateur. En achetant une mission, l'établissement reconnaît que le service commence immédiatement et renonce expressément à son droit de rétractation.

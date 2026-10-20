@@ -882,7 +882,7 @@ export default function Landing() {
             <div className="mt-10 text-center">
               <p className="text-slate-600 mb-2">Vous avez d'autres questions ?</p>
               <a
-                href="mailto:contact@extrataff.fr"
+                href="mailto:christophe@comunecom.fr"
                 className="inline-flex items-center text-blue-700 font-semibold hover:text-blue-800"
               >
                 Contactez-nous
@@ -948,8 +948,8 @@ export default function Landing() {
                   <li><Link to="/cgv" className="text-slate-300 hover:text-white transition-colors font-medium">CGV</Link></li>
                   <li><Link to="/confidentialite" className="text-slate-300 hover:text-white transition-colors font-medium">Confidentialité</Link></li>
                   <li>
-                    <a href="mailto:contact@extrataff.fr" className="text-slate-300 hover:text-white transition-colors font-medium">
-                      contact@extrataff.fr
+                    <a href="mailto:christophe@comunecom.fr" className="text-slate-300 hover:text-white transition-colors font-medium">
+                      christophe@comunecom.fr
                     </a>
                   </li>
                 </ul>

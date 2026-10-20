@@ -110,7 +110,7 @@ const CGV = () => {
               Conformément à l'article L.221-28 du Code de la consommation, le droit de rétractation ne s'applique pas aux services pleinement exécutés avant la fin du délai de rétractation et dont l'exécution a commencé avec l'accord du consommateur. En achetant une mission, l'établissement reconnaît que le service commence immédiatement et renonce expressément à son droit de rétractation.
             </p>
             <p className="text-gray-700 leading-relaxed mt-3">
-              Une mission publiée n'est pas remboursable, sauf erreur de facturation ou dysfonctionnement de la plateforme imputable à CVBN CONSULTING. Pour toute demande, l'établissement peut écrire à contact@extrataff.fr.
+              Une mission publiée n'est pas remboursable, sauf erreur de facturation ou dysfonctionnement de la plateforme imputable à CVBN CONSULTING. Pour toute demande, l'établissement peut écrire à christophe@comunecom.fr.
             </p>
           </section>
 
@@ -144,7 +144,7 @@ const CGV = () => {
           <section>
             <h2 className="text-xl font-bold text-gray-900 mb-4">Article 8 — Contenus et signalements</h2>
             <p className="text-gray-700 leading-relaxed">
-              Les utilisateurs sont responsables des contenus qu'ils publient (annonces, profils, messages). CVBN CONSULTING peut retirer, sans préavis, toute annonce ou tout contenu illicite, discriminatoire, trompeur ou contraire aux présentes CGV, et suspendre le compte concerné. Tout contenu peut être signalé à contact@extrataff.fr.
+              Les utilisateurs sont responsables des contenus qu'ils publient (annonces, profils, messages). CVBN CONSULTING peut retirer, sans préavis, toute annonce ou tout contenu illicite, discriminatoire, trompeur ou contraire aux présentes CGV, et suspendre le compte concerné. Tout contenu peut être signalé à christophe@comunecom.fr.
             </p>
           </section>
 
@@ -202,7 +202,7 @@ const CGV = () => {
             <div className="bg-gray-50 rounded-lg p-5 text-gray-700">
               <p><strong>CVBN CONSULTING</strong> — ExtraTaff</p>
               <p>1, sente aux Pruniers — 27120 Gadencourt</p>
-              <p>Email : contact@extrataff.fr</p>
+              <p>Email : christophe@comunecom.fr</p>
               <p>SIRET : 984 685 933 00017</p>
               <p>TVA : FR23984685933</p>
             </div>

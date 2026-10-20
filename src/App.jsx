@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import Landing from './pages/Landing';
+import LandingCalvados from './pages/LandingCalvados'
 
 // Pages
 import Login from './pages/auth/Login'
@@ -202,6 +203,7 @@ function App() {
       <Routes>
         {/* Routes publiques */}
         <Route path="/" element={<Landing />} />
+        <Route path="/calvados" element={<LandingCalvados />} />
         <Route path="/login" element={<AuthGuard session={session}><Login /></AuthGuard>} />
         <Route path="/signup" element={<AuthGuard session={session}><Signup /></AuthGuard>} />
         <Route path="/register" element={<AuthGuard session={session}><Register /></AuthGuard>} />

@@ -1,6 +1,10 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
+// Première mission offerte pour toute inscription jusqu'au 30 novembre 2026 inclus (heure de Paris).
+// Même date que dans la base, le formulaire de mission et la page d'inscription.
+const FREE_FIRST_DEADLINE = new Date('2026-12-01T00:00:00+01:00');
+
 export default function Landing() {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState(null);
@@ -34,6 +38,8 @@ export default function Landing() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const freeOfferActive = new Date() < FREE_FIRST_DEADLINE;
+
   const faqItems = [
     {
       question: "C'est quoi ExtraTaff ?",
@@ -41,7 +47,7 @@ export default function Landing() {
     },
     {
       question: "C'est gratuit ?",
-      answer: "Pour les Extras, c'est 100% gratuit, à vie ! Pour les établissements, devenez membre du Club ExtraTaff à 39€/mois pour des missions illimitées. Vous pouvez aussi publier une mission ponctuelle à 19,90€ sans abonnement. Aucune commission sur le salaire de votre Extra."
+      answer: "Pour les Extras, c'est 100% gratuit, à vie ! Pour les établissements, chaque mission coûte 19,90€ TTC, sans abonnement." + (freeOfferActive ? " Votre première mission est offerte pour toute inscription jusqu'au 30 novembre 2026, sans carte bancaire." : "") + " Aucune commission sur le salaire de votre Extra."
     },
     {
       question: "Comment créer un compte ?",
@@ -58,10 +64,6 @@ export default function Landing() {
     {
       question: "Comment fonctionne le matching ?",
       answer: "Notre algorithme analyse votre profil (postes, expérience, localisation, disponibilités) et le compare aux missions disponibles. Vous ne voyez que les offres qui correspondent vraiment à ce que vous cherchez !"
-    },
-    {
-      question: "Qu'est-ce que le Club ExtraTaff ?",
-      answer: "Le Club ExtraTaff est notre abonnement mensuel à 39€/mois pour les établissements. En devenant membre, vous publiez des missions en illimité, accédez à tous les Extras et profitez de la messagerie instantanée. Sans engagement, résiliable à tout moment."
     },
     {
       question: "Qu'est-ce qu'une mission urgente ?",
@@ -231,7 +233,7 @@ export default function Landing() {
         .btn-primary-gradient .arrow { transition: transform 0.25s; }
         .btn-primary-gradient:hover .arrow { transform: translateX(4px); }
 
-        /* Sky button (Club CTA) */
+        /* Sky button (CTA offre de lancement) */
         .btn-sky-gradient {
           background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);
           box-shadow: 0 8px 24px rgba(14,165,233,0.35);
@@ -376,7 +378,9 @@ export default function Landing() {
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </button>
                 <p className="text-sm text-slate-500 mt-2 font-medium">Un extra pour ce soir ou demain, en quelques minutes.</p>
-                <p className="text-sm font-bold text-amber-600 mt-1.5">🎁 −50 % sur votre 1ʳᵉ mission</p>
+                {freeOfferActive && (
+                  <p className="text-sm font-bold text-amber-600 mt-1.5">🎁 Votre première mission est offerte</p>
+                )}
               </div>
               
               {/* Cartouche stats avec compteur */}
@@ -390,7 +394,7 @@ export default function Landing() {
                     <span className="text-base font-bold text-slate-900 leading-tight">candidats Extras à votre service</span>
                     <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-500">
                       <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full pulse-green" />
-                      en ligne en ce moment
+                      inscrits sur la plateforme
                     </span>
                   </div>
                 </div>
@@ -416,14 +420,6 @@ export default function Landing() {
                 </button>
               </div>
 
-              {/* Lien Offre Groupe */}
-              <button
-                onClick={() => navigate('/groupe')}
-                className="fade-in fade-in-6 text-slate-500 hover:text-blue-700 underline underline-offset-4 inline-flex items-center gap-2 transition text-sm font-medium"
-              >
-                <span>🏢</span>
-                <span>Vous gérez plusieurs établissements ? Découvrir l'offre Groupe</span>
-              </button>
             </div>
 
             {/* COLONNE DROITE — Illustration smartphone */}
@@ -593,7 +589,7 @@ export default function Landing() {
                 </div>
                 <h3 className="text-2xl font-bold tracking-tight mb-3.5">Tarif fixe, jamais sur la valeur</h3>
                 <p className="text-slate-600 text-[15px] leading-relaxed">
-                  Un prix unique par mission ou un abonnement Club. Aucune commission sur le salaire de votre Extra : ce que vous lui versez, il le touche en intégralité.
+                  Un prix unique par mission, sans abonnement. Aucune commission sur le salaire de votre Extra : ce que vous lui versez, il le touche en intégralité.
                 </p>
               </div>
 
@@ -662,17 +658,53 @@ export default function Landing() {
               jamais sur la valeur.
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mb-16 leading-relaxed">
-              Tarif fixe par mission ou abonnement Club. <strong className="font-bold text-slate-900">Aucune commission sur le salaire de votre Extra</strong> — le tarif que vous voyez est le tarif que vous payez. Pour les Extras, ExtraTaff est gratuit, à vie.
+              Un tarif fixe par mission, sans abonnement. <strong className="font-bold text-slate-900">Aucune commission sur le salaire de votre Extra</strong> — le tarif que vous voyez est le tarif que vous payez. Pour les Extras, ExtraTaff est gratuit, à vie.
             </p>
 
-            <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            <div className={`grid gap-6 mx-auto ${freeOfferActive ? 'md:grid-cols-2 max-w-4xl' : 'max-w-md'}`}>
+              {/* Card Première mission offerte (jusqu'au 30 novembre 2026) */}
+              {freeOfferActive && (
+                <div className="price-featured rounded-3xl p-10 text-white shadow-2xl"
+                     style={{ background: 'linear-gradient(160deg, #0A2540 0%, #0F2E5C 100%)' }}>
+                  <div className="absolute -top-3 right-6 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider uppercase text-white"
+                       style={{ background: 'linear-gradient(135deg, #0EA5E9, #3B82F6)', boxShadow: '0 6px 16px rgba(14,165,233,0.4)' }}>
+                    Offre de lancement
+                  </div>
+                  <div className="text-xl font-bold tracking-tight mb-2 text-white">Première mission offerte</div>
+                  <div className="text-sm text-white/70 mb-7">Pour toute inscription jusqu&apos;au 30 novembre 2026</div>
+                  <div className="flex items-baseline gap-1.5 mb-8">
+                    <span className="font-extrabold text-white" style={{ fontSize: '56px', letterSpacing: '-0.04em', lineHeight: '1' }}>0&nbsp;€</span>
+                    <span className="text-sm text-white/70 font-medium">pour votre 1ʳᵉ mission</span>
+                  </div>
+                  <ul className="space-y-0 mb-8">
+                    {['Sans carte bancaire', 'Aucune commission sur le salaire', 'Messagerie et planning inclus'].map((item, i) => (
+                      <li key={i} className="flex items-center gap-3 py-3 text-sm font-medium border-b border-white/10 last:border-b-0">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                              style={{ background: 'linear-gradient(135deg, #0EA5E9, #3B82F6)' }}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        </span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => navigate('/register?type=establishment')}
+                    className="btn-sky-gradient w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-white font-semibold text-[15px]"
+                  >
+                    Publier ma première mission
+                  </button>
+                </div>
+              )}
+
               {/* Card À la mission */}
               <div className="bg-white border border-blue-100 rounded-3xl p-10 hover:-translate-y-1 hover:shadow-xl hover:border-blue-300 transition-all duration-300">
                 <div className="text-xl font-bold tracking-tight mb-2">À la mission</div>
-                <div className="text-sm text-slate-500 mb-7">Pour les besoins ponctuels</div>
+                <div className="text-sm text-slate-500 mb-7">Pour tous vos besoins en personnel</div>
                 <div className="flex items-baseline gap-1.5 mb-8">
                   <span className="font-extrabold text-slate-900" style={{ fontSize: '56px', letterSpacing: '-0.04em', lineHeight: '1' }}>19,90&nbsp;€</span>
-                  <span className="text-sm text-slate-500 font-medium">/ mission</span>
+                  <span className="text-sm text-slate-500 font-medium">TTC / mission</span>
                 </div>
                 <ul className="space-y-0 mb-8">
                   {['Pas d\'abonnement', 'Tarif fixe, aucune commission sur le salaire', 'Paiement sécurisé Stripe'].map((item, i) => (
@@ -690,54 +722,10 @@ export default function Landing() {
                   onClick={() => navigate('/register?type=establishment')}
                   className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-white text-slate-900 font-semibold text-[15px] border-2 border-blue-100 hover:border-blue-700 hover:text-blue-700 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300"
                 >
-                  Publier ma première mission
-                </button>
-              </div>
-
-              {/* Card Club ExtraTaff (featured) */}
-              <div className="price-featured rounded-3xl p-10 text-white shadow-2xl"
-                   style={{ background: 'linear-gradient(160deg, #0A2540 0%, #0F2E5C 100%)' }}>
-                <div className="absolute -top-3 right-6 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider uppercase text-white"
-                     style={{ background: 'linear-gradient(135deg, #0EA5E9, #3B82F6)', boxShadow: '0 6px 16px rgba(14,165,233,0.4)' }}>
-                  Le plus populaire
-                </div>
-                <div className="text-xl font-bold tracking-tight mb-2 text-white">Club ExtraTaff</div>
-                <div className="text-sm text-white/70 mb-7">Pour un usage régulier</div>
-                <div className="flex items-baseline gap-1.5 mb-8">
-                  <span className="font-extrabold text-white" style={{ fontSize: '56px', letterSpacing: '-0.04em', lineHeight: '1' }}>39&nbsp;€</span>
-                  <span className="text-sm text-white/70 font-medium">/ mois</span>
-                </div>
-                <ul className="space-y-0 mb-8">
-                  {['Missions illimitées', 'Sans engagement, résiliable à tout moment', 'Tarif fixe, aucune commission sur le salaire'].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 py-3 text-sm font-medium border-b border-white/10 last:border-b-0">
-                      <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                            style={{ background: 'linear-gradient(135deg, #0EA5E9, #3B82F6)' }}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      </span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => navigate('/register?type=establishment')}
-                  className="btn-sky-gradient w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-white font-semibold text-[15px]"
-                >
-                  Rejoindre le Club
+                  Publier une mission
                 </button>
               </div>
             </div>
-
-            <p className="text-center mt-12 text-sm text-slate-600">
-              💡 Vous gérez plusieurs établissements&nbsp;?{' '}
-              <button
-                onClick={() => navigate('/groupe')}
-                className="text-blue-700 font-semibold border-b-2 border-transparent hover:border-blue-700 transition-colors"
-              >
-                Une offre Groupe existe pour vous.
-              </button>
-            </p>
           </div>
         </section>
 
@@ -949,7 +937,6 @@ export default function Landing() {
                   <li><button onClick={() => navigate('/register?type=establishment')} className="text-slate-300 hover:text-white transition-colors font-medium">Inscription établissement</button></li>
                   <li><button onClick={() => navigate('/register?type=talent')} className="text-slate-300 hover:text-white transition-colors font-medium">Inscription Extra</button></li>
                   <li><button onClick={() => navigate('/login')} className="text-slate-300 hover:text-white transition-colors font-medium">Connexion</button></li>
-                  <li><button onClick={() => navigate('/groupe')} className="text-slate-300 hover:text-white transition-colors font-medium">Offre Groupe</button></li>
                 </ul>
               </div>
 

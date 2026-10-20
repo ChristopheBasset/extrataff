@@ -10,7 +10,7 @@ const CGV = () => {
             ← Retour à l'accueil
           </Link>
           <h1 className="text-3xl font-bold">Conditions Générales de Vente</h1>
-          <p className="text-blue-200 mt-2">Dernière mise à jour : 2 mars 2026</p>
+          <p className="text-blue-200 mt-2">Dernière mise à jour : 20 octobre 2026</p>
         </div>
       </div>
 
@@ -25,7 +25,7 @@ const CGV = () => {
               Les présentes Conditions Générales de Vente (CGV) régissent l'utilisation de la plateforme ExtraTaff, éditée par CVBN CONSULTING (SASU au capital de 500,00 €, SIRET 984 685 933 00017, RCS Evreux), accessible à l'adresse https://extrataff.fr.
             </p>
             <p className="text-gray-700 leading-relaxed mt-3">
-              ExtraTaff est une plateforme de mise en relation entre des établissements du secteur de l'hôtellerie-restauration (restaurants, hôtels, traiteurs, services de conciergerie, événementiel) et des travailleurs temporaires qualifiés (« extras »).
+              ExtraTaff est une plateforme de mise en relation entre des établissements du secteur de l'hôtellerie-restauration (restaurants, hôtels, cafés, traiteurs, services de conciergerie, événementiel) et des travailleurs temporaires qualifiés (« extras »).
             </p>
           </section>
 
@@ -45,9 +45,9 @@ const CGV = () => {
             <h2 className="text-xl font-bold text-gray-900 mb-4">Article 3 — Services proposés</h2>
             <div className="text-gray-700 leading-relaxed space-y-3">
               <p><strong>Pour les établissements :</strong></p>
-              <p>Publication de missions temporaires, accès à un vivier de talents qualifiés, système de matching intelligent, messagerie intégrée, gestion des candidatures, planning des missions.</p>
+              <p>Publication de missions temporaires, mise en relation avec des talents qualifiés grâce à un système de matching, messagerie intégrée, gestion des candidatures, planning des missions.</p>
               <p className="mt-3"><strong>Pour les talents (extras) :</strong></p>
-              <p>Consultation et candidature aux missions disponibles, profil professionnel, messagerie avec les établissements, planning des missions acceptées. L'accès à la plateforme est entièrement gratuit pour les talents.</p>
+              <p>Consultation et candidature aux missions correspondant à leur profil, profil professionnel, messagerie avec les établissements, planning des missions acceptées. L'accès à la plateforme est entièrement gratuit pour les talents.</p>
             </div>
           </section>
 
@@ -59,48 +59,27 @@ const CGV = () => {
               L'utilisation d'ExtraTaff est gratuite pour les talents. Les établissements bénéficient des conditions tarifaires suivantes :
             </p>
 
-            {/* Essai gratuit */}
+            {/* Première mission offerte */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-5 mb-4">
-              <h3 className="font-semibold text-green-800 mb-2">Essai gratuit (30 jours)</h3>
-              <p className="text-gray-700 text-sm">
-                À l'inscription, chaque établissement bénéficie de 30 jours d'essai gratuit avec un accès illimité à la publication de missions. Les candidatures sont limitées à 10 candidats maximum par mission. L'essai démarre automatiquement à la création du compte.
-              </p>
-            </div>
-
-            {/* Offre de lancement */}
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-5 mb-4">
-              <h3 className="font-semibold text-purple-800 mb-2">Offre de lancement</h3>
-              <p className="text-gray-700 text-sm">
-                Jusqu'au 31 mars 2026, les établissements qui s'inscrivent bénéficient du premier mois offert. Cette offre est cumulable avec l'essai gratuit de 30 jours.
-              </p>
-            </div>
-
-            {/* Club ExtraTaff */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-4">
-              <h3 className="font-semibold text-blue-800 mb-2">Club ExtraTaff — Abonnement mensuel</h3>
+              <h3 className="font-semibold text-green-800 mb-2">Première mission offerte</h3>
               <div className="text-gray-700 text-sm space-y-2">
-                <p><strong>Abonnement :</strong> 39,00 € TTC / mois — missions illimitées.</p>
-                <p><strong>Sans engagement :</strong> résiliable à tout moment. La résiliation prend effet à la fin de la période de facturation en cours.</p>
-                <p>Les candidatures restent limitées à 10 candidats maximum par mission.</p>
+                <p>
+                  Tout établissement qui s'inscrit sur ExtraTaff jusqu'au 30 novembre 2026 inclus bénéficie de la publication gratuite de sa première mission, sans carte bancaire.
+                </p>
+                <p>
+                  Cette offre est limitée à une seule mission par établissement. Elle ne s'applique pas à la réouverture d'une mission déjà publiée, et n'est pas cumulable avec une autre offre.
+                </p>
               </div>
             </div>
 
-            {/* Mission ponctuelle */}
+            {/* Mission à l'unité */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 mb-4">
-              <h3 className="font-semibold text-gray-800 mb-2">Mission ponctuelle (sans abonnement)</h3>
+              <h3 className="font-semibold text-gray-800 mb-2">Mission à l'unité (sans abonnement)</h3>
               <div className="text-gray-700 text-sm space-y-2">
                 <p><strong>Tarif unique :</strong> 19,90 € TTC par mission, quel que soit le type de mission (urgente ou non).</p>
-                <p>Les candidatures sont limitées à 10 candidats maximum par mission.</p>
-              </div>
-            </div>
-
-            {/* Offre Groupe */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-5 mb-4">
-              <h3 className="font-semibold text-indigo-800 mb-2">Offre Groupe (multi-établissements)</h3>
-              <div className="text-gray-700 text-sm space-y-2">
-                <p><strong>1er établissement :</strong> 39,00 € TTC / mois — missions illimitées.</p>
-                <p><strong>Établissements supplémentaires :</strong> 35,10 € TTC / mois chacun (-10%) — missions illimitées.</p>
-                <p>Facturation commune, sans engagement. Chaque établissement du groupe bénéficie de 30 jours d'essai gratuit à son ajout.</p>
+                <p>
+                  La réouverture d'une mission clôturée constitue une nouvelle publication, facturée au même tarif.
+                </p>
               </div>
             </div>
 
@@ -112,19 +91,26 @@ const CGV = () => {
               </p>
             </div>
 
+            <p className="text-gray-700 leading-relaxed mb-3">
+              ExtraTaff se réserve le droit de proposer, à l'avenir, des formules d'abonnement. Leurs conditions (prix, durée, engagement éventuel) seront présentées à l'établissement avant toute souscription et compléteront les présentes CGV.
+            </p>
+
             <p className="text-gray-700 leading-relaxed">
-              Tous les prix sont indiqués en euros TTC. Les paiements sont traités de manière sécurisée par Stripe. Les factures sont disponibles dans l'espace client Stripe de l'établissement.
+              Aucune commission n'est prélevée sur la rémunération versée aux talents. Tous les prix sont indiqués en euros TTC. Les paiements sont traités de manière sécurisée par Stripe. Les factures sont disponibles dans l'espace client Stripe de l'établissement.
             </p>
           </section>
 
           {/* Article 5 */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 5 — Droit de rétractation</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 5 — Publication des missions, droit de rétractation et remboursement</h2>
             <p className="text-gray-700 leading-relaxed">
-              Conformément à l'article L.221-28 du Code de la consommation, le droit de rétractation ne s'applique pas aux services pleinement exécutés avant la fin du délai de rétractation et dont l'exécution a commencé avec l'accord du consommateur. En souscrivant au Club ExtraTaff ou en achetant une mission, l'établissement reconnaît que le service commence immédiatement et renonce expressément à son droit de rétractation.
+              Une mission est visible par les candidats correspondants dès que son paiement est confirmé (ou, pour la mission offerte, dès sa publication). Elle le reste jusqu'à sa clôture par l'établissement ou jusqu'à son expiration. ExtraTaff ne garantit ni le nombre de candidatures reçues, ni l'embauche d'un candidat.
             </p>
             <p className="text-gray-700 leading-relaxed mt-3">
-              Toutefois, l'abonnement Club ExtraTaff étant sans engagement, il peut être résilié à tout moment depuis le portail client, la résiliation prenant effet à la fin de la période de facturation en cours.
+              Conformément à l'article L.221-28 du Code de la consommation, le droit de rétractation ne s'applique pas aux services pleinement exécutés avant la fin du délai de rétractation et dont l'exécution a commencé avec l'accord du consommateur. En achetant une mission, l'établissement reconnaît que le service commence immédiatement et renonce expressément à son droit de rétractation.
+            </p>
+            <p className="text-gray-700 leading-relaxed mt-3">
+              Une mission publiée n'est pas remboursable, sauf erreur de facturation ou dysfonctionnement de la plateforme imputable à CVBN CONSULTING. Pour toute demande, l'établissement peut écrire à contact@extrataff.fr.
             </p>
           </section>
 
@@ -134,7 +120,7 @@ const CGV = () => {
             <div className="text-gray-700 leading-relaxed space-y-3">
               <p><strong>Les établissements s'engagent à :</strong></p>
               <p>
-                Publier des offres de missions conformes à la législation du travail en vigueur, fournir des conditions de travail décentes et sécurisées, respecter les engagements pris vis-à-vis des extras recrutés via la plateforme (horaires, rémunération, conditions).
+                Publier des offres de missions exactes et conformes à la législation du travail en vigueur (notamment en matière d'âge, de durée du travail, de rémunération et de non-discrimination), fournir des conditions de travail décentes et sécurisées, respecter les engagements pris vis-à-vis des extras recrutés via la plateforme (horaires, rémunération, conditions).
               </p>
               <p className="mt-3"><strong>Les talents (extras) s'engagent à :</strong></p>
               <p>
@@ -147,7 +133,7 @@ const CGV = () => {
           <section>
             <h2 className="text-xl font-bold text-gray-900 mb-4">Article 7 — Rôle de la plateforme</h2>
             <p className="text-gray-700 leading-relaxed">
-              ExtraTaff agit uniquement en qualité de plateforme de mise en relation. CVBN CONSULTING n'est en aucun cas employeur des extras et n'est pas partie aux contrats de travail ou de prestation qui peuvent être conclus entre les utilisateurs.
+              ExtraTaff agit uniquement en qualité de plateforme de mise en relation. CVBN CONSULTING n'est en aucun cas employeur des extras, ni agence de travail temporaire, et n'est pas partie aux contrats de travail ou de prestation qui peuvent être conclus entre les utilisateurs. La conclusion, l'exécution et la rémunération de ces contrats relèvent de la seule responsabilité de l'établissement et du talent.
             </p>
             <p className="text-gray-700 leading-relaxed mt-3">
               CVBN CONSULTING ne garantit ni la disponibilité des extras, ni la qualité des missions proposées par les établissements, ni le bon déroulement des missions. Chaque utilisateur reste seul responsable de ses engagements contractuels et légaux.
@@ -156,7 +142,15 @@ const CGV = () => {
 
           {/* Article 8 */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 8 — Responsabilité</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 8 — Contenus et signalements</h2>
+            <p className="text-gray-700 leading-relaxed">
+              Les utilisateurs sont responsables des contenus qu'ils publient (annonces, profils, messages). CVBN CONSULTING peut retirer, sans préavis, toute annonce ou tout contenu illicite, discriminatoire, trompeur ou contraire aux présentes CGV, et suspendre le compte concerné. Tout contenu peut être signalé à contact@extrataff.fr.
+            </p>
+          </section>
+
+          {/* Article 9 */}
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 9 — Responsabilité</h2>
             <p className="text-gray-700 leading-relaxed">
               CVBN CONSULTING s'engage à mettre en œuvre tous les moyens raisonnables pour assurer la disponibilité et le bon fonctionnement de la plateforme. Toutefois, l'accès peut être interrompu pour maintenance ou mise à jour, sans que cela n'ouvre droit à indemnisation.
             </p>
@@ -165,25 +159,35 @@ const CGV = () => {
             </p>
           </section>
 
-          {/* Article 9 */}
-          <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 9 — Propriété intellectuelle</h2>
-            <p className="text-gray-700 leading-relaxed">
-              Tous les éléments de la plateforme ExtraTaff (textes, images, logos, logiciels, base de données) sont protégés par le droit de la propriété intellectuelle. Leur reproduction ou utilisation sans autorisation est interdite.
-            </p>
-          </section>
-
           {/* Article 10 */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 10 — Modification des CGV</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 10 — Données personnelles</h2>
             <p className="text-gray-700 leading-relaxed">
-              CVBN CONSULTING se réserve le droit de modifier les présentes CGV à tout moment. Les utilisateurs seront informés de toute modification substantielle par email ou notification sur la plateforme. L'utilisation continue du service après notification vaut acceptation des nouvelles conditions.
+              Les données personnelles des utilisateurs sont traitées conformément à la{' '}
+              <Link to="/confidentialite" className="text-blue-700 underline hover:text-blue-800">Politique de confidentialité</Link>
+              {' '}d'ExtraTaff.
             </p>
           </section>
 
           {/* Article 11 */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 11 — Droit applicable et litiges</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 11 — Propriété intellectuelle</h2>
+            <p className="text-gray-700 leading-relaxed">
+              Tous les éléments de la plateforme ExtraTaff (textes, images, logos, logiciels, base de données) sont protégés par le droit de la propriété intellectuelle. Leur reproduction ou utilisation sans autorisation est interdite.
+            </p>
+          </section>
+
+          {/* Article 12 */}
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 12 — Modification des CGV</h2>
+            <p className="text-gray-700 leading-relaxed">
+              CVBN CONSULTING se réserve le droit de modifier les présentes CGV à tout moment. Les utilisateurs seront informés de toute modification substantielle par email ou notification sur la plateforme. L'utilisation continue du service après notification vaut acceptation des nouvelles conditions.
+            </p>
+          </section>
+
+          {/* Article 13 */}
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 13 — Droit applicable et litiges</h2>
             <p className="text-gray-700 leading-relaxed">
               Les présentes CGV sont soumises au droit français. En cas de litige, les parties s'engagent à rechercher une solution amiable. À défaut, le litige sera porté devant les tribunaux compétents d'Évreux.
             </p>
@@ -194,11 +198,11 @@ const CGV = () => {
 
           {/* Contact */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 12 — Contact</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Article 14 — Contact</h2>
             <div className="bg-gray-50 rounded-lg p-5 text-gray-700">
               <p><strong>CVBN CONSULTING</strong> — ExtraTaff</p>
               <p>1, sente aux Pruniers — 27120 Gadencourt</p>
-              <p>Email : christophe@comunecom.fr</p>
+              <p>Email : contact@extrataff.fr</p>
               <p>SIRET : 984 685 933 00017</p>
               <p>TVA : FR23984685933</p>
             </div>

@@ -6,6 +6,9 @@ import { supabase, POSITION_TYPES, CONTRACT_TYPES, generateFuzzyLocation } from 
 // qu'aucun vrai candidat n'a dans son profil, pour tester sans prévenir personne.
 const TEST_ACCOUNT_EMAIL = /@(extrataff\.fr|test27\.fr|obh-mobility\.com)$/i
 const TEST_POSITION = { value: 'zz_test', label: 'Poste de test (aucun vrai candidat)' }
+
+// Une mission reste en ligne jusqu'à sa date de fin, au plus 30 jours après son début
+const MAX_MISSION_DAYS = 30
 import HelpBubble from '../../components/HelpBubble'
 
 // Tarif d'une mission à l'unité (TTC)
@@ -176,6 +179,22 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
     return diff > 0 ? diff : 1
   }, [formData.start_date, formData.end_date])
 
+  // Durée maximale d'une mission : la date de fin ne peut pas dépasser MAX_MISSION_DAYS jours après la date de début
+  const maxEndDate = useMemo(() => {
+    if (!formData.start_date) return null
+    const d = new Date(formData.start_date)
+    d.setUTCDate(d.getUTCDate() + MAX_MISSION_DAYS)
+    return d.toISOString().slice(0, 10)
+  }, [formData.start_date])
+
+  const durationError = useMemo(() => {
+    if (!formData.start_date || !formData.end_date) return null
+    const diffDays = Math.round((new Date(formData.end_date) - new Date(formData.start_date)) / (1000 * 60 * 60 * 24))
+    return diffDays > MAX_MISSION_DAYS
+      ? `La date de fin ne peut pas dépasser ${MAX_MISSION_DAYS} jours après la date de début. Pour une période plus longue, publiez une nouvelle mission à la fin de la première.`
+      : null
+  }, [formData.start_date, formData.end_date])
+
   const hasActivePlan = establishment?.subscription_status === 'active' && ['club', 'annual'].includes(establishment?.subscription_plan)
   const hasMonthlyPlan = establishment?.subscription_status === 'active' && establishment?.subscription_plan === 'monthly3'
   const isTrialActive = (() => {
@@ -212,6 +231,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
 
 
   const createMission = async (status = 'open') => {
+    if (durationError) throw new Error(durationError)
     if (!establishment.address) throw new Error("Adresse de l'établissement manquante. Veuillez compléter votre profil.")
     const fuzzyLocation = generateFuzzyLocation(establishment.address)
     const exHoraires = expressMode ? parseHoraires(formData.horaires_text) : { start: formData.shift_start_time, end: formData.shift_end_time }
@@ -253,6 +273,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!paymentInfo) return
+    if (durationError) { setError(durationError); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     if (!paymentInfo.canCreate) { setShowPaymentModal(true); return }
     await handleDirectCreate()
   }
@@ -477,8 +498,9 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin *</label>
-                  <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} min={formData.start_date || undefined} className="input" required />
-                  <p className="text-xs text-gray-500 mt-1">La mission disparaîtra 48h après la date de début</p>
+                  <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} min={formData.start_date || undefined} max={maxEndDate || undefined} className="input" required />
+                  <p className="text-xs text-gray-500 mt-1">La mission reste en ligne jusqu'à sa date de fin ({MAX_MISSION_DAYS} jours maximum après le début), ou jusqu'à ce que tous les postes soient pourvus.</p>
+                  {durationError && <p className="text-xs text-red-600 mt-1">{durationError}</p>}
                 </div>
               </div>
               )}

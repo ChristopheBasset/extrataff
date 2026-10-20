@@ -31,6 +31,9 @@ const formatShiftFromTimes = (start, end) => {
   return `${fmt(start)}-${fmt(end)}`
 }
 
+// Une mission reste en ligne jusqu'à sa date de fin, au plus 30 jours après son début
+const MAX_MISSION_DAYS = 30
+
 export default function EditMissionForm() {
   const navigate = useNavigate()
   const { missionId } = useParams()
@@ -150,6 +153,22 @@ export default function EditMissionForm() {
     return diff > 0 ? diff : 1
   }, [formData.start_date, formData.end_date])
 
+  // Durée maximale d'une mission : la date de fin ne peut pas dépasser MAX_MISSION_DAYS jours après la date de début
+  const maxEndDate = useMemo(() => {
+    if (!formData.start_date) return null
+    const d = new Date(formData.start_date)
+    d.setUTCDate(d.getUTCDate() + MAX_MISSION_DAYS)
+    return d.toISOString().slice(0, 10)
+  }, [formData.start_date])
+
+  const durationError = useMemo(() => {
+    if (!formData.start_date || !formData.end_date) return null
+    const diffDays = Math.round((new Date(formData.end_date) - new Date(formData.start_date)) / (1000 * 60 * 60 * 24))
+    return diffDays > MAX_MISSION_DAYS
+      ? `La date de fin ne peut pas dépasser ${MAX_MISSION_DAYS} jours après la date de début. Pour une période plus longue, publiez une nouvelle mission à la fin de la première.`
+      : null
+  }, [formData.start_date, formData.end_date])
+
   const extractDepartmentFromAddress = (address) => {
     if (!address) return null
     const match = address.match(/\b(\d{5})\b/)
@@ -169,6 +188,7 @@ export default function EditMissionForm() {
     setError(null)
     try {
       if (!formData.start_date) throw new Error('Veuillez définir une date de début pour la mission')
+      if (durationError) throw new Error(durationError)
 
       const { data: { user } } = await supabase.auth.getUser()
       const { data: est } = await supabase
@@ -591,11 +611,14 @@ export default function EditMissionForm() {
                   <input
                     type="date" name="end_date" value={formData.end_date} onChange={handleChange}
                     min={formData.start_date || undefined}
+                    max={maxEndDate || undefined}
                     className="dash-input w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-[15px] font-medium text-slate-900 bg-white"
                   />
                   {formData.end_date && durationDays > 1 && (
                     <p className="text-xs text-slate-500 font-medium mt-1.5">📅 Durée : {durationDays} jours</p>
                   )}
+                  <p className="text-xs text-slate-500 mt-1.5">La mission reste en ligne jusqu'à sa date de fin ({MAX_MISSION_DAYS} jours maximum après le début), ou jusqu'à ce que tous les postes soient pourvus.</p>
+                  {durationError && <p className="text-xs text-red-600 font-medium mt-1.5">{durationError}</p>}
                 </div>
 
                 <div className="flex gap-3">

@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+// Première mission offerte pour toute inscription jusqu'au 30 novembre 2026 inclus (heure de Paris).
+// Même date que dans la base (verrou SQL) et dans le formulaire de mission.
+const FREE_FIRST_DEADLINE = new Date('2026-12-01T00:00:00+01:00')
+
 export default function Register() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const userType = searchParams.get('type') // 'talent', 'establishment' ou 'express'
   const isExpress = userType === 'express'
+  const freeOfferActive = new Date() < FREE_FIRST_DEADLINE
 
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -208,14 +213,14 @@ export default function Register() {
             </div>
           )}
 
-          {/* Bandeau offre pour les établissements */}
-          {userType === 'establishment' && (
+          {/* Bandeau offre pour les établissements (affiché jusqu'au 30 novembre 2026) */}
+          {userType === 'establishment' && freeOfferActive && (
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 mb-6">
               <div className="flex items-center gap-3">
                 <span className="text-2xl">🎁</span>
                 <div>
-                  <p className="font-semibold text-green-900">1er mois offert — jusqu'au 15 avril</p>
-                  <p className="text-sm text-green-700">Missions illimitées, sans carte bleue requise</p>
+                  <p className="font-semibold text-green-900">Votre première mission est offerte</p>
+                  <p className="text-sm text-green-700">Pour toute inscription jusqu’au 30 novembre 2026, sans carte bancaire. Ensuite, 19,90 € la mission.</p>
                 </div>
               </div>
             </div>
@@ -228,8 +233,10 @@ export default function Register() {
                 <span className="text-2xl">⚡</span>
                 <div>
                   <p className="font-semibold text-amber-900">Trouvez un extra pour ce soir ou demain</p>
-                  <p className="text-sm text-amber-700">Créez votre accès, puis postez votre mission urgente — 19,90 € l'annonce.</p>
-                  <p className="text-sm font-bold text-amber-800 mt-1">🎁 −50 % sur votre 1ʳᵉ mission, soit 9,95 €.</p>
+                  <p className="text-sm text-amber-700">Créez votre accès, puis postez votre mission urgente.</p>
+                  <p className="text-sm font-bold text-amber-800 mt-1">
+                    {freeOfferActive ? '🎁 Votre première mission est offerte, puis 19,90 € l’annonce.' : '19,90 € l’annonce.'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -400,18 +407,6 @@ export default function Register() {
               Se connecter
             </button>
           </div>
-
-          {/* Lien discret offre Groupe (uniquement pour établissement) */}
-          {userType === 'establishment' && (
-            <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-              <button
-                onClick={() => navigate('/groupe')}
-                className="text-sm text-gray-500 hover:text-primary-600 transition"
-              >
-                🏢 Vous gérez plusieurs établissements ? <span className="underline">Voir l'offre Groupe →</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>

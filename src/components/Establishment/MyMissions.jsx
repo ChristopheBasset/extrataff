@@ -109,6 +109,7 @@ export default function MyMissions({ establishmentId, onBack }) {
           .from('missions')
           .update({
             status: 'open',
+            notified_at: null,
             closed_at: null,
             nb_postes_pourvus: 0,
             updated_at: new Date().toISOString()
@@ -156,6 +157,7 @@ export default function MyMissions({ establishmentId, onBack }) {
         .update({
           status: 'pending',
           payment_status: 'pending',
+          notified_at: null,
           closed_at: null,
           nb_postes_pourvus: 0,
           updated_at: new Date().toISOString()

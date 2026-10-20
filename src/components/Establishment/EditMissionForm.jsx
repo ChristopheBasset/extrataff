@@ -162,35 +162,6 @@ export default function EditMissionForm() {
     return null
   }
 
-  const notifyMatchingTalents = async (mission, establishmentName, establishmentAddress) => {
-    try {
-      const missionDepartment = extractDepartmentFromAddress(establishmentAddress)
-      const { data: matchingTalents } = await supabase
-        .from('talents')
-        .select('id, user_id, first_name, position_types, preferred_departments')
-        .contains('position_types', [mission.position])
-      if (!matchingTalents || matchingTalents.length === 0) return
-
-      const talentsInDepartment = matchingTalents.filter(talent => {
-        if (!talent.preferred_departments || talent.preferred_departments.length === 0) return true
-        return missionDepartment && talent.preferred_departments.includes(missionDepartment)
-      })
-      if (talentsInDepartment.length === 0) return
-
-      const positionLabel = POSITION_TYPES.find(p => p.value === mission.position)?.label || mission.position
-      const notifications = talentsInDepartment.map(talent => ({
-        user_id: talent.user_id,
-        type: 'new_mission',
-        title: '🎯 Mission relancée !',
-        content: `Une mission "${positionLabel}" correspond à votre profil — ${generateFuzzyLocation(establishmentAddress)}`,
-        link: '/talent/missions',
-        read: false
-      }))
-      await supabase.from('notifications').insert(notifications)
-    } catch (err) {
-      console.error('Erreur notification talents:', err)
-    }
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -237,7 +208,7 @@ export default function EditMissionForm() {
       // publication est comprise dans les droits de l'établissement.
       const { data: updatedMission, error } = await supabase
         .from('missions')
-        .update({ ...missionFields, status: 'open', archived_at: null })
+        .update({ ...missionFields, status: 'open', archived_at: null, notified_at: null })
         .eq('id', missionId)
         .select().single()
 
@@ -254,7 +225,6 @@ export default function EditMissionForm() {
       }
 
       if (error) throw error
-      await notifyMatchingTalents(updatedMission, est.name, est.address)
       alert('Mission relancée avec succès ! 🎉')
       navigate('/establishment/missions')
     } catch (err) {

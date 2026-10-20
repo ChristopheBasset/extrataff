@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase, POSITION_TYPES, CONTRACT_TYPES, generateFuzzyLocation } from '../../lib/supabase'
+
+// Comptes de test (adresses ExtraTaff, test27 et OBH) : ils voient en plus un « poste de test »
+// qu'aucun vrai candidat n'a dans son profil, pour tester sans prévenir personne.
+const TEST_ACCOUNT_EMAIL = /@(extrataff\.fr|test27\.fr|obh-mobility\.com)$/i
+const TEST_POSITION = { value: 'zz_test', label: 'Poste de test (aucun vrai candidat)' }
 import HelpBubble from '../../components/HelpBubble'
 
 // Tarif d'une mission à l'unité (TTC)
@@ -63,6 +68,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
   const [error, setError] = useState(null)
   const [checkingAccess, setCheckingAccess] = useState(true)
   const [establishment, setEstablishment] = useState(null)
+  const [isTestAccount, setIsTestAccount] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [freeFirstAvailable, setFreeFirstAvailable] = useState(false)
 
@@ -78,6 +84,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
           .single()
         if (!est) { navigate('/establishment'); return }
         setEstablishment(est)
+        setIsTestAccount(TEST_ACCOUNT_EMAIL.test(user.email || ''))
         // Première mission offerte : inscription avant le 1er déc. 2026 et aucune mission déjà publiée.
         // (Affichage seulement : la décision finale est prise par le serveur.)
         const { count: usedCount } = await supabase
@@ -181,6 +188,8 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
     return diff > 0 ? diff : 0
   })()
 
+  const positionOptions = isTestAccount ? [...POSITION_TYPES, TEST_POSITION] : POSITION_TYPES
+
   const paymentInfo = useMemo(() => {
     if (!establishment) return null
     if (hasActivePlan) return { type: 'plan', price: 0, label: '✅ Abonnement actif', description: 'Missions illimitées comprises dans votre abonnement', canCreate: true }
@@ -201,76 +210,6 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
     return null
   }
 
-  const notifyMatchingTalents = async (mission, establishmentName, establishmentAddress) => {
-    try {
-      const missionDepartment = extractDepartmentFromAddress(establishmentAddress)
-
-      const { data: matchingTalents, error: talentsError } = await supabase
-        .from('talents')
-        .select('id, user_id, first_name, email, notif_email, position_types, preferred_departments')
-        .contains('position_types', [mission.position])
-
-      if (talentsError || !matchingTalents || matchingTalents.length === 0) return
-
-      const talentsInDepartment = matchingTalents.filter(talent => {
-        if (!talent.preferred_departments || talent.preferred_departments.length === 0) return true
-        return missionDepartment && talent.preferred_departments.includes(missionDepartment)
-      })
-
-      if (talentsInDepartment.length === 0) return
-
-      const positionLabel = POSITION_TYPES.find(p => p.value === mission.position)?.label || mission.position
-      const urgentPrefix = mission.is_urgent ? '🔴 URGENT — ' : '🎯 '
-
-      // Push notifications
-      const notifications = talentsInDepartment.map(talent => ({
-        user_id: talent.user_id,
-        type: 'new_mission',
-        title: `${urgentPrefix}Nouvelle mission disponible !`,
-        content: `Une mission "${positionLabel}" correspond à votre profil — ${generateFuzzyLocation(establishmentAddress)}`,
-        link: '/talent/missions',
-        read: false
-      }))
-
-      await supabase.from('notifications').insert(notifications)
-      console.log(`${notifications.length} talents notifiés (push)`)
-
-      // Emails via Resend
-      const talentsAvecEmail = talentsInDepartment.filter(t => t.notif_email && t.email)
-      if (talentsAvecEmail.length > 0) {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-        for (const talent of talentsAvecEmail) {
-          try {
-            await fetch(`${supabaseUrl}/functions/v1/send-notification-email`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${supabaseAnonKey}`
-              },
-              body: JSON.stringify({
-                type: 'new_mission',
-                to: talent.email,
-                data: {
-                  talent_name: talent.first_name,
-                  position: positionLabel,
-                  location: generateFuzzyLocation(establishmentAddress),
-                  start_date: new Date(mission.start_date).toLocaleDateString('fr-FR'),
-                  hourly_rate: mission.hourly_rate,
-                  is_urgent: mission.is_urgent
-                }
-              })
-            })
-          } catch (emailErr) {
-            console.error('Erreur envoi email:', talent.email, emailErr)
-          }
-        }
-        console.log(`${talentsAvecEmail.length} emails envoyés`)
-      }
-    } catch (err) {
-      console.error('Erreur notification talents:', err)
-    }
-  }
 
   const createMission = async (status = 'open') => {
     if (!establishment.address) throw new Error("Adresse de l'établissement manquante. Veuillez compléter votre profil.")
@@ -323,7 +262,6 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
     setError(null)
     try {
       const newMission = await createMission('open')
-      await notifyMatchingTalents(newMission, establishment.name, establishment.address)
       if (onMissionCreated) onMissionCreated()
       alert('Mission créée avec succès ! 🎉')
       navigate('/establishment')
@@ -442,7 +380,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
                 <label className="block text-sm font-medium text-gray-700 mb-1">Poste *</label>
                 <select name="position" value={formData.position} onChange={handleChange} className="input" required>
                   <option value="">Sélectionner un poste</option>
-                  {POSITION_TYPES.map(pos => <option key={pos.value} value={pos.value}>{pos.label}</option>)}
+                  {positionOptions.map(pos => <option key={pos.value} value={pos.value}>{pos.label}</option>)}
                 </select>
               </div>
 
@@ -492,7 +430,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
               <label className="block text-sm font-medium text-gray-700 mb-1">Type de poste *</label>
               <select name="position" value={formData.position} onChange={handleChange} className="input" required>
                 <option value="">Sélectionner un poste</option>
-                {POSITION_TYPES.map(pos => <option key={pos.value} value={pos.value}>{pos.label}</option>)}
+                {positionOptions.map(pos => <option key={pos.value} value={pos.value}>{pos.label}</option>)}
               </select>
             </div>
             {!expressMode && (
@@ -653,7 +591,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
             <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Poste</span>
-                <span className="font-medium text-gray-900">{POSITION_TYPES.find(p => p.value === formData.position)?.label || formData.position}</span>
+                <span className="font-medium text-gray-900">{positionOptions.find(p => p.value === formData.position)?.label || formData.position}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Date</span>

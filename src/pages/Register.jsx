@@ -273,6 +273,7 @@ export default function Register() {
               <a href="/confidentialite" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline hover:text-primary-800 font-medium" onClick={(e) => e.stopPropagation()}>
                 Politique de Confidentialité
               </a>
+              {(userType === 'establishment' || isExpress) && ', et je confirme agir à titre professionnel'}
               {' '}<span className="text-red-500 font-bold">*</span>
             </label>
           </div>

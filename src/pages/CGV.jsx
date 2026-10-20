@@ -57,7 +57,7 @@ const CGV = () => {
             <h2 className="text-xl font-bold text-gray-900 mb-4">Article 4 — Tarifs et modalités de paiement</h2>
 
             <p className="text-gray-700 leading-relaxed mb-4">
-              L'utilisation d'ExtraTaff est gratuite pour les talents. Les établissements bénéficient des conditions tarifaires suivantes :
+              L'utilisation d'ExtraTaff est gratuite pour les talents. Les établissements peuvent publier leurs missions à l'unité, avec un pack de missions ou avec un abonnement, selon les conditions suivantes :
             </p>
 
             {/* Première mission offerte */}
@@ -84,6 +84,45 @@ const CGV = () => {
               </div>
             </div>
 
+            {/* Pack de 3 missions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-4">
+              <h3 className="font-semibold text-blue-800 mb-2">Pack de 3 missions</h3>
+              <div className="text-gray-700 text-sm space-y-2">
+                <p><strong>Tarif :</strong> 34,90 € TTC, en un paiement unique, pour 3 crédits de publication.</p>
+                <p>
+                  Chaque publication d'une mission, ou réouverture d'une mission clôturée, pourvue ou terminée, utilise un crédit. Le pack est valable 2 mois à compter de l'achat : les crédits non utilisés à l'issue de ce délai sont perdus.
+                </p>
+                <p>
+                  Un nouveau pack acheté pendant la validité d'un pack en cours s'ajoute aux crédits restants, et la validité de l'ensemble est prolongée de 2 mois à compter du nouvel achat.
+                </p>
+                <p>
+                  Lorsqu'un établissement dispose de plusieurs droits, ils sont utilisés dans l'ordre suivant : abonnement actif, puis première mission offerte, puis crédits d'un pack, puis paiement de la mission à l'unité.
+                </p>
+              </div>
+            </div>
+
+            {/* Abonnement illimité */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-5 mb-4">
+              <h3 className="font-semibold text-indigo-800 mb-2">Abonnement illimité (engagement de 12 mois)</h3>
+              <div className="text-gray-700 text-sm space-y-2">
+                <p>
+                  <strong>Tarif :</strong> 14,90 € TTC par mois pour toute souscription jusqu'au 31 décembre 2026 inclus (tarif de lancement), 19,90 € TTC par mois pour toute souscription à partir du 1er janvier 2027. Le tarif de lancement est conservé tant que l'abonnement n'est pas résilié.
+                </p>
+                <p>
+                  L'abonnement donne droit à la publication et à la réouverture de missions en nombre illimité, dans le respect des conditions de l'article 5 (notamment la durée maximale de 30 jours d'une mission).
+                </p>
+                <p>
+                  Il est facturé chaque mois, par paiement par carte bancaire traité par Stripe. L'établissement s'engage pour une durée de 12 mois à compter de la souscription. À l'issue de cette période, l'abonnement est renouvelé automatiquement pour de nouvelles périodes de 12 mois, facturées mensuellement.
+                </p>
+                <p>
+                  L'établissement peut résilier à tout moment depuis la page « Mes formules » de son espace. La résiliation prend effet à la fin de la période d'engagement en cours : l'abonnement et sa facturation mensuelle se poursuivent jusqu'à cette date, et aucune mensualité n'est remboursée.
+                </p>
+                <p>
+                  En cas d'échec de paiement, l'accès aux missions illimitées peut être suspendu jusqu'à régularisation. Lorsque l'abonnement prend fin, l'établissement retrouve les conditions de la mission à l'unité.
+                </p>
+              </div>
+            </div>
+
             {/* Détection urgence */}
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-5 mb-4">
               <h3 className="font-semibold text-orange-800 mb-2">Détection automatique des missions urgentes</h3>
@@ -91,10 +130,6 @@ const CGV = () => {
                 Une mission est automatiquement considérée comme urgente lorsque sa date de début est fixée au jour même (J) ou au lendemain (J+1). Ce caractère urgent est déterminé automatiquement par le système en fonction des dates saisies — il n'y a pas de sélection manuelle. Le tarif des missions urgentes est identique à celui des missions normales.
               </p>
             </div>
-
-            <p className="text-gray-700 leading-relaxed mb-3">
-              ExtraTaff se réserve le droit de proposer, à l'avenir, des formules d'abonnement. Leurs conditions (prix, durée, engagement éventuel) seront présentées à l'établissement avant toute souscription et compléteront les présentes CGV.
-            </p>
 
             <p className="text-gray-700 leading-relaxed">
               Aucune commission n'est prélevée sur la rémunération versée aux talents. Tous les prix sont indiqués en euros TTC. Les paiements sont traités de manière sécurisée par Stripe. Les factures sont disponibles dans l'espace client Stripe de l'établissement.
@@ -105,16 +140,16 @@ const CGV = () => {
           <section>
             <h2 className="text-xl font-bold text-gray-900 mb-4">Article 5 — Publication des missions, droit de rétractation et remboursement</h2>
             <p className="text-gray-700 leading-relaxed">
-              Une mission est visible par les candidats correspondants dès que son paiement est confirmé (ou, pour la mission offerte, dès sa publication). Elle reste en ligne jusqu'à ce que tous ses postes soient pourvus, ou jusqu'à sa date de fin si elle arrive avant, ou jusqu'à sa clôture par l'établissement. ExtraTaff ne garantit ni le nombre de candidatures reçues, ni l'embauche d'un candidat.
+              Une mission est visible par les candidats correspondants dès que son paiement est confirmé, ou, lorsqu'elle est publiée avec la première mission offerte, un crédit de pack ou un abonnement actif, dès sa publication. Elle reste en ligne jusqu'à ce que tous ses postes soient pourvus, ou jusqu'à sa date de fin si elle arrive avant, ou jusqu'à sa clôture par l'établissement. ExtraTaff ne garantit ni le nombre de candidatures reçues, ni l'embauche d'un candidat.
             </p>
             <p className="text-gray-700 leading-relaxed mt-3">
               La date de fin d'une mission ne peut pas dépasser 30 jours après sa date de début. Pour une période plus longue, l'établissement publie une nouvelle mission à la fin de la première. Chaque publication est facturée selon les conditions de l'article 4.
             </p>
             <p className="text-gray-700 leading-relaxed mt-3">
-              Conformément à l'article L.221-28 du Code de la consommation, le droit de rétractation ne s'applique pas aux services pleinement exécutés avant la fin du délai de rétractation et dont l'exécution a commencé avec l'accord du consommateur. En achetant une mission, l'établissement reconnaît que le service commence immédiatement et renonce expressément à son droit de rétractation.
+              Les établissements contractent à des fins professionnelles : le droit de rétractation prévu par le Code de la consommation ne s'applique pas aux contrats conclus en ligne sur ExtraTaff, sauf disposition légale impérative contraire. En achetant une mission, un pack ou un abonnement, l'établissement demande que le service commence immédiatement.
             </p>
             <p className="text-gray-700 leading-relaxed mt-3">
-              Une mission publiée n'est pas remboursable, sauf erreur de facturation ou dysfonctionnement de la plateforme imputable à CVBN CONSULTING. Pour toute demande, l'établissement peut écrire à christophe@comunecom.fr.
+              Une mission publiée n'est pas remboursable. Il en est de même des crédits d'un pack, utilisés ou non, et des mensualités d'un abonnement. Seules font exception une erreur de facturation ou un dysfonctionnement de la plateforme imputable à CVBN CONSULTING. Pour toute demande, l'établissement peut écrire à christophe@comunecom.fr.
             </p>
           </section>
 

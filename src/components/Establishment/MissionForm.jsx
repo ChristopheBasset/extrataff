@@ -82,7 +82,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
         if (!user) { navigate('/login'); return }
         const { data: est } = await supabase
           .from('establishments')
-          .select('id, name, address, subscription_status, subscription_plan, trial_ends_at, created_at')
+          .select('id, name, address, subscription_status, subscription_plan, trial_ends_at, created_at, pack_credits, pack_expires_at')
           .eq('user_id', user.id)
           .single()
         if (!est) { navigate('/establishment'); return }
@@ -196,7 +196,8 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
   }, [formData.start_date, formData.end_date])
 
   const hasActivePlan = establishment?.subscription_status === 'active' && ['club', 'annual'].includes(establishment?.subscription_plan)
-  const hasMonthlyPlan = establishment?.subscription_status === 'active' && establishment?.subscription_plan === 'monthly3'
+  const packCredits = establishment?.pack_credits || 0
+  const hasPack = packCredits > 0 && (!establishment?.pack_expires_at || new Date(establishment.pack_expires_at) > new Date())
   const isTrialActive = (() => {
     if (!establishment?.trial_ends_at) return false
     return new Date(establishment.trial_ends_at) > new Date()
@@ -212,10 +213,10 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
   const paymentInfo = useMemo(() => {
     if (!establishment) return null
     if (hasActivePlan) return { type: 'plan', price: 0, label: '✅ Abonnement actif', description: 'Missions illimitées comprises dans votre abonnement', canCreate: true }
-    if (hasMonthlyPlan) return { type: 'plan', price: 0, label: '✅ Formule 3 missions par mois', description: 'Cette mission est comprise dans votre formule (3 missions par mois)', canCreate: true }
     if (freeFirstAvailable) return { type: 'free_first', price: 0, label: '🎁 Première mission offerte', description: 'Votre première mission est gratuite', canCreate: true }
+    if (hasPack) return { type: 'pack', price: 0, label: `🎟️ Crédit de votre pack (${packCredits} restant${packCredits > 1 ? 's' : ''})`, description: 'Cette mission utilise un crédit de votre pack', canCreate: true }
     return { type: 'pay_per_mission', price: PRICE_MISSION, label: 'Mission ponctuelle', description: 'Publication à 19,90 €', canCreate: false }
-  }, [establishment, hasActivePlan, hasMonthlyPlan, freeFirstAvailable, expressMode])
+  }, [establishment, hasActivePlan, hasPack, packCredits, freeFirstAvailable, expressMode])
 
   const extractDepartmentFromAddress = (address) => {
     if (!address) return null
@@ -637,6 +638,12 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
                 <span className="text-2xl font-extrabold text-primary-600">{PRICE_MISSION.toFixed(2)}€</span>
               </div>
             </div>
+            <p className="text-xs text-gray-500 text-center mb-4">
+              Plusieurs missions à publier ?{' '}
+              <button type="button" onClick={() => navigate('/establishment/subscribe')} className="text-primary-600 underline">
+                Voir le pack de 3 missions et l'abonnement
+              </button>
+            </p>
             <div className="flex gap-3">
               <button onClick={() => setShowPaymentModal(false)} disabled={loading} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors">Annuler</button>
               <button onClick={handlePaidCreate} disabled={loading} className="flex-1 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">

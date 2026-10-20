@@ -1,126 +1,87 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
+// Après le paiement : Stripe prévient notre serveur (quelques secondes), puis les droits
+// sont ajoutés au compte. On attend ici que ce soit visible.
 export default function SubscribeSuccess() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [status, setStatus] = useState('waiting') // waiting | ready | slow
+  const [summary, setSummary] = useState('')
 
   useEffect(() => {
-    const sessionId = searchParams.get('session_id')
-    if (sessionId) {
-      verifyAndActivate(sessionId)
-    } else {
-      setError('Session invalide')
-      setLoading(false)
-    }
-  }, [searchParams])
+    let cancelled = false
+    let attempts = 0
 
-  const verifyAndActivate = async (sessionId) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      // Appeler l'Edge Function pour vérifier et activer
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-subscription`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ session_id: sessionId })
+    const check = async () => {
+      attempts++
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { data: est } = await supabase
+          .from('establishments')
+          .select('subscription_status, subscription_plan, pack_credits, pack_expires_at')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        const unlimited = est?.subscription_status === 'active' && ['club', 'annual'].includes(est?.subscription_plan)
+        const packValid = (est?.pack_credits || 0) > 0 && (!est?.pack_expires_at || new Date(est.pack_expires_at) > new Date())
+        if (!cancelled && (unlimited || packValid)) {
+          setSummary(unlimited
+            ? 'Votre abonnement illimité est actif.'
+            : `Votre pack est actif : ${est.pack_credits} mission${est.pack_credits > 1 ? 's' : ''} disponible${est.pack_credits > 1 ? 's' : ''}.`)
+          setStatus('ready')
+          return
         }
-      )
-
-      const data = await response.json()
-
-      if (data.error) {
-        throw new Error(data.error)
+      } catch (err) {
+        console.error('Erreur vérification paiement:', err)
       }
-
-      // Succès !
-      setLoading(false)
-    } catch (err) {
-      console.error('Erreur:', err)
-      setError(err.message || 'Erreur lors de la vérification')
-      setLoading(false)
+      if (cancelled) return
+      if (attempts >= 15) { setStatus('slow'); return }
+      setTimeout(check, 2000)
     }
-  }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600">Activation de votre abonnement...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">❌</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Erreur</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={() => navigate('/establishment/subscribe')}
-            className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors"
-          >
-            Réessayer
-          </button>
-        </div>
-      </div>
-    )
-  }
+    check()
+    return () => { cancelled = true }
+  }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-        {/* Animation de succès */}
-        <div className="relative mb-6">
-          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-            <svg className="w-12 h-12 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <div className="absolute -top-2 -right-2 text-4xl animate-bounce">🎉</div>
-        </div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 max-w-md w-full p-8 text-center">
+        {status === 'waiting' && (
+          <>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-5"></div>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Paiement reçu</h1>
+            <p className="text-gray-600">Nous activons votre formule, cela prend quelques secondes…</p>
+          </>
+        )}
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Bienvenue Premium !
-        </h1>
-        
-        <p className="text-gray-600 mb-6">
-          Votre abonnement est maintenant actif. Vous pouvez publier des missions illimitées !
-        </p>
+        {status === 'ready' && (
+          <>
+            <div className="text-5xl mb-4">🎉</div>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Merci !</h1>
+            <p className="text-gray-600 mb-6">{summary}</p>
+            <button onClick={() => navigate('/establishment')} className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl">
+              Retour au tableau de bord
+            </button>
+          </>
+        )}
 
-        {/* Avantages débloqués */}
-        <div className="bg-green-50 rounded-xl p-4 mb-6 text-left">
-          <p className="font-medium text-green-800 mb-2">✨ Avantages débloqués :</p>
-          <ul className="text-sm text-green-700 space-y-1">
-            <li>✓ Missions illimitées</li>
-            <li>✓ Accès à tous les talents</li>
-            <li>✓ Notifications prioritaires</li>
-            <li>✓ Support dédié</li>
-          </ul>
-        </div>
-
-        <button
-          onClick={() => navigate('/establishment')}
-          className="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors"
-        >
-          Accéder à mon dashboard
-        </button>
-
-        <p className="text-sm text-gray-500 mt-4">
-          Un email de confirmation vous a été envoyé.
-        </p>
+        {status === 'slow' && (
+          <>
+            <div className="text-5xl mb-4">⏳</div>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Paiement reçu</h1>
+            <p className="text-gray-600 mb-6">
+              L'activation de votre formule prend un peu plus de temps que d'habitude. Elle apparaîtra dans « Mes formules » dans quelques minutes. Si ce n'est pas le cas, écrivez-nous.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button onClick={() => navigate('/establishment/subscribe')} className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl">
+                Voir mes formules
+              </button>
+              <button onClick={() => navigate('/establishment')} className="w-full py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl">
+                Retour au tableau de bord
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

@@ -2,326 +2,306 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
+// Tarif de lancement : jusqu'au 31 décembre 2026 inclus (heure de Paris). Doit rester identique
+// à la date de la fonction « create-checkout-session ».
+const LAUNCH_END = new Date('2027-01-01T00:00:00+01:00')
+// Première mission offerte : inscription avant le 1er décembre 2026.
+const FREE_FIRST_DEADLINE = new Date('2026-12-01T00:00:00+01:00')
+const BILLED_KINDS = ['free_first', 'single', 'subscription', 'pack']
+
+const formatDate = (d) =>
+  d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+
+const Check = () => (
+  <span className="mt-0.5 w-5 h-5 shrink-0 rounded-full bg-emerald-500 flex items-center justify-center">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  </span>
+)
+
 export default function Subscribe() {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
   const [establishment, setEstablishment] = useState(null)
-  const [error, setError] = useState('')
-  const [selectedPlan, setSelectedPlan] = useState(null)
+  const [freeFirstAvailable, setFreeFirstAvailable] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(null)
+  const [error, setError] = useState(null)
 
-  useEffect(() => {
-    loadEstablishment()
-  }, [])
-
-  const loadEstablishment = async () => {
+  const load = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        navigate('/login')
-        return
-      }
-
-      const { data, error } = await supabase
+      if (!user) { navigate('/login'); return }
+      const { data: est } = await supabase
         .from('establishments')
         .select('*')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
+      if (!est) { navigate('/establishment'); return }
+      setEstablishment(est)
 
-      if (error) throw error
-      setEstablishment(data)
-
-      if (data.subscription_status === 'active' && data.subscription_plan === 'club') {
-        navigate('/establishment')
-      }
+      // Première mission offerte : affichage seulement (le serveur décide)
+      const { count } = await supabase
+        .from('missions')
+        .select('id', { count: 'exact', head: true })
+        .eq('establishment_id', est.id)
+        .in('billing_kind', BILLED_KINDS)
+      const inTime = est.created_at && new Date(est.created_at) < FREE_FIRST_DEADLINE
+      setFreeFirstAvailable(Boolean(inTime) && (!count || count === 0))
     } catch (err) {
-      console.error('Erreur:', err)
-      setError('Erreur lors du chargement')
-    }
-  }
-
-  const handleCheckout = async (planType) => {
-    setLoading(true)
-    setError('')
-
-    try {
-      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession()
-      
-      if (sessionError || !session) {
-        throw new Error('Session expirée. Veuillez vous reconnecter.')
-      }
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      if (!supabaseUrl) {
-        throw new Error('Configuration manquante. Contactez le support.')
-      }
-
-      const body = {
-        establishment_id: establishment.id,
-        plan_type: planType
-      }
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/create-checkout-session`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify(body)
-        }
-      )
-
-      const data = await response.json()
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || 'Erreur lors de la création du paiement')
-      }
-
-      if (!data.url) {
-        throw new Error('URL de paiement non reçue')
-      }
-
-      window.location.href = data.url
-    } catch (err) {
-      console.error('Erreur:', err)
-      setError(err.message || 'Erreur lors de la création du paiement')
+      console.error('Erreur chargement formules:', err)
+      setError('Impossible de charger vos informations. Rechargez la page.')
     } finally {
       setLoading(false)
     }
   }
 
-  // Vérifier si on est dans la période de lancement (avant fin mars 2026)
-  const isLaunchOffer = new Date() <= new Date('2026-03-31T23:59:59')
+  useEffect(() => { load() }, [])
 
-  // Spinner réutilisable
-  const Spinner = ({ text }) => (
-    <span className="flex items-center justify-center gap-2">
-      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-      </svg>
-      {text || 'Redirection vers Stripe...'}
-    </span>
-  )
+  const callFunction = async (name, body) => {
+    const { data: { session } } = await supabase.auth.refreshSession()
+    if (!session) throw new Error('Session expirée, reconnectez-vous.')
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify(body),
+    })
+    const data = await response.json()
+    if (!response.ok || data.error) throw new Error(data.error || 'Une erreur est survenue')
+    return data
+  }
+
+  const startCheckout = async (planType) => {
+    setBusy(planType)
+    setError(null)
+    try {
+      const data = await callFunction('create-checkout-session', { establishment_id: establishment.id, plan_type: planType })
+      if (!data.url) throw new Error('Lien de paiement indisponible')
+      window.location.href = data.url
+    } catch (err) {
+      setError(err.message)
+      setBusy(null)
+    }
+  }
+
+  const openPortal = async () => {
+    setBusy('portal')
+    setError(null)
+    try {
+      const data = await callFunction('create-portal-session', { customer_id: establishment.stripe_customer_id })
+      if (!data.url) throw new Error('Portail indisponible')
+      window.location.href = data.url
+    } catch (err) {
+      setError(err.message)
+      setBusy(null)
+    }
+  }
+
+  const changeCancellation = async (action) => {
+    setBusy(action)
+    setError(null)
+    try {
+      await callFunction('cancel-subscription', { action })
+      await load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+
+  const now = new Date()
+  const hasUnlimited = establishment?.subscription_status === 'active' && ['club', 'annual'].includes(establishment?.subscription_plan)
+  const packCredits = establishment?.pack_credits || 0
+  const packValid = packCredits > 0 && (!establishment?.pack_expires_at || new Date(establishment.pack_expires_at) > now)
+  const cancelAt = establishment?.subscription_cancel_at
+  const commitmentEnd = establishment?.commitment_ends_at
+  const launchOn = now < LAUNCH_END
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        
-        {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Choisissez votre formule 🏆</h1>
-          <p className="text-gray-600">
-            Simple, transparent, sans engagement.
-          </p>
-        </div>
-
-        {/* Offre de lancement */}
-        {isLaunchOffer && (
-          <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl p-4 mb-6 text-center shadow-lg">
-            <p className="text-lg font-bold">
-              🚀 Offre de lancement — 1er mois GRATUIT !
-            </p>
-            <p className="text-sm opacity-90">
-              Inscrivez-vous avant fin mars 2026
-            </p>
-          </div>
-        )}
-
-        {/* Erreur */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Cards de choix */}
-        <div className="grid gap-5 mb-6 md:grid-cols-2">
-          
-          {/* Option 1 : Club ExtraTaff */}
-          <div 
-            onClick={() => setSelectedPlan('club')}
-            className={`relative bg-white rounded-2xl p-6 cursor-pointer transition-all ${
-              selectedPlan === 'club' 
-                ? 'ring-2 ring-primary-600 shadow-lg' 
-                : 'border border-gray-200 hover:shadow-md'
-            }`}
-          >
-            <div className="flex justify-between items-start mb-4">
-              <span className="text-3xl">🏆</span>
-              <span className="bg-primary-100 text-primary-700 text-xs font-bold px-3 py-1 rounded-full">
-                RECOMMANDÉ
-              </span>
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-1">Club ExtraTaff</h3>
-            <div className="mb-1">
-              <span className="text-4xl font-extrabold text-primary-600">39€</span>
-              <span className="text-gray-500">/mois</span>
-            </div>
-            <p className="text-xs text-gray-500 mb-4">Sans engagement • Résiliable à tout moment</p>
-            <ul className="space-y-3 mb-6">
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Missions illimitées</strong></span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span>Accès à tous les talents</span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span>Matching & messagerie instantanée</span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span>Notifications SMS & push temps réel</span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Sans engagement</strong> — résiliable à tout moment</span>
-              </li>
-            </ul>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-xs text-green-700 text-center font-medium">
-                💡 Dès 2 missions/mois, le Club est plus avantageux
-              </p>
-            </div>
-          </div>
-
-          {/* Option 2 : Mission ponctuelle */}
-          <div 
-            onClick={() => setSelectedPlan('mission')}
-            className={`bg-white rounded-2xl p-6 cursor-pointer transition-all ${
-              selectedPlan === 'mission' 
-                ? 'ring-2 ring-primary-600 shadow-lg' 
-                : 'border border-gray-200 hover:shadow-md'
-            }`}
-          >
-            <div className="mb-4">
-              <span className="text-3xl">📋</span>
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-1">Mission ponctuelle</h3>
-            <div className="mb-1">
-              <span className="text-4xl font-extrabold text-primary-600">19,90€</span>
-              <span className="text-gray-500">/mission</span>
-            </div>
-            <p className="text-xs text-gray-500 mb-4">Sans abonnement • Payez à l'usage</p>
-            <ul className="space-y-3 mb-6">
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>1 mission publiée</strong></span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span>Accès à tous les talents</span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span>Matching & messagerie instantanée</span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-green-500 mt-0.5">✓</span>
-                <span><strong>Aucun engagement</strong></span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-gray-500 italic">
-                <span className="text-gray-400 mt-0.5">—</span>
-                <span>2 missions = 39,80€ → le Club est plus avantageux !</span>
-              </li>
-            </ul>
-            <p className="text-xs text-gray-500 text-center">Idéal pour les besoins occasionnels</p>
-          </div>
-        </div>
-
-        {/* Zone d'action - Club ExtraTaff */}
-        {selectedPlan === 'club' && (
-          <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
-            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Récapitulatif — Club ExtraTaff</h4>
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-700">Abonnement Club ExtraTaff</span>
-                <span className="text-xl font-bold text-gray-900">39€/mois</span>
-              </div>
-              <p className="text-sm text-gray-500">Missions illimitées • Sans engagement</p>
-              {isLaunchOffer && (
-                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-800 font-medium">🎁 Offre de lancement : votre 1er mois est offert !</p>
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => handleCheckout('club')}
-              disabled={loading}
-              className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <Spinner />
-              ) : (
-                isLaunchOffer ? '🚀 Commencer gratuitement — puis 39€/mois' : '🏆 Rejoindre le Club — 39€/mois'
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* Zone d'action - Mission ponctuelle */}
-        {selectedPlan === 'mission' && (
-          <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm mb-4">
-            <h4 className="text-lg font-bold text-gray-900 mb-4">📋 Mission ponctuelle</h4>
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-700">1 mission publiée</span>
-                <span className="text-xl font-bold text-gray-900">19,90€</span>
-              </div>
-              <p className="text-sm text-gray-500">Paiement unique • Sans abonnement</p>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-              <p className="text-sm text-amber-800">
-                💡 <strong>Astuce :</strong> Avec le Club à 39€/mois, vos missions sont illimitées.
-                <button onClick={() => setSelectedPlan('club')} className="ml-2 text-primary-600 font-semibold underline">
-                  Voir le Club
-                </button>
-              </p>
-            </div>
-            <button
-              onClick={() => navigate('/establishment')}
-              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-lg transition-colors"
-            >
-              Continuer sans abonnement
-            </button>
-            <p className="text-xs text-gray-400 text-center mt-2">
-              Le paiement de 19,90€ sera demandé lors de la publication de votre mission.
-            </p>
-          </div>
-        )}
-
-        {/* Message si rien sélectionné */}
-        {!selectedPlan && (
-          <div className="text-center">
-            <p className="text-gray-500 text-sm">👆 Sélectionnez une formule pour continuer</p>
-          </div>
-        )}
-
-        {/* Footer confiance */}
-        <div className="mt-8 text-center space-y-2">
-          <div className="flex justify-center gap-6 text-sm text-gray-500">
-            <span>🔒 Paiement sécurisé</span>
-            <span>📧 Facture par email</span>
-            <span>❌ Sans engagement</span>
-          </div>
-          <p className="text-xs text-gray-400">
-            Paiement géré par Stripe. Vos données bancaires ne sont jamais stockées sur nos serveurs.
-          </p>
-        </div>
-
-        {/* Retour */}
-        <div className="text-center mt-6">
-          <button
-            onClick={() => navigate('/establishment')}
-            className="text-gray-600 hover:text-gray-900 text-sm"
-          >
-            ← Retour au dashboard
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <button onClick={() => navigate('/establishment')} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+            Retour
           </button>
         </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Mes formules</h1>
+        <p className="text-gray-600 mb-6">Prix en euros TTC. Aucune commission sur le salaire de vos extras.</p>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>
+        )}
+
+        {/* Situation actuelle */}
+        {(hasUnlimited || packValid || freeFirstAvailable) && (
+          <div className="space-y-3 mb-8">
+            {freeFirstAvailable && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                <p className="font-semibold text-green-800">🎁 Votre première mission est offerte</p>
+                <p className="text-sm text-green-700 mt-0.5">Publiez-la depuis votre tableau de bord, sans carte bancaire.</p>
+              </div>
+            )}
+
+            {packValid && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <p className="font-semibold text-blue-800">🎟️ Pack de missions : {packCredits} restante{packCredits > 1 ? 's' : ''}</p>
+                <p className="text-sm text-blue-700 mt-0.5">
+                  {establishment.pack_expires_at ? `Valable jusqu'au ${formatDate(establishment.pack_expires_at)}. ` : ''}
+                  {hasUnlimited
+                    ? "Tant que votre abonnement est actif, vos missions sont illimitées : ces crédits ne sont pas utilisés et restent disponibles jusqu'à leur date de fin."
+                    : 'Chaque publication (ou réouverture) utilise un crédit.'}
+                </p>
+              </div>
+            )}
+
+            {hasUnlimited && (
+              <div className="p-5 bg-white border border-gray-200 rounded-xl">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <p className="font-semibold text-gray-900">⭐ Abonnement illimité</p>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      {cancelAt
+                        ? `Résiliation prévue le ${formatDate(cancelAt)} : vous gardez vos missions illimitées jusqu'à cette date.`
+                        : commitmentEnd
+                          ? `Engagement de 12 mois en cours jusqu'au ${formatDate(commitmentEnd)}, puis renouvelé automatiquement.`
+                          : 'Engagement de 12 mois, renouvelé automatiquement.'}
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">Actif</span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {establishment?.stripe_customer_id && (
+                    <button
+                      onClick={openPortal}
+                      disabled={busy !== null}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      {busy === 'portal' ? 'Chargement…' : 'Carte bancaire et factures'}
+                    </button>
+                  )}
+                  {cancelAt ? (
+                    <button
+                      onClick={() => changeCancellation('resume')}
+                      disabled={busy !== null}
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium disabled:opacity-60"
+                    >
+                      {busy === 'resume' ? 'Un instant…' : 'Annuler la résiliation'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (confirm('Votre abonnement continuera jusqu\'à la fin de la période d\'engagement en cours, puis s\'arrêtera. Confirmer la résiliation ?')) changeCancellation('cancel')
+                      }}
+                      disabled={busy !== null}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      {busy === 'cancel' ? 'Un instant…' : 'Résilier à la fin de l\'engagement'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Offres */}
+        {!hasUnlimited && (
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* À la mission */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col">
+              <h2 className="text-lg font-bold text-gray-900">À la mission</h2>
+              <p className="text-sm text-gray-500 mb-4">Pour un besoin unique</p>
+              <div className="flex items-baseline gap-1.5 mb-5">
+                <span className="text-4xl font-extrabold text-gray-900">19,90&nbsp;€</span>
+                <span className="text-sm text-gray-500">TTC / mission</span>
+              </div>
+              <ul className="space-y-2.5 mb-6 text-sm text-gray-700 flex-1">
+                <li className="flex gap-3"><Check />Payée au moment de la publication</li>
+                <li className="flex gap-3"><Check />Pas d'abonnement, pas d'engagement</li>
+                <li className="flex gap-3"><Check />En ligne jusqu'à ce qu'elle soit pourvue ou à sa date de fin (30 jours maximum)</li>
+              </ul>
+              <button
+                onClick={() => navigate('/establishment/create-mission')}
+                className="w-full py-3 bg-white border-2 border-gray-300 hover:border-primary-600 hover:text-primary-700 rounded-xl font-semibold text-gray-900"
+              >
+                Créer une mission
+              </button>
+            </div>
+
+            {/* Pack */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col">
+              <h2 className="text-lg font-bold text-gray-900">Pack de 3 missions</h2>
+              <p className="text-sm text-gray-500 mb-4">Pour des besoins ponctuels</p>
+              <div className="flex items-baseline gap-1.5 mb-5">
+                <span className="text-4xl font-extrabold text-gray-900">34,90&nbsp;€</span>
+                <span className="text-sm text-gray-500">TTC, paiement unique</span>
+              </div>
+              <ul className="space-y-2.5 mb-6 text-sm text-gray-700 flex-1">
+                <li className="flex gap-3"><Check />3 missions à publier (ou rouvrir)</li>
+                <li className="flex gap-3"><Check />Valable 2 mois à compter de l'achat</li>
+                <li className="flex gap-3"><Check />Pas d'abonnement, pas de renouvellement</li>
+              </ul>
+              <button
+                onClick={() => startCheckout('pack')}
+                disabled={busy !== null}
+                className="w-full py-3 bg-white border-2 border-gray-300 hover:border-primary-600 hover:text-primary-700 rounded-xl font-semibold text-gray-900 disabled:opacity-60"
+              >
+                {busy === 'pack' ? 'Redirection…' : 'Acheter le pack'}
+              </button>
+            </div>
+
+            {/* Abonnement */}
+            <div className="bg-white border-2 border-primary-600 rounded-2xl p-6 flex flex-col relative">
+              {launchOn && (
+                <span className="absolute -top-3 right-5 px-3 py-1 rounded-full bg-primary-600 text-white text-xs font-bold uppercase tracking-wider">
+                  Tarif de lancement
+                </span>
+              )}
+              <h2 className="text-lg font-bold text-gray-900">Illimité, engagement 12 mois</h2>
+              <p className="text-sm text-gray-500 mb-4">Pour recruter régulièrement</p>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="text-4xl font-extrabold text-gray-900">{launchOn ? '14,90' : '19,90'}&nbsp;€</span>
+                <span className="text-sm text-gray-500">TTC / mois</span>
+              </div>
+              {launchOn && (
+                <p className="text-xs text-primary-700 mb-4">Jusqu'au 31 décembre 2026, puis 19,90&nbsp;€/mois. Votre tarif est conservé tant que votre abonnement dure.</p>
+              )}
+              {!launchOn && <div className="mb-4" />}
+              <ul className="space-y-2.5 mb-6 text-sm text-gray-700 flex-1">
+                <li className="flex gap-3"><Check />Missions illimitées, réouvertures comprises</li>
+                <li className="flex gap-3"><Check />Facturé chaque mois</li>
+                <li className="flex gap-3"><Check />Engagement de 12 mois, renouvelé automatiquement ; résiliation à l'issue de chaque période de 12 mois</li>
+              </ul>
+              <button
+                onClick={() => startCheckout('annual')}
+                disabled={busy !== null}
+                className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-semibold disabled:opacity-60"
+              >
+                {busy === 'annual' ? 'Redirection…' : 'Souscrire'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <p className="text-sm text-gray-500 mt-6">
+          Voir les <a href="/cgv" className="text-primary-600 underline">conditions générales de vente</a>.
+        </p>
       </div>
     </div>
   )

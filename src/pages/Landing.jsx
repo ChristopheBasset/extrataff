@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 // Première mission offerte pour toute inscription jusqu'au 30 novembre 2026 inclus (heure de Paris).
 // Même date que dans la base, le formulaire de mission et la page d'inscription.
 const FREE_FIRST_DEADLINE = new Date('2026-12-01T00:00:00+01:00');
+// Tarif de lancement de l'abonnement : jusqu'au 31 décembre 2026 inclus (heure de Paris).
+// Même date que la fonction de paiement.
+const LAUNCH_END = new Date('2027-01-01T00:00:00+01:00');
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -39,6 +42,7 @@ export default function Landing() {
   }, []);
 
   const freeOfferActive = new Date() < FREE_FIRST_DEADLINE;
+  const launchOn = new Date() < LAUNCH_END;
 
   const faqItems = [
     {
@@ -47,7 +51,7 @@ export default function Landing() {
     },
     {
       question: "C'est gratuit ?",
-      answer: "Pour les Extras, c'est 100% gratuit, à vie ! Pour les établissements, chaque mission coûte 19,90€ TTC, sans abonnement." + (freeOfferActive ? " Votre première mission est offerte pour toute inscription jusqu'au 30 novembre 2026, sans carte bancaire." : "") + " Aucune commission sur le salaire de votre Extra."
+      answer: "Pour les Extras, c'est 100% gratuit, à vie ! Pour les établissements : 19,90€ TTC la mission, un pack de 3 missions à 34,90€ TTC (valable 2 mois), ou un abonnement illimité avec engagement de 12 mois (" + (launchOn ? "14,90€ TTC par mois jusqu'au 31 décembre 2026, puis 19,90€" : "19,90€ TTC par mois") + ")." + (freeOfferActive ? " Votre première mission est offerte pour toute inscription jusqu'au 30 novembre 2026, sans carte bancaire." : "") + " Aucune commission sur le salaire de votre Extra."
     },
     {
       question: "Comment créer un compte ?",
@@ -589,7 +593,7 @@ export default function Landing() {
                 </div>
                 <h3 className="text-2xl font-bold tracking-tight mb-3.5">Tarif fixe, jamais sur la valeur</h3>
                 <p className="text-slate-600 text-[15px] leading-relaxed">
-                  Un prix unique par mission, sans abonnement. Aucune commission sur le salaire de votre Extra : ce que vous lui versez, il le touche en intégralité.
+                  Un prix fixe par mission, en pack ou en abonnement. Aucune commission sur le salaire de votre Extra : ce que vous lui versez, il le touche en intégralité.
                 </p>
               </div>
 
@@ -658,58 +662,44 @@ export default function Landing() {
               jamais sur la valeur.
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mb-16 leading-relaxed">
-              Un tarif fixe par mission, sans abonnement. <strong className="font-bold text-slate-900">Aucune commission sur le salaire de votre Extra</strong> — le tarif que vous voyez est le tarif que vous payez. Pour les Extras, ExtraTaff est gratuit, à vie.
+              Une mission à l'unité, un pack ou un abonnement. <strong className="font-bold text-slate-900">Aucune commission sur le salaire de votre Extra</strong> — le tarif que vous voyez est le tarif que vous payez. Pour les Extras, ExtraTaff est gratuit, à vie.
             </p>
 
-            <div className={`grid gap-6 mx-auto ${freeOfferActive ? 'md:grid-cols-2 max-w-4xl' : 'max-w-md'}`}>
-              {/* Card Première mission offerte (jusqu'au 30 novembre 2026) */}
-              {freeOfferActive && (
-                <div className="price-featured rounded-3xl p-10 text-white shadow-2xl"
-                     style={{ background: 'linear-gradient(160deg, #0A2540 0%, #0F2E5C 100%)' }}>
-                  <div className="absolute -top-3 right-6 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider uppercase text-white"
-                       style={{ background: 'linear-gradient(135deg, #0EA5E9, #3B82F6)', boxShadow: '0 6px 16px rgba(14,165,233,0.4)' }}>
+            {/* Bandeau Première mission offerte (jusqu'au 30 novembre 2026) */}
+            {freeOfferActive && (
+              <div className="rounded-3xl p-8 md:p-10 text-white shadow-2xl mb-8 flex flex-col md:flex-row md:items-center gap-6"
+                   style={{ background: 'linear-gradient(160deg, #0A2540 0%, #0F2E5C 100%)' }}>
+                <div className="flex-1">
+                  <div className="inline-block mb-3 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider uppercase text-white"
+                       style={{ background: 'linear-gradient(135deg, #0EA5E9, #3B82F6)' }}>
                     Offre de lancement
                   </div>
-                  <div className="text-xl font-bold tracking-tight mb-2 text-white">Première mission offerte</div>
-                  <div className="text-sm text-white/70 mb-7">Pour toute inscription jusqu&apos;au 30 novembre 2026</div>
-                  <div className="flex items-baseline gap-1.5 mb-8">
-                    <span className="font-extrabold text-white" style={{ fontSize: '56px', letterSpacing: '-0.04em', lineHeight: '1' }}>0&nbsp;€</span>
-                    <span className="text-sm text-white/70 font-medium">pour votre 1ʳᵉ mission</span>
-                  </div>
-                  <ul className="space-y-0 mb-8">
-                    {['Sans carte bancaire', 'Aucune commission sur le salaire', 'Messagerie et planning inclus'].map((item, i) => (
-                      <li key={i} className="flex items-center gap-3 py-3 text-sm font-medium border-b border-white/10 last:border-b-0">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                              style={{ background: 'linear-gradient(135deg, #0EA5E9, #3B82F6)' }}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white">
-                            <polyline points="20 6 9 17 4 12"/>
-                          </svg>
-                        </span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    onClick={() => navigate('/register?type=establishment')}
-                    className="btn-sky-gradient w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-white font-semibold text-[15px]"
-                  >
-                    Publier ma première mission
-                  </button>
+                  <div className="text-2xl font-bold tracking-tight mb-1">Première mission offerte</div>
+                  <div className="text-sm text-white/75">Pour toute inscription jusqu&apos;au 30 novembre 2026, sans carte bancaire.</div>
                 </div>
-              )}
+                <button
+                  onClick={() => navigate('/register?type=establishment')}
+                  className="btn-sky-gradient shrink-0 inline-flex items-center justify-center px-7 py-3.5 rounded-xl text-white font-semibold text-[15px]"
+                >
+                  Publier ma première mission
+                </button>
+              </div>
+            )}
 
-              {/* Card À la mission */}
-              <div className="bg-white border border-blue-100 rounded-3xl p-10 hover:-translate-y-1 hover:shadow-xl hover:border-blue-300 transition-all duration-300">
+            {/* Trois offres : à la mission, pack, abonnement */}
+            <div className="grid gap-6 md:grid-cols-3">
+              {/* À la mission */}
+              <div className="bg-white border border-blue-100 rounded-3xl p-8 flex flex-col hover:-translate-y-1 hover:shadow-xl hover:border-blue-300 transition-all duration-300">
                 <div className="text-xl font-bold tracking-tight mb-2">À la mission</div>
-                <div className="text-sm text-slate-500 mb-7">Pour tous vos besoins en personnel</div>
-                <div className="flex items-baseline gap-1.5 mb-8">
-                  <span className="font-extrabold text-slate-900" style={{ fontSize: '56px', letterSpacing: '-0.04em', lineHeight: '1' }}>19,90&nbsp;€</span>
+                <div className="text-sm text-slate-500 mb-6">Pour un besoin unique</div>
+                <div className="flex items-baseline gap-1.5 mb-7">
+                  <span className="font-extrabold text-slate-900" style={{ fontSize: '48px', letterSpacing: '-0.04em', lineHeight: '1' }}>19,90&nbsp;€</span>
                   <span className="text-sm text-slate-500 font-medium">TTC / mission</span>
                 </div>
-                <ul className="space-y-0 mb-8">
-                  {['Pas d\'abonnement', 'Tarif fixe, aucune commission sur le salaire', 'Paiement sécurisé Stripe'].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 py-3 text-sm font-medium border-b border-blue-100 last:border-b-0">
-                      <span className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shrink-0">
+                <ul className="space-y-0 mb-8 flex-1">
+                  {['Payée à la publication', 'Pas d\'abonnement, pas d\'engagement', 'En ligne jusqu\'à ce qu\'elle soit pourvue ou à sa date de fin (30 jours maximum)'].map((item, i) => (
+                    <li key={i} className="flex items-start gap-3 py-3 text-sm font-medium border-b border-blue-100 last:border-b-0">
+                      <span className="mt-0.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shrink-0">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white">
                           <polyline points="20 6 9 17 4 12"/>
                         </svg>
@@ -723,6 +713,71 @@ export default function Landing() {
                   className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-white text-slate-900 font-semibold text-[15px] border-2 border-blue-100 hover:border-blue-700 hover:text-blue-700 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300"
                 >
                   Publier une mission
+                </button>
+              </div>
+
+              {/* Pack de 3 missions */}
+              <div className="bg-white border border-blue-100 rounded-3xl p-8 flex flex-col hover:-translate-y-1 hover:shadow-xl hover:border-blue-300 transition-all duration-300">
+                <div className="text-xl font-bold tracking-tight mb-2">Pack de 3 missions</div>
+                <div className="text-sm text-slate-500 mb-6">Pour des besoins ponctuels</div>
+                <div className="flex items-baseline gap-1.5 mb-7">
+                  <span className="font-extrabold text-slate-900" style={{ fontSize: '48px', letterSpacing: '-0.04em', lineHeight: '1' }}>34,90&nbsp;€</span>
+                  <span className="text-sm text-slate-500 font-medium">TTC, paiement unique</span>
+                </div>
+                <ul className="space-y-0 mb-8 flex-1">
+                  {['3 missions à publier (ou rouvrir)', 'Valable 2 mois à compter de l\'achat', 'Pas d\'abonnement, pas de renouvellement'].map((item, i) => (
+                    <li key={i} className="flex items-start gap-3 py-3 text-sm font-medium border-b border-blue-100 last:border-b-0">
+                      <span className="mt-0.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shrink-0">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => navigate('/register?type=establishment')}
+                  className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-white text-slate-900 font-semibold text-[15px] border-2 border-blue-100 hover:border-blue-700 hover:text-blue-700 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300"
+                >
+                  Choisir le pack
+                </button>
+              </div>
+
+              {/* Abonnement illimité, engagement 12 mois */}
+              <div className="relative bg-white border-2 border-blue-600 rounded-3xl p-8 flex flex-col hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
+                {launchOn && (
+                  <div className="absolute -top-3 right-6 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider uppercase text-white"
+                       style={{ background: 'linear-gradient(135deg, #0EA5E9, #3B82F6)', boxShadow: '0 6px 16px rgba(14,165,233,0.4)' }}>
+                    Tarif de lancement
+                  </div>
+                )}
+                <div className="text-xl font-bold tracking-tight mb-2">Illimité</div>
+                <div className="text-sm text-slate-500 mb-6">Pour recruter régulièrement</div>
+                <div className="flex items-baseline gap-1.5 mb-2">
+                  <span className="font-extrabold text-slate-900" style={{ fontSize: '48px', letterSpacing: '-0.04em', lineHeight: '1' }}>{launchOn ? '14,90' : '19,90'}&nbsp;€</span>
+                  <span className="text-sm text-slate-500 font-medium">TTC / mois</span>
+                </div>
+                <div className="text-xs text-blue-700 font-medium mb-5 min-h-[2.5rem]">
+                  {launchOn ? 'Jusqu\u2019au 31 décembre 2026, puis 19,90 € / mois. Votre tarif est conservé tant que votre abonnement dure.' : 'Engagement de 12 mois.'}
+                </div>
+                <ul className="space-y-0 mb-8 flex-1">
+                  {['Missions illimitées, réouvertures comprises', 'Facturé chaque mois', 'Engagement de 12 mois, renouvelé automatiquement ; résiliation à l\'issue de chaque période de 12 mois'].map((item, i) => (
+                    <li key={i} className="flex items-start gap-3 py-3 text-sm font-medium border-b border-blue-100 last:border-b-0">
+                      <span className="mt-0.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shrink-0">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => navigate('/register?type=establishment')}
+                  className="btn-sky-gradient w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-white font-semibold text-[15px]"
+                >
+                  Souscrire
                 </button>
               </div>
             </div>

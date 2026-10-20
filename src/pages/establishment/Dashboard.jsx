@@ -92,7 +92,7 @@ export default function EstablishmentDashboard() {
           .from('missions')
           .select('id', { count: 'exact', head: true })
           .eq('establishment_id', data.id)
-          .in('billing_kind', ['free_first', 'single', 'subscription'])
+          .in('billing_kind', ['free_first', 'single', 'subscription', 'pack'])
         const registeredInTime = data.created_at && new Date(data.created_at) < FREE_FIRST_DEADLINE
         setFreeFirstAvailable(Boolean(registeredInTime) && (!billedCount || billedCount === 0))
         // Préparer le formulaire d'édition
@@ -266,18 +266,23 @@ export default function EstablishmentDashboard() {
   // ---- Helpers header ----
   const isSubscriber = () => {
     return profile?.subscription_status === 'active' &&
-      ['club', 'annual', 'monthly3'].includes(profile?.subscription_plan)
+      ['club', 'annual'].includes(profile?.subscription_plan)
   }
+
+  // Crédits du pack de missions (valables 2 mois)
+  const packCredits = profile?.pack_credits || 0
+  const packValid = packCredits > 0 && (!profile?.pack_expires_at || new Date(profile.pack_expires_at) > new Date())
+  const packLabel = `🎟️ ${packCredits} mission${packCredits > 1 ? 's' : ''} restante${packCredits > 1 ? 's' : ''} dans votre pack`
 
   const getSubscriptionBadge = () => {
     if (isSubscriber()) {
-      if (profile?.subscription_plan === 'monthly3') {
-        return { label: '✅ Formule 3 missions par mois', color: 'bg-green-100 text-green-800' }
-      }
       return { label: '✅ Abonné — missions illimitées', color: 'bg-green-100 text-green-800' }
     }
     if (freeFirstAvailable) {
       return { label: '🎁 Première mission offerte', color: 'bg-blue-100 text-blue-800' }
+    }
+    if (packValid) {
+      return { label: `🎟️ Pack : ${packCredits} restante${packCredits > 1 ? 's' : ''}`, color: 'bg-blue-100 text-blue-800' }
     }
     return { label: 'Mission à 19,90 €', color: 'bg-gray-100 text-gray-700' }
   }
@@ -317,6 +322,12 @@ export default function EstablishmentDashboard() {
           <div className="flex justify-between items-center">
             <h1 className="text-xl font-bold text-primary-600">⚡ ExtraTaff</h1>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/establishment/subscribe')}
+                className="px-3 py-1 text-xs font-medium rounded-full border border-primary-200 text-primary-700 hover:bg-primary-50 transition-colors"
+              >
+                Formules
+              </button>
               <NotificationBell />
               <button
                 onClick={handleLogout}
@@ -336,29 +347,28 @@ export default function EstablishmentDashboard() {
               {badge.label}
             </span>
           </div>
-          {/* Ligne 3 : première mission offerte */}
-          {!isSubscriber() && freeFirstAvailable && (
-            <div className="mt-1 text-sm">
-              <span className="text-blue-700 font-medium">🎁 Votre première mission est offerte</span>
-            </div>
-          )}
-          {/* Ligne 3 : publication à la mission */}
-          {!isSubscriber() && !freeFirstAvailable && (
-            <div className="mt-1 text-sm">
-              <span className="text-gray-500">Publication à 19,90 € la mission</span>
-            </div>
-          )}
-          {/* Ligne 3 bis : abonnés */}
-          {isSubscriber() && (
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-green-600 font-medium">
-                {profile.subscription_plan === 'monthly3' ? '✅ 3 missions par mois' : '✅ Missions illimitées'}
-              </span>
+          {/* Ligne 3 : droits de publication et accès aux formules */}
+          {!isSubscriber() && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              {freeFirstAvailable && <span className="text-blue-700 font-medium">🎁 Votre première mission est offerte</span>}
+              {packValid && <span className="text-blue-700 font-medium">{packLabel}</span>}
+              {!freeFirstAvailable && !packValid && <span className="text-gray-500">Publication à 19,90 € la mission</span>}
               <button
-                onClick={handleManageSubscription}
+                onClick={() => navigate('/establishment/subscribe')}
                 className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
               >
-                Gérer mon abonnement →
+                Pack de 3 missions et abonnement →
+              </button>
+            </div>
+          )}
+          {isSubscriber() && (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-green-600 font-medium">✅ Missions illimitées</span>
+              <button
+                onClick={() => navigate('/establishment/subscribe')}
+                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
+              >
+                Mon abonnement →
               </button>
             </div>
           )}
@@ -387,14 +397,20 @@ export default function EstablishmentDashboard() {
               </div>
             )}
 
-            {/* Bouton créer mission */}
-            <div className="mb-8">
+            {/* Boutons : créer une mission, formules */}
+            <div className="mb-8 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleCreateMission}
                 className="w-full sm:w-auto px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <span className="text-xl">+</span>
                 Créer une mission
+              </button>
+              <button
+                onClick={() => navigate('/establishment/subscribe')}
+                className="w-full sm:w-auto px-6 py-3 bg-white border-2 border-primary-600 text-primary-700 hover:bg-primary-50 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isSubscriber() ? '⭐ Mon abonnement' : 'Formule standard, pack et abonnement'}
               </button>
             </div>
 
@@ -572,9 +588,7 @@ export default function EstablishmentDashboard() {
                     {/* Abonnés */}
                     {isSubscriber() && (
                       <div className="mt-2 space-y-1">
-                        <p className="text-sm text-green-600 font-medium">
-                          {profile.subscription_plan === 'monthly3' ? '✅ 3 missions par mois' : '✅ Missions illimitées'}
-                        </p>
+                        <p className="text-sm text-green-600 font-medium">✅ Missions illimitées</p>
                         <p className="text-sm text-gray-500">
                           {profile.subscription_plan === 'annual'
                             ? 'Engagement de 12 mois • Renouvelé automatiquement'
@@ -588,22 +602,27 @@ export default function EstablishmentDashboard() {
                         🎁 Votre première mission est offerte
                       </p>
                     )}
+                    {/* Crédits du pack */}
+                    {!isSubscriber() && packValid && (
+                      <p className="text-sm text-blue-600 font-medium mt-2">
+                        {packLabel}
+                        {profile.pack_expires_at ? ` (jusqu'au ${new Date(profile.pack_expires_at).toLocaleDateString('fr-FR')})` : ''}
+                      </p>
+                    )}
                     {/* Publication à la mission */}
-                    {!isSubscriber() && !freeFirstAvailable && (
+                    {!isSubscriber() && !freeFirstAvailable && !packValid && (
                       <p className="text-sm text-gray-500 mt-2">
                         Publication à 19,90 € la mission
                       </p>
                     )}
-                    {isSubscriber() && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          onClick={handleManageSubscription}
-                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
-                        >
-                          ⚙️ Gérer mon abonnement
-                        </button>
-                      </div>
-                    )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => navigate('/establishment/subscribe')}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        {isSubscriber() ? '⚙️ Mon abonnement' : '🎟️ Pack de 3 missions et abonnement'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

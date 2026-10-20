@@ -20,7 +20,7 @@ export default function MyMissions({ establishmentId, onBack }) {
       try {
         const { data } = await supabase
           .from('establishments')
-          .select('id, subscription_status, subscription_plan')
+          .select('id, subscription_status, subscription_plan, pack_credits, pack_expires_at')
           .eq('id', establishmentId)
           .single()
         setEstablishment(data)
@@ -100,10 +100,17 @@ export default function MyMissions({ establishmentId, onBack }) {
   const handleReopenMission = async (missionId) => {
     const isSubscriber =
       establishment?.subscription_status === 'active' &&
-      ['club', 'annual', 'monthly3'].includes(establishment?.subscription_plan)
+      ['club', 'annual'].includes(establishment?.subscription_plan)
+    const packCredits = establishment?.pack_credits || 0
+    const hasPack = packCredits > 0 && (!establishment?.pack_expires_at || new Date(establishment.pack_expires_at) > new Date())
 
-    // Abonné → réouverture comprise dans la formule (le serveur contrôle la limite des 3 missions par mois)
-    if (isSubscriber) {
+    // Pack : la réouverture utilise un crédit (le décompte est fait par le serveur)
+    if (!isSubscriber && hasPack) {
+      if (!confirm(`Réouvrir cette mission utilise 1 crédit de votre pack (${packCredits} restant${packCredits > 1 ? 's' : ''}). Continuer ?`)) return
+    }
+
+    // Abonné ou crédit de pack → réouverture sans paiement (le serveur contrôle les droits)
+    if (isSubscriber || hasPack) {
       try {
         const { error } = await supabase
           .from('missions')
@@ -120,7 +127,7 @@ export default function MyMissions({ establishmentId, onBack }) {
         loadMissions()
       } catch (err) {
         console.error('Erreur réouverture mission:', err)
-        alert(String(err.message || '').includes('Limite') ? err.message : 'Erreur lors de la réouverture')
+        alert(String(err.message || '').includes('Paiement requis') ? 'Vous n\'avez plus de crédit : la réouverture est à 19,90 €.' : 'Erreur lors de la réouverture')
       }
       return
     }

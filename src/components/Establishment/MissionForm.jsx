@@ -88,13 +88,14 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
         if (!est) { navigate('/establishment'); return }
         setEstablishment(est)
         setIsTestAccount(TEST_ACCOUNT_EMAIL.test(user.email || ''))
-        // Première mission offerte : inscription avant le 1er déc. 2026 et aucune mission déjà publiée.
+        // Première mission offerte : inscription avant le 1er déc. 2026 et aucune mission déjà facturée
+        // (les missions de l'ancienne offre gratuite, « legacy_free », ne comptent pas).
         // (Affichage seulement : la décision finale est prise par le serveur.)
         const { count: usedCount } = await supabase
           .from('missions')
           .select('id', { count: 'exact', head: true })
           .eq('establishment_id', est.id)
-          .eq('payment_status', 'paid')
+          .in('billing_kind', ['free_first', 'single', 'subscription', 'pack'])
         const registeredInTime = est.created_at && new Date(est.created_at) < FREE_FIRST_DEADLINE
         setFreeFirstAvailable(Boolean(registeredInTime) && (!usedCount || usedCount === 0))
         setCheckingAccess(false)

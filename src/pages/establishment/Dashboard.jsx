@@ -7,6 +7,8 @@ import EstablishmentHired from '../../components/Establishment/EstablishmentHire
 import EstablishmentPlanning from '../../components/Establishment/EstablishmentPlanning'
 import AddressAutocomplete from '../../components/shared/AddressAutocomplete'
 import NotificationBell from '../../components/shared/NotificationBell'
+import PushInvite from '../../components/shared/PushInvite'
+import { detachPushOnLogout } from '../../lib/pushNotifications'
 import HelpBubble from '../../components/HelpBubble'
 
 // Première mission offerte pour toute inscription jusqu'au 30 novembre 2026 inclus (heure de Paris).
@@ -157,6 +159,7 @@ export default function EstablishmentDashboard() {
   }
 
   const handleLogout = async () => {
+    await detachPushOnLogout()
     await supabase.auth.signOut()
     navigate('/login')
   }
@@ -381,6 +384,9 @@ export default function EstablishmentDashboard() {
         {/* ========== HOME ========== */}
         {view === 'home' && (
           <>
+            {/* Invitation à activer les alertes sur le téléphone */}
+            <PushInvite role="establishment" />
+
             {/* Bandeau profil à compléter */}
             {profile && (!profile.description || !profile.type || profile.type === 'autre') && (
               <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center gap-3">

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, POSITION_TYPES, FRENCH_DEPARTMENTS, extractDepartment } from '../../lib/supabase'
 import NotificationBell from '../../components/shared/NotificationBell'
+import PushInvite from '../../components/shared/PushInvite'
+import { detachPushOnLogout } from '../../lib/pushNotifications'
 import MatchedMissions from '../../components/Talent/MatchedMissions'
 import TalentApplications from '../../components/Talent/TalentApplications'
 import TalentConfirmed from '../../components/Talent/TalentConfirmed'
@@ -239,6 +241,7 @@ export default function DashboardTalent() {
   }
 
   const handleLogout = async () => {
+    await detachPushOnLogout()
     await supabase.auth.signOut()
     navigate('/login')
   }
@@ -622,6 +625,9 @@ export default function DashboardTalent() {
           {/* ========== HOME ========== */}
           {view === 'home' && (
             <>
+              {/* Invitation à activer les alertes sur le téléphone */}
+              <PushInvite role="talent" />
+
               {/* Bandeau CV manquant */}
               {!profile?.cv_url && (
                 <div className="mb-6 rounded-2xl border-2 p-4 sm:p-5 flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row"

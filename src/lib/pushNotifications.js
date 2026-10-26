@@ -1,6 +1,8 @@
 // src/lib/pushNotifications.js
 import { supabase } from './supabase'
 
+// Clé PUBLIQUE VAPID (visible dans le navigateur de tous les visiteurs : sans risque).
+// Ne jamais mettre ici la clé PRIVÉE, qui reste dans les secrets de Supabase.
 const VAPID_PUBLIC_KEY = 'BArQsThfkFa1g3oBu-7klsoZZJg8BLHjhpGLLf9CYoLHpoySOYPs4R6GVKtu-ITyU9n80So0snwXLSr9M6L-KGY'
 
 /**
@@ -45,6 +47,7 @@ export async function registerServiceWorker() {
 
 /**
  * Demande la permission et souscrit aux push notifications
+ * (à appeler au clic de l'utilisateur : obligatoire sur iPhone)
  */
 export async function subscribeToPush() {
   if (!isPushSupported()) {
@@ -77,7 +80,7 @@ export async function subscribeToPush() {
       console.log('Souscription push existante')
     }
 
-    // Sauvegarder dans Supabase
+    // Sauvegarder dans Supabase (rattache l'appareil au compte connecté)
     await saveSubscription(subscription)
 
     return subscription
@@ -88,7 +91,8 @@ export async function subscribeToPush() {
 }
 
 /**
- * Sauvegarde la souscription push dans Supabase
+ * Rattache l'appareil au compte connecté.
+ * Si l'appareil servait à un autre compte (téléphone ou ordinateur partagé), il passe au compte actuel.
  */
 async function saveSubscription(subscription) {
   try {
@@ -97,18 +101,11 @@ async function saveSubscription(subscription) {
 
     const subscriptionData = subscription.toJSON()
 
-    // Upsert : met à jour si l'endpoint existe déjà, sinon insert
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .upsert({
-        user_id: user.id,
-        endpoint: subscriptionData.endpoint,
-        p256dh: subscriptionData.keys.p256dh,
-        auth: subscriptionData.keys.auth,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'endpoint'
-      })
+    const { error } = await supabase.rpc('register_push_subscription', {
+      p_endpoint: subscriptionData.endpoint,
+      p_p256dh: subscriptionData.keys.p256dh,
+      p_auth: subscriptionData.keys.auth
+    })
 
     if (error) {
       console.error('Erreur sauvegarde subscription:', error)
@@ -117,6 +114,27 @@ async function saveSubscription(subscription) {
     }
   } catch (error) {
     console.error('Erreur saveSubscription:', error)
+  }
+}
+
+/**
+ * À la déconnexion : l'appareil cesse de recevoir les alertes de ce compte.
+ * L'appareil reste autorisé : le compte suivant qui s'y connecte le reprend automatiquement.
+ * À appeler AVANT supabase.auth.signOut().
+ */
+export async function detachPushOnLogout() {
+  try {
+    if (!('serviceWorker' in navigator)) return
+    const registration = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => setTimeout(() => resolve(null), 2000))
+    ])
+    if (!registration) return
+    const subscription = await registration.pushManager.getSubscription()
+    if (!subscription) return
+    await supabase.from('push_subscriptions').delete().eq('endpoint', subscription.endpoint)
+  } catch (error) {
+    console.error('Erreur détachement push:', error)
   }
 }
 

@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { subscribeToPush, isPushSupported } from '../../lib/pushNotifications'
+import { subscribeToPush } from '../../lib/pushNotifications'
+import { getPushStatus } from '../../lib/pushStatus'
+import PushInvite from './PushInvite'
 
 export default function NotificationBell() {
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
+  const [pushStatus, setPushStatus] = useState(null)
   const dropdownRef = useRef(null)
   const userIdRef = useRef(null)
 
@@ -44,10 +47,13 @@ export default function NotificationBell() {
           console.log('🔔 Realtime status:', status)
         })
 
-      // Souscrire aux push notifications
-      if (isPushSupported()) {
+      // Alertes sur le téléphone : on ne redemande jamais l'autorisation automatiquement
+      // (sur iPhone elle n'est acceptée qu'après un clic, voir PushInvite).
+      // Si elle est déjà accordée, on remet simplement l'inscription à jour.
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         subscribeToPush().catch(err => console.log('Push subscription:', err))
       }
+      getPushStatus().then(setPushStatus).catch(() => {})
     }
 
     init()
@@ -182,6 +188,9 @@ export default function NotificationBell() {
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
+        {unreadCount === 0 && (pushStatus === 'can_enable' || pushStatus === 'needs_install') && (
+          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-amber-500 rounded-full" title="Activez les alertes"></span>
+        )}
       </button>
 
       {/* Dropdown */}
@@ -198,6 +207,11 @@ export default function NotificationBell() {
                 Tout marquer comme lu
               </button>
             )}
+          </div>
+
+          {/* Invitation à activer les alertes (disparaît quand elles sont actives) */}
+          <div className="px-3 pt-3">
+            <PushInvite compact role="neutral" onStatusChange={setPushStatus} />
           </div>
 
           {/* Liste notifications */}

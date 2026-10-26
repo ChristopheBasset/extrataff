@@ -139,7 +139,7 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
     setApplyingId(missionId)
     try {
       const mission = missions.find(m => m.id === missionId)
-      const { error } = await supabase
+      const { data: created, error } = await supabase
         .from('applications')
         .insert({
           mission_id: missionId,
@@ -147,11 +147,20 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
           status: 'interested',
           source: mission?.mode === 'express' ? 'express' : 'normal'
         })
+        .select('status')
+        .single()
 
       if (error) throw error
 
+      // Mission déjà à 10 candidatures : la base place la candidature en liste d'attente.
+      // L'établissement n'est pas prévenu ; le candidat reçoit sa notification de la base.
+      const waitlisted = created?.status === 'waiting'
+      if (waitlisted) {
+        alert('Cette mission a déjà reçu 10 candidatures. Vous êtes en liste d\'attente : vous serez prévenu si une place se libère.')
+      }
+
       // ✅ Envoyer une notification à l'établissement
-      if (mission?.establishments?.user_id) {
+      if (!waitlisted && mission?.establishments?.user_id) {
         const posLabel = getPositionLabel(mission.position)
         const talentName = talentProfile?.first_name || 'Un talent'
         const isExpress = mission.mode === 'express'

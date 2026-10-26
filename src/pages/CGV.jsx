@@ -49,6 +49,7 @@ const CGV = () => {
               <p className="mt-3"><strong>Pour les talents (extras) :</strong></p>
               <p>Consultation et candidature aux missions correspondant à leur profil, profil professionnel, messagerie avec les établissements, planning des missions acceptées. L'accès à la plateforme est entièrement gratuit pour les talents.</p>
               <p className="mt-3">Le nom, l'adresse et le numéro de téléphone d'un établissement ne sont communiqués à un talent qu'après l'acceptation de sa candidature par l'établissement.</p>
+              <p className="mt-3">Chaque mission reçoit au maximum dix candidatures actives à la fois. Les candidatures suivantes sont placées en liste d'attente et transmises à l'établissement, dans leur ordre d'arrivée, à mesure que des places se libèrent. Les candidatures encore en attente sont classées sans suite lorsque la mission est pourvue, clôturée ou expirée.</p>
             </div>
           </section>
 

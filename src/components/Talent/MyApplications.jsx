@@ -136,6 +136,12 @@ export default function MyApplications() {
         bgColor: 'bg-blue-100',
         textColor: 'text-blue-700'
       },
+      waiting: {
+        label: '⏳ En liste d\'attente',
+        subLabel: 'Mission complète : vous serez prévenu si une place se libère',
+        bgColor: 'bg-gray-100',
+        textColor: 'text-gray-700'
+      },
       confirmed: {
         label: '🎉 Confirmé',
         subLabel: 'Mission validée !',

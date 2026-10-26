@@ -14,12 +14,12 @@ export default function TalentApplications({ talentId, onBack }) {
   const loadApplications = async () => {
     setLoading(true)
     try {
-      // Récupérer les candidatures interested + accepted du talent
+      // Récupérer les candidatures interested + accepted + waiting (liste d'attente) du talent
       const { data: apps, error } = await supabase
         .from('applications')
         .select('*')
         .eq('talent_id', talentId)
-        .in('status', ['interested', 'accepted'])
+        .in('status', ['interested', 'accepted', 'waiting'])
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -72,8 +72,11 @@ export default function TalentApplications({ talentId, onBack }) {
     navigate(`/talent/chat/${applicationId}`)
   }
 
-  const handleWithdraw = async (applicationId) => {
-    if (!confirm('Retirer votre candidature ? L\'établissement sera notifié que vous vous retirez.')) return
+  const handleWithdraw = async (applicationId, status) => {
+    const message = status === 'waiting'
+      ? 'Retirer votre candidature de la liste d\'attente ?'
+      : 'Retirer votre candidature ? L\'établissement sera notifié que vous vous retirez.'
+    if (!confirm(message)) return
 
     try {
       const { error } = await supabase
@@ -160,7 +163,8 @@ export default function TalentApplications({ talentId, onBack }) {
           <div
             key={app.id}
             className={`bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow ${
-              app.status === 'accepted' ? 'border-l-4 border-green-500' : 'border-l-4 border-yellow-400'
+              app.status === 'accepted' ? 'border-l-4 border-green-500'
+                : app.status === 'waiting' ? 'border-l-4 border-gray-300' : 'border-l-4 border-yellow-400'
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
@@ -176,6 +180,14 @@ export default function TalentApplications({ talentId, onBack }) {
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       ✅ Établissement intéressé !
                     </span>
+                  )}
+                  {app.status === 'waiting' && (
+                    <>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        ⏳ En liste d'attente
+                      </span>
+                      <span className="text-xs text-gray-500">Mission complète : vous serez prévenu si une place se libère</span>
+                    </>
                   )}
                 </div>
 
@@ -232,7 +244,7 @@ export default function TalentApplications({ talentId, onBack }) {
                   </button>
                 )}
                 <button
-                  onClick={() => handleWithdraw(app.id)}
+                  onClick={() => handleWithdraw(app.id, app.status)}
                   className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm font-medium transition-colors"
                 >
                   🗑️ Retirer

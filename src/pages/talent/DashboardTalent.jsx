@@ -1029,6 +1029,9 @@ export default function DashboardTalent() {
                           <p className="text-xs text-slate-500 mt-2 font-medium">PDF ou Word, 5 Mo max</p>
                         </div>
                       )}
+                      <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                        🔒 Votre CV n'est transmis à un établissement qu'avec votre accord : il vous le demande dans la conversation et vous choisissez de le partager. Vous pouvez en retirer votre adresse et votre téléphone si vous le souhaitez.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1334,6 +1337,9 @@ export default function DashboardTalent() {
                           <p className="text-xs text-slate-500 mt-2 font-medium">PDF ou Word, 5 Mo max</p>
                         </div>
                       )}
+                      <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                        🔒 Votre CV n'est transmis à un établissement qu'avec votre accord : il vous le demande dans la conversation et vous choisissez de le partager. Vous pouvez en retirer votre adresse et votre téléphone si vous le souhaitez.
+                      </p>
                     </div>
 
                     {/* Boutons actions */}

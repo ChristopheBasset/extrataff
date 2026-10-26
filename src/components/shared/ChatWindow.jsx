@@ -642,6 +642,11 @@ export default function ChatWindow({ userType }) {
                 </p>
               </div>
             </div>
+            <p className="text-xs text-amber-800 mt-1 leading-snug">
+              {userType === 'talent'
+                ? "Vous pouvez continuer à échanger sans envoyer votre CV."
+                : "En attendant, vous pouvez poursuivre la conversation."}
+            </p>
             {userType === 'talent' && !cvShared && (
               <button onClick={handleShareCv} disabled={sending || !talentCvUrl}
                 className="mt-2 w-full text-white text-sm font-bold py-2.5 rounded-xl disabled:opacity-50 transition-all hover:-translate-y-0.5"

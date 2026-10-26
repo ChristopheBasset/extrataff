@@ -34,6 +34,9 @@ const formatShiftFromTimes = (start, end) => {
 // Une mission reste en ligne jusqu'à sa date de fin, au plus 30 jours après son début
 const MAX_MISSION_DAYS = 30
 
+// L'option « CV obligatoire » est masquée au lancement : elle freine les candidatures (le CV se demande dans la messagerie)
+const SHOW_CV_REQUIRED = false
+
 export default function EditMissionForm() {
   const navigate = useNavigate()
   const { missionId } = useParams()
@@ -646,6 +649,7 @@ export default function EditMissionForm() {
                   </button>
                 </div>
 
+                {SHOW_CV_REQUIRED && (
                 <label className="flex items-center gap-3 p-3 rounded-xl border-2 border-slate-200 bg-white cursor-pointer hover:border-blue-300 transition-all">
                   <input
                     type="checkbox" name="cv_required" checked={formData.cv_required} onChange={handleChange}
@@ -656,6 +660,7 @@ export default function EditMissionForm() {
                     <div className="text-xs text-slate-500 font-medium">Seuls les Extras avec CV pourront postuler</div>
                   </div>
                 </label>
+                )}
               </div>
             )}
 

@@ -9,6 +9,9 @@ const TEST_POSITION = { value: 'zz_test', label: 'Poste de test (aucun vrai cand
 
 // Une mission reste en ligne jusqu'à sa date de fin, au plus 30 jours après son début
 const MAX_MISSION_DAYS = 30
+
+// L'option « CV requis » est masquée au lancement : elle freine les candidatures (le CV se demande dans la messagerie)
+const SHOW_CV_REQUIRED = false
 import HelpBubble from '../../components/HelpBubble'
 
 // Tarif d'une mission à l'unité (TTC)
@@ -469,7 +472,7 @@ export default function MissionForm({ onMissionCreated, expressMode: expressMode
             )}
 
             {/* CV requis */}
-            {!expressMode && (
+            {SHOW_CV_REQUIRED && !expressMode && (
             <div className="mt-4">
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input

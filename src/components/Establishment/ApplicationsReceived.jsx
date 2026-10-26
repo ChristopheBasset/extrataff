@@ -300,12 +300,9 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
                       {app.talent?.first_name || '—'} {app.talent?.last_name || ''}
                     </h3>
                   {app.talent?.cv_url && (
-                    <button
-                      onClick={() => handleDownloadCv(app.talent.cv_url, app.talent.first_name)}
-                      className="inline-flex items-center gap-1.5 mt-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition-colors"
-                    >
-                      📄 Télécharger le CV
-                    </button>
+                    <p className="mt-1 text-xs text-gray-500">
+                      📄 CV disponible dans la conversation, avec l'accord du candidat
+                    </p>
                   )}
                   </div>
                   {/* Badge expérience */}

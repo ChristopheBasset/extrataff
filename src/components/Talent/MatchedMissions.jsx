@@ -159,22 +159,8 @@ export default function MatchedMissions({ talentId, talentProfile, onBack, onCou
         alert('Cette mission a déjà reçu 10 candidatures. Vous êtes en liste d\'attente : vous serez prévenu si une place se libère.')
       }
 
-      // ✅ Envoyer une notification à l'établissement
-      if (!waitlisted && mission?.establishments?.user_id) {
-        const posLabel = getPositionLabel(mission.position)
-        const talentName = talentProfile?.first_name || 'Un talent'
-        const isExpress = mission.mode === 'express'
-        await supabase.from('notifications').insert({
-          user_id: mission.establishments.user_id,
-          type: 'new_application',
-          title: isExpress ? '⚡ Dispo Express !' : '📩 Nouvelle candidature',
-          content: isExpress
-            ? `${talentName} est dispo pour votre mission urgente ${posLabel}`
-            : `${talentName} est intéressé(e) par votre mission ${posLabel}`,
-          link: '/establishment/applications',
-          read: false
-        })
-      }
+      // La notification (et l'alerte) au restaurateur est créée par la base : elle applique le plafond de 10
+      // candidatures, le choix « à chaque candidature » ou « résumé par jour », et l'urgence de la mission.
 
       // Retirer la mission de la liste
       setMissions(prev => prev.filter(m => m.id !== missionId))

@@ -14,6 +14,11 @@ export default function ApplicationsReceived({ establishmentId, onBack, onCountC
   const loadApplications = async () => {
     setLoading(true)
     try {
+      // Le restaurateur consulte ses candidats : on le note (arrête les rappels par e-mail)
+      supabase.rpc('mark_applications_seen').then(({ error }) => {
+        if (error) console.error('Erreur enregistrement visite:', error)
+      })
+
       // Récupérer toutes les missions de l'établissement
       const { data: missions } = await supabase
         .from('missions')

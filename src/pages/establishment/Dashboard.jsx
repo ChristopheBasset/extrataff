@@ -106,7 +106,10 @@ export default function EstablishmentDashboard() {
           postal_code: data.postal_code || '',
           department: data.department || '',
           phone: data.phone || '',
-          description: data.description || ''
+          description: data.description || '',
+          notif_push: data.notif_push !== false,
+          notif_email: data.notif_email !== false,
+          notif_applications_mode: data.notif_applications_mode || 'each'
         })
       }
     } catch (err) {
@@ -241,6 +244,9 @@ export default function EstablishmentDashboard() {
           department: profileForm.department,
           phone: profileForm.phone.replace(/[\s\-\.]/g, '').trim(),
           description: profileForm.description,
+          notif_push: profileForm.notif_push,
+          notif_email: profileForm.notif_email,
+          notif_applications_mode: profileForm.notif_applications_mode,
           updated_at: new Date().toISOString()
         })
         .eq('id', profile.id)
@@ -711,6 +717,69 @@ export default function EstablishmentDashboard() {
                     />
                   </div>
 
+                  {/* Mes alertes */}
+                  <div className="pt-2">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">🔔 Mes alertes de candidature</h3>
+                    <p className="text-xs text-gray-500 mb-3">Une mission urgente (mode Express, ou qui commence aujourd'hui ou demain) déclenche toujours une alerte immédiate.</p>
+                    <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 mb-2">Fréquence des alertes</p>
+                        <label className="flex items-start gap-2 mb-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="notif_applications_mode"
+                            value="each"
+                            checked={profileForm.notif_applications_mode === 'each'}
+                            onChange={handleProfileChange}
+                            className="mt-1"
+                          />
+                          <span className="text-sm text-gray-700">À chaque candidature <span className="block text-xs text-gray-500">Une alerte dès qu'un candidat se déclare intéressé</span></span>
+                        </label>
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="notif_applications_mode"
+                            value="daily"
+                            checked={profileForm.notif_applications_mode === 'daily'}
+                            onChange={handleProfileChange}
+                            className="mt-1"
+                          />
+                          <span className="text-sm text-gray-700">Un résumé par jour <span className="block text-xs text-gray-500">Une seule alerte le matin, vers 9 h, avec le nombre de candidats</span></span>
+                        </label>
+                      </div>
+
+                      <div className="border-t border-gray-200" />
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Alertes sur le téléphone</p>
+                          <p className="text-xs text-gray-500">Notifications même quand l'application est fermée</p>
+                        </div>
+                        <div
+                          onClick={() => setProfileForm(prev => ({ ...prev, notif_push: !prev.notif_push }))}
+                          className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${profileForm.notif_push ? 'bg-primary-600' : 'bg-gray-300'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${profileForm.notif_push ? 'translate-x-7' : 'translate-x-1'}`} />
+                        </div>
+                      </div>
+
+                      <div className="border-t border-gray-200" />
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Rappel par e-mail</p>
+                          <p className="text-xs text-gray-500">Un e-mail si des candidats vous attendent et que vous n'avez pas ouvert l'application</p>
+                        </div>
+                        <div
+                          onClick={() => setProfileForm(prev => ({ ...prev, notif_email: !prev.notif_email }))}
+                          className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${profileForm.notif_email ? 'bg-primary-600' : 'bg-gray-300'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${profileForm.notif_email ? 'translate-x-7' : 'translate-x-1'}`} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Boutons actions */}
                   <div className="flex gap-4 pt-4">
                     <button
@@ -726,7 +795,10 @@ export default function EstablishmentDashboard() {
                           postal_code: profile.postal_code || '',
                           department: profile.department || '',
                           phone: profile.phone || '',
-                          description: profile.description || ''
+                          description: profile.description || '',
+                          notif_push: profile.notif_push !== false,
+                          notif_email: profile.notif_email !== false,
+                          notif_applications_mode: profile.notif_applications_mode || 'each'
                         })
                         setProfileError(null)
                       }}

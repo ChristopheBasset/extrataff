@@ -9,7 +9,7 @@ import AdminFunnel from '../../components/Admin/AdminFunnel';
 // ============================================================
 
 const TABS_BASE = [
-  { id: 'overview', label: '📊 Vue d\'ensemble' },
+  { id: 'overview', label: '🎯 Pilotage' },
   { id: 'funnel', label: '🎯 Funnel' },
   { id: 'talents', label: '👤 Talents' },
   { id: 'establishments', label: '🏪 Établissements' },
@@ -67,9 +67,10 @@ const getPositionLabel = (key) => {
 };
 
 const getSubscriptionBadge = (status, plan) => {
-  if (plan === 'club') return { text: '🏆 Club', color: 'bg-yellow-100 text-yellow-800' };
+  if (status === 'active' && plan === 'annual') return { text: '🏆 Abonné annuel', color: 'bg-yellow-100 text-yellow-800' };
+  if (status === 'active' && plan === 'club') return { text: '🏆 Abonné', color: 'bg-yellow-100 text-yellow-800' };
   if (status === 'active') return { text: '✅ Actif', color: 'bg-green-100 text-green-800' };
-  return { text: '🆓 Freemium', color: 'bg-gray-100 text-gray-600' };
+  return { text: 'Sans abonnement', color: 'bg-gray-100 text-gray-600' };
 };
 
 // ============================================================
@@ -262,13 +263,12 @@ const EstablishmentDetailModal = ({ item, onClose }) => {
     { label: 'Code postal', value: item.postal_code },
     { label: 'Département', value: item.department },
     { label: 'Description', value: item.description },
-    { label: '💳 Statut abo', value: item.subscription_status || 'freemium' },
+    { label: '💳 Statut abo', value: item.subscription_status === 'freemium' || !item.subscription_status ? 'Sans abonnement' : item.subscription_status },
     { label: '💳 Plan', value: item.subscription_plan || '—' },
     { label: 'Stripe Customer', value: item.stripe_customer_id },
     { label: 'Stripe Subscription', value: item.stripe_subscription_id },
     { label: 'Début abo', value: formatDate(item.subscription_started_at) },
     { label: 'Fin abo', value: formatDate(item.subscription_ends_at) },
-    { label: 'Fin essai', value: formatDate(item.trial_ends_at) },
     { label: 'Missions créées', value: item.missions_used },
     { label: '📊 Total missions', value: `${item.total_missions || 0} (${item.active_missions || 0} actives)` },
     { label: '📩 Candidatures reçues', value: item.total_applications_received || 0 },
@@ -356,6 +356,87 @@ const exportCSV = (data, filename, columns) => {
 // ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
+// ============================================================
+// Pilotage : petits composants d'affichage
+// ============================================================
+const pct = (n, d) => (d ? `${Math.round((Number(n) / Number(d)) * 100)} %` : '—');
+const eur = (n) => `${Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
+const TONES = {
+  gray: 'bg-white border-gray-200',
+  blue: 'bg-blue-50 border-blue-200',
+  green: 'bg-green-50 border-green-200',
+  amber: 'bg-amber-50 border-amber-200',
+  red: 'bg-red-50 border-red-200',
+  purple: 'bg-purple-50 border-purple-200',
+};
+
+const ZONE_LABELS = {
+  paris_idf: 'Paris Île-de-France',
+  calvados: 'Calvados',
+  autre: 'Autres départements',
+  inconnu: 'Non renseigné',
+};
+
+const BILLING_LABELS = {
+  free_first: '🎁 Première mission offerte',
+  single: '💶 Mission à l\'unité',
+  pack: '📦 Pack de missions',
+  subscription: '🏆 Abonnement',
+  legacy_paid: 'Ancienne offre payante',
+  legacy_free: 'Ancienne offre gratuite',
+  admin: 'Offerte par l\'administrateur',
+  non_renseigne: 'Non renseigné',
+};
+
+const Kpi = ({ icon, label, value, hint, tone = 'gray' }) => (
+  <div className={`rounded-xl border p-4 shadow-sm ${TONES[tone] || TONES.gray}`}>
+    <div className="flex items-center gap-2">
+      <span className="text-lg">{icon}</span>
+      <span className="text-2xl font-bold text-gray-900">{value}</span>
+    </div>
+    <div className="text-sm text-gray-600 mt-1">{label}</div>
+    {hint && <div className="text-xs text-gray-400 mt-0.5">{hint}</div>}
+  </div>
+);
+
+const Block = ({ title, subtitle, children }) => (
+  <section className="space-y-4">
+    <div>
+      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+      {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+    </div>
+    {children}
+  </section>
+);
+
+const MiniTable = ({ columns, rows, empty = 'Rien à signaler' }) => (
+  rows && rows.length > 0 ? (
+    <div className="overflow-x-auto rounded-xl border shadow-sm bg-white">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {columns.map((c, i) => (
+              <th key={i} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{c.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {rows.map((r, ri) => (
+            <tr key={r.id || ri} className="hover:bg-gray-50">
+              {columns.map((c, ci) => (
+                <td key={ci} className="px-3 py-2 text-sm">{c.render(r)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <p className="text-sm text-gray-400 py-3">{empty}</p>
+  )
+);
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
@@ -368,6 +449,8 @@ export default function AdminDashboard() {
   const [missions, setMissions] = useState([]);
   const [applications, setApplications] = useState([]);
   const [stats, setStats] = useState(null);
+  const [pilotage, setPilotage] = useState(null);
+  const [pilotageError, setPilotageError] = useState(null);
 
   // UI state
   const [search, setSearch] = useState('');
@@ -472,6 +555,17 @@ export default function AdminDashboard() {
       const { data: statsData, error: statsErr } = await supabase.rpc('get_admin_stats');
       if (!statsErr && statsData) {
         setStats(statsData);
+      }
+
+      // Pilotage (comptes de test exclus) : inscriptions, relances, paiements, santé
+      const { data: pilotageData, error: pilotageErr } = await supabase.rpc('get_admin_pilotage');
+      if (pilotageErr) {
+        console.error('Erreur RPC pilotage:', pilotageErr);
+        setPilotageError(pilotageErr.message || 'fonction indisponible');
+        setPilotage(null);
+      } else {
+        setPilotageError(null);
+        setPilotage(pilotageData);
       }
 
       // Charger admins
@@ -626,14 +720,23 @@ export default function AdminDashboard() {
     }
   };
 
-  // Accorder un freemium de 30 jours à un établissement
-  const handleGrantFreemium = async (id, name) => {
-    if (!confirm(`Accorder 30 jours de freemium à "${name}" ?`)) return;
-    const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 30);
+  // Offrir une mission à un établissement : un crédit valable 60 jours (même logique que l'achat d'un pack)
+  const handleGrantMission = async (id, name) => {
+    if (!confirm(`Offrir une mission à "${name}" ? Un crédit valable 60 jours sera ajouté à son compte.`)) return;
+    const { data: est, error: readError } = await supabase
+      .from('establishments').select('pack_credits, pack_expires_at').eq('id', id).single();
+    if (readError) {
+      alert('Erreur: ' + readError.message);
+      return;
+    }
+    const now = new Date();
+    const validUntil = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+    const currentExpiry = est?.pack_expires_at ? new Date(est.pack_expires_at) : null;
+    const stillValid = currentExpiry && currentExpiry > now && (est.pack_credits || 0) > 0;
     const { error } = await supabase.from('establishments').update({
-      trial_ends_at: trialEnd.toISOString(),
-      updated_at: new Date().toISOString()
+      pack_credits: (stillValid ? (est.pack_credits || 0) : 0) + 1,
+      pack_expires_at: (stillValid && currentExpiry > validUntil ? currentExpiry : validUntil).toISOString(),
+      updated_at: now.toISOString()
     }).eq('id', id);
     if (error) {
       alert('Erreur: ' + error.message);
@@ -643,98 +746,249 @@ export default function AdminDashboard() {
   };
 
   // ============================================================
-  // ONGLET : Vue d'ensemble
+  // ONGLET : Pilotage (inscriptions, relances, paiements, santé) — comptes de test exclus
   // ============================================================
   const renderOverview = () => {
-    if (!stats) return <div className="text-center py-12 text-gray-500">Chargement des statistiques...</div>;
+    if (!pilotage) {
+      return (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+          {pilotageError
+            ? <>Le pilotage n'est pas disponible : <strong>{pilotageError}</strong>. Vérifier que le fichier SQL « 21-admin-pilotage.sql » a bien été exécuté dans Supabase.</>
+            : 'Chargement du pilotage…'}
+        </div>
+      );
+    }
 
-    // Compteurs calculés localement pour concordance avec les onglets
-    const localClubCount = establishments.filter(e => e.subscription_plan === 'club').length;
-    const localActiveMissions = missions.filter(m => m.status === 'open' || m.status === 'active').length;
+    const P = pilotage;
+    const c = P.comptes || {};
+    const ins = P.inscriptions || {};
+    const act = P.activation || {};
+    const f = P.funnel || {};
+    const rel = P.relance || {};
+    const pay = P.paiements || {};
+    const off = P.offre || {};
+    const sante = P.sante || {};
+    const delai = sante.delai_premiere_candidature || {};
+    const al = sante.alertes || {};
+    const rap = sante.rappels || {};
+    const joursOffre = Math.max(0, Math.ceil((new Date('2026-12-01T00:00:00+01:00') - new Date()) / 86400000));
 
-    const cards = [
-      { label: 'Talents inscrits', value: talents.length, icon: '👤', color: 'blue' },
-      { label: 'Établissements', value: establishments.length, icon: '🏪', color: 'green' },
-      { label: 'Missions créées', value: missions.length, icon: '📋', color: 'purple' },
-      { label: 'Missions actives', value: localActiveMissions, icon: '🔥', color: 'orange' },
-      { label: 'Candidatures', value: applications.length, icon: '📩', color: 'pink' },
-      { label: 'Messages', value: stats.total_messages, icon: '💬', color: 'indigo' },
-      { label: 'Abonnés Club', value: localClubCount, icon: '🏆', color: 'yellow' },
-      { label: 'Revenu mensuel estimé', value: `${localClubCount * 39}€`, icon: '💰', color: 'emerald' },
+    const funnelSteps = [
+      { label: '1. Établissements inscrits', value: f.inscrits || 0 },
+      { label: '2. Ont publié une mission', value: f.ont_publie || 0 },
+      { label: '3. Ont reçu une candidature', value: f.ont_recu_candidature || 0 },
+      { label: '4. Ont accepté un candidat', value: f.ont_accepte || 0 },
+      { label: '5. Ont payé (mission, pack ou abonnement)', value: f.ont_paye || 0 },
     ];
 
-    const activityCards = [
-      { label: 'Nouveaux talents (7j)', value: stats.new_talents_week, icon: '🆕' },
-      { label: 'Nouveaux établissements (7j)', value: stats.new_establishments_week, icon: '🆕' },
-      { label: 'Talents actifs (7j)', value: stats.active_talents_week, icon: '🟢' },
-      { label: 'Établissements actifs (7j)', value: stats.active_establishments_week, icon: '🟢' },
-      { label: 'Emails non confirmés (talents)', value: talents.filter(t => !t.email_confirmed_at).length, icon: '⚠️' },
-      { label: 'Emails non confirmés (établ.)', value: establishments.filter(e => !e.email_confirmed_at).length, icon: '⚠️' },
-      { label: 'Talents bloqués', value: talents.filter(t => t.is_blocked).length, icon: '🚫' },
-      { label: 'Établissements bloqués', value: establishments.filter(e => e.is_blocked).length, icon: '🚫' },
-    ];
+    const zoneRows = ['paris_idf', 'calvados', 'autre', 'inconnu'].map((z) => ({
+      id: z,
+      zone: ZONE_LABELS[z],
+      etablissements: ins.etablissements_par_zone?.[z] || 0,
+      talents: ins.talents_par_zone?.[z] || 0,
+    }));
+
+    const contactCell = (r) => (
+      <div className="text-xs leading-5">
+        <div className="font-medium">{r.telephone ? `📱 ${r.telephone}` : '📱 —'}</div>
+        <div className="text-blue-700">{r.email || '—'}</div>
+      </div>
+    );
 
     return (
-      <div className="space-y-8">
-        {/* Stats principales */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4">📊 Statistiques globales</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {cards.map((c, i) => (
-              <div key={i} className="bg-white rounded-xl border p-4 shadow-sm">
-                <div className="text-2xl mb-1">{c.icon}</div>
-                <div className="text-2xl font-bold text-gray-900">{c.value}</div>
-                <div className="text-sm text-gray-500">{c.label}</div>
-              </div>
-            ))}
-          </div>
+      <div className="space-y-10">
+        {/* En-tête */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">
+            Chiffres en direct, <strong>comptes de test exclus</strong> · mis à jour {timeAgo(P.genere_le)}
+          </p>
+          <button
+            onClick={loadData}
+            className="text-sm px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50"
+          >
+            🔄 Actualiser
+          </button>
         </div>
 
-        {/* Activité récente */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4">📈 Activité récente</h3>
+        {/* ===== Bloc 1 : inscriptions et activation ===== */}
+        <Block title="📥 Inscriptions et activation" subtitle="Qui s'inscrit, et qui passe à l'action">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {activityCards.map((c, i) => (
-              <div key={i} className="bg-white rounded-xl border p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-1">
-                  <span>{c.icon}</span>
-                  <span className="text-xl font-bold">{c.value}</span>
-                </div>
-                <div className="text-sm text-gray-500">{c.label}</div>
-              </div>
-            ))}
+            <Kpi icon="🏪" label="Établissements inscrits" value={c.etablissements ?? 0} tone="green" />
+            <Kpi icon="👤" label="Candidats inscrits" value={c.talents ?? 0} tone="blue" />
+            <Kpi icon="📋" label="Ont publié au moins une mission" value={act.etablissements_avec_mission ?? 0} hint={pct(act.etablissements_avec_mission, c.etablissements)} />
+            <Kpi icon="💤" label="Inscrits sans mission" value={act.etablissements_sans_mission ?? 0} tone="amber" hint="à appeler" />
+            <Kpi icon="🔥" label="Missions ouvertes" value={act.missions_ouvertes ?? 0} />
+            <Kpi icon="📩" label="Candidatures par mission" value={act.candidatures_par_mission ?? 0} hint={`${act.missions_avec_candidature ?? 0} / ${act.missions_publiees ?? 0} missions en ont reçu`} />
+            <Kpi icon="🚧" label="Missions au plafond (10)" value={act.missions_au_plafond ?? 0} hint={`${act.candidatures_en_attente ?? 0} en liste d'attente`} />
+            <Kpi icon="🎉" label="Embauches" value={act.embauches ?? 0} tone="purple" />
           </div>
-        </div>
 
-        {/* Funnel de conversion */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4">🔄 Funnel Établissements</h3>
-          <div className="bg-white rounded-xl border p-6 shadow-sm space-y-3">
-            {(() => {
-              const total = establishments.length;
-              const freemiumActive = establishments.filter(e => e.subscription_plan !== 'club' && e.trial_ends_at && new Date(e.trial_ends_at) > new Date()).length;
-              const freemiumExpired = establishments.filter(e => e.subscription_plan !== 'club' && e.trial_ends_at && new Date(e.trial_ends_at) <= new Date()).length;
-              const clubCount = establishments.filter(e => e.subscription_plan === 'club').length;
-              const steps = [
-                { label: '1. Inscrits', value: total, width: '100%' },
-                { label: '2. Freemium actifs (30j)', value: freemiumActive, width: `${total ? Math.round(freemiumActive / total * 100) : 0}%` },
-                { label: '3. Freemium expiré', value: freemiumExpired, width: `${total ? Math.round(freemiumExpired / total * 100) : 0}%` },
-                { label: '4. 🏆 Club ExtraTaff (39€/mois)', value: clubCount, width: `${total ? Math.round(clubCount / total * 100) : 0}%` },
-              ];
-              return steps.map((step, i) => (
+          <div className="bg-white rounded-xl border p-5 shadow-sm space-y-3">
+            <h4 className="text-sm font-semibold text-gray-700">🔄 Parcours des établissements</h4>
+            {funnelSteps.map((step, i) => (
               <div key={i} className="flex items-center gap-4">
-                <span className="text-sm w-52 shrink-0">{step.label}</span>
+                <span className="text-sm w-72 shrink-0">{step.label}</span>
                 <div className="flex-1 bg-gray-100 rounded-full h-6">
-                  <div className="bg-blue-500 rounded-full h-6 flex items-center justify-end pr-2 text-white text-xs font-medium transition-all"
-                    style={{ width: step.width, minWidth: step.value > 0 ? '40px' : '0' }}>
+                  <div
+                    className="bg-blue-500 rounded-full h-6 flex items-center justify-end pr-2 text-white text-xs font-medium"
+                    style={{ width: `${funnelSteps[0].value ? Math.round(step.value / funnelSteps[0].value * 100) : 0}%`, minWidth: step.value > 0 ? '40px' : '0' }}
+                  >
                     {step.value}
                   </div>
                 </div>
+                <span className="text-xs text-gray-400 w-12 text-right">{pct(step.value, funnelSteps[0].value)}</span>
               </div>
-              ));
-            })()}
+            ))}
           </div>
-        </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">📅 Inscriptions par semaine</h4>
+              <MiniTable
+                columns={[
+                  { label: 'Semaine du', render: (r) => r.semaine },
+                  { label: 'Établissements', render: (r) => r.etablissements },
+                  { label: 'Candidats', render: (r) => r.talents },
+                ]}
+                rows={(ins.par_semaine || []).map((r, i) => ({ ...r, id: `w${i}` }))}
+              />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">📍 Où sont-ils ?</h4>
+              <MiniTable
+                columns={[
+                  { label: 'Zone', render: (r) => r.zone },
+                  { label: 'Établissements', render: (r) => r.etablissements },
+                  { label: 'Candidats', render: (r) => r.talents },
+                ]}
+                rows={zoneRows}
+              />
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">📞 À appeler : inscrits qui n'ont jamais publié de mission</h4>
+            <MiniTable
+              columns={[
+                { label: 'Établissement', render: (r) => <div><div className="font-medium">{r.nom}</div><div className="text-xs text-gray-400">{r.ville || '—'}</div></div> },
+                { label: 'Contact', render: contactCell },
+                { label: 'Inscrit', render: (r) => formatDate(r.inscrit_le) },
+              ]}
+              rows={act.sans_mission_liste}
+              empty="Tous les établissements inscrits ont publié une mission"
+            />
+          </div>
+        </Block>
+
+        {/* ===== Bloc 2 : à relancer ===== */}
+        <Block title="⏰ À relancer" subtitle="Des candidats attendent une réponse depuis plus de 24 h">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Kpi icon="📭" label="Candidatures sans réponse (+24 h)" value={rel.candidatures_sans_reponse ?? 0} tone={rel.candidatures_sans_reponse > 0 ? 'amber' : 'green'} />
+            <Kpi icon="🏪" label="Établissements concernés" value={rel.etablissements_concernes ?? 0} tone={rel.etablissements_concernes > 0 ? 'amber' : 'green'} />
+            <Kpi icon="⏳" label="Missions qui se terminent sous 3 jours" value={rel.missions_bientot_terminees ?? 0} hint="sans candidat accepté" />
+            <Kpi icon="🕐" label="Candidatures en liste d'attente" value={act.candidatures_en_attente ?? 0} />
+          </div>
+          <MiniTable
+            columns={[
+              { label: 'Établissement', render: (r) => <div><div className="font-medium">{r.nom}</div><div className="text-xs text-gray-400">{r.ville || '—'}</div></div> },
+              { label: 'Contact', render: contactCell },
+              { label: 'Candidats', render: (r) => <span className="font-bold text-amber-700">{r.candidats}</span> },
+              { label: 'Postes', render: (r) => <span className="text-xs">{r.postes || '—'}</span> },
+              { label: 'Attente', render: (r) => `${r.attente_heures} h` },
+              { label: 'Dernière visite', render: (r) => (r.derniere_visite ? timeAgo(r.derniere_visite) : 'Jamais') },
+              { label: 'Rappels e-mail', render: (r) => (r.rappels_envoyes > 0 ? `${r.rappels_envoyes} (dernier ${timeAgo(r.dernier_rappel)})` : 'Aucun') },
+              { label: 'Alertes', render: (r) => (r.mode_alertes === 'daily' ? 'Résumé du matin' : 'À chaque candidature') },
+            ]}
+            rows={rel.liste}
+            empty="Aucune candidature en attente depuis plus de 24 h : bravo !"
+          />
+        </Block>
+
+        {/* ===== Bloc 3 : paiements et offres ===== */}
+        <Block title="💳 Paiements et offres" subtitle="Grille : mission 19,90 € · pack de 3 missions 34,90 € · abonnement 14,90 €/mois jusqu'au 31/12/2026 puis 19,90 €/mois">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Kpi icon="🧾" label="Établissements payeurs" value={pay.etablissements_payeurs ?? 0} tone="green" hint={pct(pay.etablissements_payeurs, c.etablissements)} />
+            <Kpi icon="💶" label="Missions payées à l'unité" value={pay.missions_payees_a_l_unite ?? 0} />
+            <Kpi icon="📦" label="Packs vendus" value={pay.packs_vendus ?? 0} hint={`${pay.credits_de_pack_vendus ?? 0} crédits`} />
+            <Kpi icon="🏆" label="Abonnés actifs" value={pay.abonnes_actifs ?? 0} hint={`+ ${pay.abonnes_annuels_actifs ?? 0} annuel(s)`} />
+            <Kpi icon="💰" label="Revenu mensuel des abonnements" value={eur(pay.abonnements_revenu_mensuel_estime)} tone="green" hint="estimé aux tarifs de la grille" />
+            <Kpi icon="📈" label="Ventes estimées (missions + packs)" value={eur(pay.ventes_estimees_au_tarif_actuel)} hint="au tarif actuel : les anciens paiements étaient à d'autres prix, le réel est dans Stripe" />
+            <Kpi icon="🎁" label="Premières missions offertes utilisées" value={off.premieres_missions_offertes_utilisees ?? 0} />
+            <Kpi icon="⏳" label="Missions en attente de paiement" value={act.missions_en_attente_paiement ?? 0} tone={act.missions_en_attente_paiement > 0 ? 'amber' : 'gray'} hint="créées mais jamais payées" />
+          </div>
+
+          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex flex-wrap items-center gap-4">
+            <div className="text-3xl font-bold text-purple-800">{joursOffre === 0 ? 'Terminée' : `J-${joursOffre}`}</div>
+            <div className="text-sm text-purple-900">
+              <strong>Offre « première mission offerte »</strong> : valable pour les inscriptions avant le 1er décembre 2026.<br />
+              <strong>{off.etablissements_eligibles_non_utilisee ?? 0}</strong> établissement(s) inscrit(s) n'ont pas encore utilisé leur mission offerte.
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">📊 Missions publiées par type de facturation</h4>
+              <MiniTable
+                columns={[
+                  { label: 'Type', render: (r) => r.label },
+                  { label: 'Missions', render: (r) => r.n },
+                ]}
+                rows={Object.entries(off.repartition_missions || {}).map(([k, n]) => ({ id: k, label: BILLING_LABELS[k] || k, n }))}
+              />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">🎁 Ont encore leur mission offerte à utiliser</h4>
+              <MiniTable
+                columns={[
+                  { label: 'Établissement', render: (r) => <div><div className="font-medium">{r.nom}</div><div className="text-xs text-gray-400">{r.ville || '—'}</div></div> },
+                  { label: 'Contact', render: contactCell },
+                  { label: 'Inscrit', render: (r) => formatDate(r.inscrit_le) },
+                ]}
+                rows={off.eligibles_liste}
+                empty="Tous les inscrits ont utilisé leur offre"
+              />
+            </div>
+          </div>
+        </Block>
+
+        {/* ===== Bloc 4 : santé ===== */}
+        <Block title="🩺 Santé de la plateforme" subtitle="Rapidité, alertes, rappels et tâches automatiques">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Kpi icon="⚡" label="Première candidature dans l'heure" value={pct(delai.dans_l_heure, delai.missions)} tone="green" hint={`${delai.dans_l_heure ?? 0} missions sur ${delai.missions ?? 0}`} />
+            <Kpi icon="⏱" label="Délai médian de la 1re candidature" value={delai.mediane_minutes != null ? `${delai.mediane_minutes} min` : '—'} />
+            <Kpi icon="✅" label="Missions avec au moins une candidature" value={pct(delai.avec_candidature, delai.missions)} hint={`${delai.avec_candidature ?? 0} sur ${delai.missions ?? 0} (≤ 3 h : ${delai.dans_les_3_heures ?? 0}, ≤ 24 h : ${delai.dans_les_24_heures ?? 0})`} />
+            <Kpi icon="🔔" label="Résumés du matin (7 derniers jours)" value={rap.resumes_quotidiens_7j ?? 0} hint={`${al.etablissements_mode_resume ?? 0} établissement(s) en mode résumé`} />
+            <Kpi icon="📱" label="Établissements avec alertes téléphone" value={`${al.etablissements_inscrits_telephone ?? 0} / ${c.etablissements ?? 0}`} tone="amber" hint={pct(al.etablissements_inscrits_telephone, c.etablissements)} />
+            <Kpi icon="📱" label="Candidats avec alertes téléphone" value={`${al.talents_inscrits_telephone ?? 0} / ${c.talents ?? 0}`} tone="amber" hint={pct(al.talents_inscrits_telephone, c.talents)} />
+            <Kpi icon="✉️" label="E-mails actifs (établissements / candidats)" value={`${al.etablissements_email_actif ?? 0} / ${al.talents_email_actif ?? 0}`} />
+            <Kpi icon="📨" label="Rappels e-mail envoyés" value={rap.total ?? 0} hint={`${rap.sept_derniers_jours ?? 0} sur les 7 derniers jours`} />
+          </div>
+
+          {P.taches_en_echec_24h > 0 && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              ⚠️ {P.taches_en_echec_24h} exécution(s) de tâche automatique en échec sur les dernières 24 h.
+            </div>
+          )}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">🤖 Tâches automatiques</h4>
+            <MiniTable
+              columns={[
+                { label: 'Tâche', render: (r) => <span className="font-mono text-xs">{r.tache}</span> },
+                { label: 'Planification', render: (r) => <span className="font-mono text-xs">{r.planification}</span> },
+                { label: 'Dernier passage', render: (r) => (r.dernier_passage ? timeAgo(r.dernier_passage) : 'Jamais') },
+                { label: 'Résultat', render: (r) => (r.dernier_statut === 'succeeded' ? '✅ Réussi' : r.dernier_statut ? `❌ ${r.dernier_statut}` : '—') },
+              ]}
+              rows={(P.taches || []).map((t, i) => ({ ...t, id: `t${i}` }))}
+              empty="Journal des tâches indisponible"
+            />
+          </div>
+
+          <div className="text-xs text-gray-400">
+            Comptes : {c.etablissements_actifs_7j ?? 0} établissement(s) et {c.talents_actifs_7j ?? 0} candidat(s) connecté(s) ces 7 derniers jours ·
+            e-mail non confirmé : {c.etablissements_email_non_confirme ?? 0} / {c.talents_email_non_confirme ?? 0} ·
+            bloqués : {c.etablissements_bloques ?? 0} / {c.talents_bloques ?? 0}
+          </div>
+        </Block>
       </div>
     );
   };
@@ -999,7 +1253,7 @@ export default function AdminDashboard() {
                           <>
                             <button
                               onClick={async () => {
-                                if (!confirm(`Activer Club ExtraTaff pour ${e.name} ?`)) return;
+                                if (!confirm(`Activer un abonnement MANUEL (sans paiement Stripe) pour ${e.name} ? Il aura les missions illimitées sans être facturé.`)) return;
                                 await supabase.from('establishments').update({
                                   subscription_status: 'active',
                                   subscription_plan: 'club',
@@ -1009,13 +1263,13 @@ export default function AdminDashboard() {
                               }}
                               className="text-yellow-600 hover:text-yellow-800 text-xs font-medium"
                             >
-                              🏆 Club
+                              🏆 Abonnement manuel
                             </button>
                             <button
-                              onClick={() => handleGrantFreemium(e.id, e.name)}
+                              onClick={() => handleGrantMission(e.id, e.name)}
                               className="text-purple-600 hover:text-purple-800 text-xs font-medium"
                             >
-                              🎁 30j gratuits
+                              🎁 Offrir 1 mission
                             </button>
                           </>
                         )}
@@ -1217,39 +1471,43 @@ export default function AdminDashboard() {
   };
 
   // ============================================================
-  // ONGLET : Abonnements
+  // ONGLET : Abonnements et ventes (grille tarifaire actuelle)
   // ============================================================
   const renderSubscriptions = () => {
-    const clubMembers = establishments.filter(e => e.subscription_plan === 'club');
-    const freemiumUsed = establishments.filter(e => e.subscription_plan !== 'club' && e.trial_ends_at && new Date(e.trial_ends_at) <= new Date());
+    const abonnes = establishments.filter(e => e.subscription_status === 'active' && ['club', 'annual'].includes(e.subscription_plan));
+    const pay = pilotage?.paiements;
 
     return (
       <div className="space-y-6">
-        {/* Stats abonnements */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-            <div className="text-2xl font-bold text-yellow-800">{clubMembers.length}</div>
-            <div className="text-sm text-yellow-600">🏆 Membres Club</div>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-            <div className="text-2xl font-bold text-green-800">{clubMembers.length * 39}€</div>
-            <div className="text-sm text-green-600">💰 Revenu mensuel</div>
-          </div>
-          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-            <div className="text-2xl font-bold text-orange-800">{freemiumUsed.length}</div>
-            <div className="text-sm text-orange-600">🎯 Prospects chauds</div>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-            <div className="text-2xl font-bold text-gray-800">{establishments.length - clubMembers.length}</div>
-            <div className="text-sm text-gray-600">🆓 Freemium</div>
-          </div>
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-900">
+          <strong>Grille tarifaire :</strong> mission à l'unité <strong>19,90 €</strong> · pack de 3 missions <strong>34,90 €</strong> (valable 2 mois) ·
+          abonnement <strong>14,90 €/mois</strong> jusqu'au 31/12/2026 puis <strong>19,90 €/mois</strong>, engagement de 12 mois ·
+          première mission <strong>offerte</strong> pour toute inscription avant le 1er décembre 2026.
         </div>
 
-        {/* Membres Club */}
+        {!pay && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+            Les chiffres de ventes ne sont pas disponibles{pilotageError ? ` (${pilotageError})` : ''} : vérifier que « 21-admin-pilotage.sql » a été exécuté.
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Kpi icon="🏆" label="Abonnés actifs" value={pay ? pay.abonnes_actifs : abonnes.length} hint={pay ? `+ ${pay.abonnes_annuels_actifs} annuel(s)` : undefined} tone="amber" />
+          <Kpi icon="💰" label="Revenu mensuel des abonnements" value={pay ? eur(pay.abonnements_revenu_mensuel_estime) : '—'} tone="green" hint="estimé aux tarifs de la grille" />
+          <Kpi icon="📦" label="Packs vendus" value={pay ? pay.packs_vendus : '—'} hint={pay ? `${pay.credits_de_pack_vendus} crédits` : undefined} />
+          <Kpi icon="💶" label="Missions payées à l'unité" value={pay ? pay.missions_payees_a_l_unite : '—'} />
+        </div>
+
+        <div className="p-4 bg-gray-50 border rounded-xl text-sm text-gray-600">
+          Les montants réellement encaissés sont dans Stripe. Ici, les ventes sont comptées et estimées au tarif actuel : les anciens paiements
+          (offre de juin à août) avaient d'autres prix. Pour <strong>offrir une mission</strong> ou activer un <strong>abonnement manuel</strong>
+          (sans Stripe) à un établissement, utiliser les boutons de l'onglet « Établissements ».
+        </div>
+
         <div>
-          <h3 className="text-lg font-semibold mb-3">🏆 Membres Club ExtraTaff</h3>
-          {clubMembers.length === 0 ? (
-            <p className="text-gray-400 text-center py-4">Aucun membre Club pour le moment</p>
+          <h3 className="text-lg font-semibold mb-3">🏆 Abonnés actifs</h3>
+          {abonnes.length === 0 ? (
+            <p className="text-gray-400 text-center py-4">Aucun abonné pour le moment</p>
           ) : (
             <div className="overflow-x-auto rounded-xl border shadow-sm">
               <table className="min-w-full divide-y divide-gray-200">
@@ -1259,21 +1517,21 @@ export default function AdminDashboard() {
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Établissement</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">📱 Tél.</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Missions</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Début abo</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stripe ID</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Formule</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Début</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stripe</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {clubMembers.map((e) => (
+                  {abonnes.map((e) => (
                     <tr key={e.id} className="hover:bg-yellow-50">
                       <td className="px-3 py-2 text-sm font-medium text-blue-700">{e.email}</td>
                       <td className="px-3 py-2 text-sm font-medium">{e.name}</td>
                       <td className="px-3 py-2 text-sm">{e.phone || '—'}</td>
                       <td className="px-3 py-2 text-sm">{e.city || '—'}</td>
-                      <td className="px-3 py-2 text-sm text-green-600 font-medium">♾️ Illimité</td>
+                      <td className="px-3 py-2 text-sm">{e.subscription_plan === 'annual' ? 'Annuel' : 'Mensuel'}</td>
                       <td className="px-3 py-2 text-xs">{formatDate(e.subscription_started_at)}</td>
-                      <td className="px-3 py-2 text-xs text-gray-400 font-mono">{e.stripe_customer_id || '—'}</td>
+                      <td className="px-3 py-2 text-xs text-gray-400 font-mono">{e.stripe_subscription_id ? 'Stripe' : '⚠️ manuel'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1282,64 +1540,25 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Prospects chauds */}
         <div>
-          <h3 className="text-lg font-semibold mb-3">🎯 Prospects chauds (freemium expiré, pas Club)</h3>
-          {freemiumUsed.length === 0 ? (
-            <p className="text-gray-400 text-center py-4">Aucun prospect chaud</p>
-          ) : (
-            <div className="overflow-x-auto rounded-xl border shadow-sm">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-orange-50">
-                  <tr>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">📧 Email</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Établissement</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">📱 Tél.</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Missions</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inscription</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {freemiumUsed.map((e) => (
-                    <tr key={e.id} className="hover:bg-orange-50">
-                      <td className="px-3 py-2 text-sm font-medium text-blue-700">{e.email}</td>
-                      <td className="px-3 py-2 text-sm font-medium">{e.name}</td>
-                      <td className="px-3 py-2 text-sm">{e.phone || '—'}</td>
-                      <td className="px-3 py-2 text-sm">{e.city || '—'}</td>
-                      <td className="px-3 py-2 text-sm">{e.missions_used || 0}</td>
-                      <td className="px-3 py-2 text-xs">{formatDate(e.created_at)}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={async () => {
-                              if (!confirm(`Activer Club ExtraTaff pour ${e.name} ?`)) return;
-                              await supabase.from('establishments').update({
-                                subscription_status: 'active',
-                                subscription_plan: 'club',
-                                subscription_started_at: new Date().toISOString(),
-                              }).eq('id', e.id);
-                              loadData();
-                            }}
-                            className="text-xs px-3 py-1 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
-                          >
-                            🏆 Activer Club
-                          </button>
-                          <button
-                            onClick={() => handleGrantFreemium(e.id, e.name)}
-                            className="text-xs px-3 py-1 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
-                          >
-                            🎁 +30j gratuits
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <h3 className="text-lg font-semibold mb-3">🎁 Ont encore leur mission offerte à utiliser</h3>
+          <MiniTable
+            columns={[
+              { label: 'Établissement', render: (r) => <div><div className="font-medium">{r.nom}</div><div className="text-xs text-gray-400">{r.ville || '—'}</div></div> },
+              { label: 'Contact', render: (r) => <div className="text-xs leading-5"><div className="font-medium">{r.telephone ? `📱 ${r.telephone}` : '📱 —'}</div><div className="text-blue-700">{r.email || '—'}</div></div> },
+              { label: 'Inscrit', render: (r) => formatDate(r.inscrit_le) },
+              { label: 'Action', render: (r) => (
+                <button
+                  onClick={() => handleGrantMission(r.id, r.nom)}
+                  className="text-xs px-3 py-1 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+                >
+                  🎁 Offrir 1 mission de plus
+                </button>
+              ) },
+            ]}
+            rows={pilotage?.offre?.eligibles_liste}
+            empty="Tous les inscrits ont utilisé leur offre"
+          />
         </div>
       </div>
     );
@@ -1550,9 +1769,9 @@ export default function AdminDashboard() {
           </div>
           <div className="bg-purple-50 rounded-xl border p-4">
             <div className="text-2xl font-bold text-purple-600">
-              {Math.round(hires.length / Math.max(establishments.filter(e => e.subscription_plan === 'club').length, 1) * 10) / 10}
+              {Math.round(hires.length / Math.max(pilotage?.funnel?.ont_publie || 1, 1) * 10) / 10}
             </div>
-            <div className="text-sm text-gray-500">Embauches / établissement Club</div>
+            <div className="text-sm text-gray-500">Embauches / établissement ayant publié</div>
           </div>
         </div>
 
